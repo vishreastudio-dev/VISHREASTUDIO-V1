@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Production Build Artifacts
+dist/
+vishrea-react/dist/
+dist-ssr/
+*.local
+
+# Environment Variables & Secrets
+.env
+.env*.local
+*.env
+!.env.example
+vishrea-react/.env
+vishrea-react/.env*.local
+
+# Logs and local working output (load-test results, server logs)
+logs/
+*.log
+scratch/
+gh.cmd
+
+# Editor & OS Files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Uploaded media and its backups are never committed: they can hold customer photos and
+# personal data. Media lives in Supabase Storage; the local store is development/rollback only.
+public/uploads/
+uploads/
+media-backup/
+*.private/

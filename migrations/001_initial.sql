@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS profiles (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), auth_user_id TEXT UNIQUE, full_name TEXT, phone TEXT, email TEXT, is_admin BOOLEAN DEFAULT false, role TEXT DEFAULT 'customer', is_active BOOLEAN DEFAULT true, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());

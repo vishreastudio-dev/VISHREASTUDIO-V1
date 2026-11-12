@@ -1,0 +1,393 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useStore } from '../context/StoreContext';
+import { Header, Footer } from '../components/Layout';
+import { ProductCard } from '../components/ProductCard';
+import { ErrorState, InlineMessage, LoadingState } from '../components/Status';
+import { imageFor } from '../lib/imageFor';
+import { api, formatINR } from '../lib/api';
+import { useApi } from '../lib/useApi';
+import { usePageSeo } from '../lib/usePageSeo';
+import { describeProduct, measurementText, productFaqs } from '../lib/productCopy';
+import { faqSchema } from '../lib/schema';
+import { absoluteUrl } from '../site.config';
+import { NotFound } from './NotFound';
+
+const STOCK_COPY = {
+  one_of_one: 'In stock — this is the only one',
+  low: 'In stock — only a few left',
+  in_stock: 'In stock',
+  sold_out: 'This size is sold out',
+};
+
+export const ProductDetail = () => {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const { addToCart, cartBusy, cart, user } = useStore();
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState(null);
+  const { data, error, loading, reload } = useApi(`/api/product?slug=${encodeURIComponent(slug)}`, { maxAge: 15_000 });
+  const product = data?.product || null;
+  const variants = useMemo(() => product?.variants || [], [product]);
+
+  const [variantId, setVariantId] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [activeThumb, setActiveThumb] = useState(0);
+  const [msg, setMsg] = useState({ tone: 'info', text: '' });
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    setVariantId(variants.length === 1 ? variants[0].id : (variants.find((v) => v.in_stock) || null)?.id || null);
+    setQty(1);
+    setActiveThumb(0);
+    setMsg({ tone: 'info', text: '' });
+  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selected = useMemo(() => variants.find((v) => v.id === variantId) || null, [variants, variantId]);
+  const maxQty = selected ? Math.max(1, selected.available_quantity) : 1;
+
+  // Check if selected variant is already in the cart (guest or logged-in)
+  const cartItem = useMemo(() => {
+    if (!selected) return null;
+    return cart.find((item) => item.variant_id === selected.id) || null;
+  }, [cart, selected]);
+  const alreadyInCart = Boolean(cartItem);
+
+  // Check if another variant/size of this piece is already in the cart
+  const otherVariantInCart = useMemo(() => {
+    if (!variants?.length || alreadyInCart) return null;
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+    const found = cart.find((item) => variantMap.has(item.variant_id));
+    return found ? variantMap.get(found.variant_id) : null;
+  }, [cart, variants, alreadyInCart]);
+
+  const breadcrumbs = useMemo(
+    () =>
+      product
+        ? [
+            { name: 'Home', url: '/' },
+            { name: 'Shop', url: '/catalogue' },
+            ...(product.category_slug ? [{ name: product.category, url: `/catalogue/${product.category_slug}` }] : []),
+            { name: product.name, url: `/product/${product.slug}` },
+          ]
+        : null,
+    [product]
+  );
+  const faqNode = useMemo(() => (product ? faqSchema(absoluteUrl(`/product/${product.slug}`), productFaqs(product)) : null), [product]);
+  usePageSeo({
+    title: product ? `${product.name}${product.category ? ` — ${product.category}` : ''} | Vishrea Studio` : undefined,
+    canonical: product ? `/product/${product.slug}` : undefined,
+    ogImage: product?.image_url,
+    breadcrumbs,
+    product,
+    schema: faqNode,
+    ready: Boolean(product),
+  });
+
+  if (loading && !product) {
+    return (
+      <div>
+        <Header />
+        <LoadingState label="Loading piece…" minHeight="60vh" />
+        <Footer />
+      </div>
+    );
+  }
+  if (error?.status === 404) return <NotFound />;
+  if (error && !product) {
+    return (
+      <div>
+        <Header />
+        <ErrorState error={error} onRetry={reload} />
+        <Footer />
+      </div>
+    );
+  }
+  if (!product) return null;
+
+  const heroImage = imageFor(product);
+  const gallery = product.images?.length ? product.images : [heroImage];
+  const soldOut = !product.available;
+  const priceNow = selected ? selected.effective_price : product.price_inr;
+  const comparePrice = selected ? (selected.effective_price < selected.price_inr ? selected.price_inr : null) : product.compare_at_price;
+
+  const saveToWardrobe = async () => {
+    if (!user) {
+      navigate(`/login?next=${encodeURIComponent(`/product/${product.slug}`)}`);
+      return;
+    }
+    setSaving(true);
+    try {
+      await api('/api/wardrobe', { method: 'POST', body: { action: 'save', product_id: product.id } });
+      setSavedId(product.id);
+      setMsg({ tone: 'success', text: 'Saved to your Wardrobe Bag.' });
+    } catch (err) {
+      setMsg({ tone: 'error', text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const add = async (thenGo) => {
+    if (adding) return;
+    if (!selected) {
+      setMsg({ tone: 'error', text: 'Please choose a size first.' });
+      return;
+    }
+    if (!selected.in_stock) {
+      setMsg({ tone: 'error', text: 'That size is sold out.' });
+      return;
+    }
+    setAdding(true);
+    setMsg({ tone: 'info', text: '' });
+    try {
+      await addToCart({ product, variant: selected, quantity: qty });
+      if (thenGo) navigate(thenGo);
+      else setMsg({ tone: 'success', text: 'Added to your bag.' });
+    } catch (err) {
+      setMsg({ tone: 'error', text: err.message });
+      if (err.code === 'out_of_stock' || err.code === 'product_unavailable') reload();
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div>
+      <Header />
+      <main id="main-content" className="pdp-v2">
+        <nav aria-label="Breadcrumb" className="pdp-breadcrumb">
+          <Link to="/">Home</Link>
+          <span aria-hidden="true">/</span>
+          <Link to="/catalogue">Shop</Link>
+          {product.category_slug && (
+            <>
+              <span aria-hidden="true">/</span>
+              <Link to={`/catalogue/${product.category_slug}`}>{product.category}</Link>
+            </>
+          )}
+          <span aria-hidden="true">/</span>
+          <strong aria-current="page">{product.name}</strong>
+        </nav>
+
+        <div className="pdp-v2-grid">
+          <section className={`pdp-media${gallery.length > 1 ? '' : ' single'}`} aria-label="Product images">
+            {gallery.length > 1 && <div className="pdp-thumbs-v2">
+              {gallery.map((img, i) => (
+                <button key={img + i} className={`pdp-thumb-v2 ${activeThumb === i ? 'active' : ''}`} type="button" onClick={() => setActiveThumb(i)} aria-label={`View image ${i + 1} of ${gallery.length}`} aria-pressed={activeThumb === i}>
+                  <img src={img} alt="" width="60" height="75" loading="lazy" />
+                </button>
+              ))}
+            </div>}
+            <div className="pdp-main-v2">
+              <img
+                id="pdpMainImage"
+                src={gallery[activeThumb] || heroImage}
+                alt={`${product.name}${product.color ? ` in ${product.color.toLowerCase()}` : ''}${gallery.length > 1 ? `, view ${activeThumb + 1} of ${gallery.length}` : ''}`}
+                loading="eager"
+                fetchPriority="high"
+                width="600"
+                height="800"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/assets/editorial.jpg';
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="pdp-info-v2">
+            <div className="pdp-kicker-row">
+              <p className="eyebrow">{product.category || 'Vishrea Studio'}</p>
+              {soldOut ? <span className="pdp-badge-v2 is-sold-out">Sold out</span> : product.badge && <span className="pdp-badge-v2">{product.badge}</span>}
+            </div>
+            <h1>{product.name}</h1>
+            <div className="pdp-price-v2" aria-live="polite">
+              {priceNow !== null && priceNow !== undefined ? formatINR(priceNow) : 'Price on request'}
+              {comparePrice ? <span className="price-compare">{formatINR(comparePrice)}</span> : null}
+            </div>
+            <p className="pdp-tax">Price includes GST</p>
+            <p className="pdp-copy-v2">{describeProduct(product)}</p>
+
+            <p className={`pdp-stock ${soldOut || (selected && !selected.in_stock) ? 'is-out' : ''}`} aria-live="polite">
+              {soldOut ? 'Sold out' : selected ? STOCK_COPY[selected.stock_state] : 'Choose a size to see availability'}
+            </p>
+
+            {variants.length > 0 && (
+              <fieldset className="pdp-option-v2" style={{ border: 0, padding: 0, margin: 0 }}>
+                <div className="pdp-option-head">
+                  <legend>{variants.length === 1 ? 'Size' : 'Choose a size'}</legend>
+                </div>
+                <div className="size-grid-v2" role="radiogroup" aria-label="Size">
+                  {variants.map((v) => {
+                    const inBag = cart.some((item) => item.variant_id === v.id);
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={variantId === v.id}
+                        disabled={!v.in_stock}
+                        className={`${variantId === v.id ? 'selected' : ''} ${v.in_stock ? '' : 'unavailable'} ${inBag ? 'has-in-bag' : ''}`}
+                        onClick={() => {
+                          setVariantId(v.id);
+                          setQty(1);
+                          setMsg({ tone: 'info', text: '' });
+                        }}
+                        title={`${v.size_label} · ${formatINR(v.effective_price)}${v.in_stock ? '' : ' · sold out'}${inBag ? ' (Already in bag)' : ''}`}
+                      >
+                        {v.size_label}
+                        {inBag && <span className="size-bag-dot" title="Already in bag" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selected && (
+                  <div className="variant-meta">
+                    <span>SKU {selected.sku}</span>
+                    {Object.entries(selected.attributes || {}).map(([k, val]) => (
+                      <span key={k}>{k}: {val}</span>
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            )}
+
+            {selected && !product.is_one_of_one && selected.in_stock && maxQty > 1 && (
+              <div style={{ margin: '14px 0' }}>
+                <span className="visually-hidden" id="qty-label">Quantity</span>
+                <div className="qty-stepper" role="group" aria-labelledby="qty-label">
+                  <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity">−</button>
+                  <span aria-live="polite">{qty}</span>
+                  <button type="button" onClick={() => setQty((q) => Math.min(maxQty, q + 1))} aria-label="Increase quantity">+</button>
+                </div>
+              </div>
+            )}
+
+            {alreadyInCart && (
+              <div className="pdp-in-bag-banner" role="status">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true" style={{ flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>
+                  {cartItem?.quantity > 1
+                    ? `${cartItem.quantity} pieces of this are in your bag.`
+                    : 'This piece is already in your bag.'}
+                </span>
+                <Link to="/cart" className="pdp-in-bag-link">View bag →</Link>
+              </div>
+            )}
+            {otherVariantInCart && (
+              <div className="pdp-in-bag-banner pdp-in-bag-hint" role="status">
+                <span>Size {otherVariantInCart.size_label} of this piece is already in your bag.</span>
+                <Link to="/cart" className="pdp-in-bag-link">View bag →</Link>
+              </div>
+            )}
+
+            <div className="pdp-actions-v2" style={{ gridTemplateColumns: '1fr' }}>
+              {alreadyInCart ? (
+                <Link to="/cart" className="button button-dark add-pdp-v2 in-bag-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ marginRight: 8 }}><polyline points="20 6 9 17 4 12"/></svg>
+                  In your bag · Proceed to checkout
+                </Link>
+              ) : (
+                <button type="button" className="button button-dark add-pdp-v2" disabled={soldOut || adding || cartBusy || (selected && !selected.in_stock)} onClick={() => add(null)}>
+                  {soldOut ? 'Sold out' : adding ? 'Adding…' : 'Add to bag'}
+                </button>
+              )}
+            </div>
+            {alreadyInCart ? (
+              <Link to="/cart" className="pdp-buy-now" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                View bag &amp; checkout →
+              </Link>
+            ) : !soldOut && (
+              <button className="pdp-buy-now" type="button" disabled={adding || cartBusy} onClick={() => add('/cart')}>
+                Buy now
+              </button>
+            )}
+            {savedId === product.id ? (
+              <Link to="/wardrobe" className="pdp-save" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                In your Wardrobe Bag · View →
+              </Link>
+            ) : (
+            <button type="button" className="pdp-save" disabled={saving} onClick={saveToWardrobe}>
+              {saving ? 'Saving…' : 'Save to Wardrobe Bag'}
+            </button>
+            )}
+            {!(alreadyInCart && msg.tone === 'success') && <InlineMessage tone={msg.tone}>{msg.text}</InlineMessage>}
+
+            <div className="detail-accordion-v2">
+              <details open>
+                <summary>Details</summary>
+                <dl className="pdp-facts">
+                  {[
+                    ['Category', product.category],
+                    ['Colour', product.color],
+                    ['Material', product.material],
+                    ['Sizes', variants.length ? variants.map((v) => `${v.size_label}${v.in_stock ? '' : ' (sold out)'}`).join(', ') : null],
+                    ['SKU', selected?.sku],
+                    ['Measurements', measurementText(product)],
+                    ['Availability', product.is_one_of_one ? 'One of one — not restocked' : null],
+                    ...Object.entries(product.attributes || {}).map(([k, v]) => [k.charAt(0).toUpperCase() + k.slice(1), v]),
+                  ]
+                    .filter(([, v]) => v)
+                    .map(([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </details>
+              {product.care_instructions && (
+                <details>
+                  <summary>Care</summary>
+                  <p>{product.care_instructions}</p>
+                </details>
+              )}
+              <details>
+                <summary>Delivery &amp; exchanges</summary>
+                <p>
+                  Delivery anywhere in India is ₹99, usually dispatched within 48 hours. Studio pickup in Bengaluru is free. Size exchanges can be requested from your order page within 7 days of delivery; report any damage within 24 hours.{' '}
+                  <Link to="/contact">More answers</Link>
+                </p>
+              </details>
+              <details>
+                <summary>Questions</summary>
+                <dl className="pdp-faq">
+                  {productFaqs(product).map((f) => (
+                    <div key={f.q}>
+                      <dt>{f.q}</dt>
+                      <dd>{f.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      {data?.recommendations?.length > 0 && (
+        <section className="section recommendation-section">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">You may also like</p>
+              <h2>{product.category ? `More ${product.category.toLowerCase()} and pieces to pair` : 'More from the studio'}</h2>
+            </div>
+            <Link className="text-link" to={product.category_slug ? `/catalogue/${product.category_slug}` : '/catalogue'}>
+              {product.category ? `All ${product.category.toLowerCase()}` : 'Shop all'} <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+          <div className="product-grid">
+            {data.recommendations.map((x) => (
+              <ProductCard key={x.id} product={x} />
+            ))}
+          </div>
+        </section>
+      )}
+      <Footer />
+    </div>
+  );
+};

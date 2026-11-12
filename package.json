@@ -1,0 +1,46 @@
+{
+  "name": "vishrea-studio",
+  "version": "1.0.0",
+  "description": "Vishrea Studio fashion e-commerce platform - Self-hosted",
+  "main": "server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "dev:client": "cd vishrea-react && npm run dev",
+    "build:client": "cd vishrea-react && npm run build && cd .. && node scripts/precompress.js",
+    "build": "cd vishrea-react && npm run build && cd .. && node scripts/precompress.js",
+    "loadtest": "node scripts/load-test.js",
+    "lint": "cd vishrea-react && npm run lint",
+    "migrate": "node scripts/migrate.js",
+    "seed:demo": "node scripts/migrate.js --seed-demo",
+    "storage:setup": "node scripts/storage-setup.js",
+    "media:inventory": "node scripts/media-migrate.js inventory",
+    "media:migrate": "node scripts/media-migrate.js apply",
+    "media:verify": "node scripts/media-migrate.js verify",
+    "media:rollback": "node scripts/media-migrate.js rollback",
+    "media:orphans": "node scripts/media-orphans.js",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "test:unit": "node --test --test-concurrency=1 test/pricing.test.js test/razorpay-signature.test.js test/razorpay-gateway.test.js",
+    "test:docker": "docker run --rm -d --name vishrea-test-pg -p 55432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16-alpine",
+    "test:docker:stop": "docker stop vishrea-test-pg"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "embla-carousel": "^8.6.0",
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

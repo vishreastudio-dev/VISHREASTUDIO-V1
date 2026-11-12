@@ -1,0 +1,244 @@
+import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Header, Footer } from '../components/Layout';
+import { ProductCard } from '../components/ProductCard';
+import { HeroCarousel } from '../components/HeroCarousel';
+import { ErrorState, LoadingState } from '../components/Status';
+import { useApi } from '../lib/useApi';
+import { usePageSeo } from '../lib/usePageSeo';
+import { itemListSchema } from '../lib/schema';
+import { SITE } from '../site.config.js';
+
+const CATEGORIES = [
+  ['tops', 'Tops', 'Shirts, blouses, knits', 'tall cat-tops'],
+  ['dresses', 'Dresses', 'Day to evening', 'cat-dresses'],
+  ['coord-sets', 'Co-ord sets', 'Wear together or apart', 'cat-coords'],
+  ['pants', 'Trousers', 'Wide-leg and tailored', 'cat-pants'],
+  ['party-dresses', 'Party dresses', 'For evenings out', 'cat-party'],
+];
+
+const instagramId = (url) => (String(url || '').match(/instagram\.com\/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1] || null;
+
+// The server marks the first page load with whether a carousel is live ("live" / "none"), so the
+// homepage draws the right hero at once. Later visits within the app always ask the API.
+let heroHint = typeof document !== 'undefined' ? document.querySelector('meta[name="hero-carousel"]')?.getAttribute('content') : undefined;
+const takeHeroHint = () => {
+  const h = heroHint;
+  heroHint = undefined;
+  return h;
+};
+
+/** The original homepage hero, shown whenever no carousel slide is live. */
+const StaticHero = () => (
+  <section className="hero">
+    <div className="hero-copy">
+      <p className="eyebrow">Vishrea Studio · Bengaluru</p>
+      <h1>
+        Wear what feels<br />
+        <em>like you.</em>
+      </h1>
+      <p className="hero-text">
+        Womenswear chosen one piece at a time. Most of what you see here exists in a single size — when it’s gone, it’s gone.
+      </p>
+      <div className="hero-actions">
+        <Link className="button button-dark" to="/catalogue">Shop new arrivals</Link>
+      </div>
+    </div>
+    <div className="hero-image">
+      <img
+        src="/assets/hero-editorial.jpg"
+        alt="Model in a draped chocolate-brown and ivory silk drape, standing in a stone archway"
+        loading="eager"
+        fetchPriority="high"
+        width="1200"
+        height="896"
+      />
+    </div>
+  </section>
+);
+
+function HomeHero() {
+  const [hint] = useState(takeHeroHint);
+  const req = useApi('/api/homepage-carousel', { enabled: hint !== 'none', maxAge: 30_000 });
+  if (hint === 'none') return <StaticHero />;
+  if (req.loading && !req.data) return <div className="hero-carousel-placeholder" aria-hidden="true" />;
+  const slides = req.data?.slides || [];
+  if (req.error || !slides.length) return <StaticHero />;
+  const first = slides[0];
+  const firstHasHeading = first.display_mode !== 'image_only' && first.visibility.heading && first.heading;
+  return (
+    <>
+      {!firstHasHeading && <h1 className="visually-hidden">Vishrea Studio: womenswear chosen one piece at a time</h1>}
+      <HeroCarousel slides={slides} settings={req.data.settings} firstHeadingLevel={firstHasHeading ? 1 : 2} />
+    </>
+  );
+}
+
+export const Home = () => {
+  const featuredReq = useApi('/api/catalogue?featured=true&limit=4', { maxAge: 30_000 });
+  const contentReq = useApi('/api/content', { maxAge: 60_000 });
+  const featured = featuredReq.data?.products || [];
+  const videos = contentReq.data?.feedback_videos || [];
+  const instagram = contentReq.data?.instagram || [];
+  const [playing, setPlaying] = useState({});
+  const videoRefs = useRef({});
+
+  usePageSeo({ schema: featured.length ? itemListSchema(SITE.url + '/', featured) : null, ready: !featuredReq.loading });
+
+  const toggleVideo = (id) => {
+    const vid = videoRefs.current[id];
+    if (!vid) return;
+    if (vid.paused) vid.play().catch(() => {});
+    else vid.pause();
+  };
+
+  return (
+    <div className="home-page">
+      <Header />
+      <main id="main-content">
+        <HomeHero />
+
+        <section className="section collections" id="collections" aria-labelledby="collections-title">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Shop by category</p>
+              <h2 id="collections-title">Start with what you reach for.</h2>
+            </div>
+            <Link className="text-link" to="/catalogue">All categories <span aria-hidden="true">→</span></Link>
+          </div>
+          <div className="category-grid">
+            {CATEGORIES.map(([slug, name, note, cls]) => (
+              <Link key={slug} className={`category-card ${cls}`} to={`/catalogue/${slug}`}>
+                <span>{name}</span>
+                <small>{note}</small>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="section product-section" id="shop" aria-labelledby="new-title">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Just in</p>
+              <h2 id="new-title">New arrivals</h2>
+            </div>
+            <Link className="text-link" to="/catalogue?sort=newest">See everything new <span aria-hidden="true">→</span></Link>
+          </div>
+          {featuredReq.loading ? (
+            <LoadingState label="Loading new arrivals…" />
+          ) : featuredReq.error && !featured.length ? (
+            <ErrorState error={featuredReq.error} onRetry={featuredReq.reload} title="We couldn’t load new arrivals" />
+          ) : featured.length ? (
+            <div className="product-grid" id="productGrid">
+              {featured.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <p className="fine">
+              New pieces are being photographed. <Link className="text-link" to="/catalogue">Browse the current edit</Link>
+            </p>
+          )}
+        </section>
+
+        <section className="editorial-strip" aria-labelledby="membership-title">
+          <div>
+            <p className="eyebrow">Walkin Wardrobe membership</p>
+            <h2 id="membership-title">A wardrobe that keeps moving with you.</h2>
+            <p>₹1,799 a month for four wardrobe credits each paid month and free studio pickup. Stay a member into your 6th month and one piece is free.</p>
+            <Link className="button button-light" to="/membership">How membership works</Link>
+          </div>
+          <img
+            src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            width="1200"
+            height="1500"
+          />
+        </section>
+
+        <section className="section story" id="story" aria-labelledby="story-title">
+          <div className="story-copy">
+            <p className="eyebrow">About the studio</p>
+            <h2 id="story-title">
+              Fewer pieces.<br />
+              Chosen properly.
+            </h2>
+            <p>
+              Vishrea is a small womenswear studio in Bengaluru. Most pieces are one-of-one, so the edit changes from week to week.
+              Pick up from the studio for free, or have it delivered anywhere in India.
+            </p>
+            <Link className="text-link" to="/contact">Visiting, delivery and exchanges <span aria-hidden="true">→</span></Link>
+          </div>
+          <div className="story-panel">
+            <img
+              src="https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=1000&q=80"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              width="1000"
+              height="1250"
+            />
+          </div>
+        </section>
+
+        {(videos.length > 0 || instagram.length > 0) && (
+          <section className="section" id="socialProof" aria-labelledby="social-title">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Worn by our customers</p>
+                <h2 id="social-title">Real women, real wardrobes.</h2>
+              </div>
+            </div>
+            <div className="social-content">
+              {videos.map((v) => (
+                <figure key={v.id} className="social-card">
+                  <div className="social-media">
+                    <video
+                      ref={(el) => (videoRefs.current[v.id] = el)}
+                      src={v.video_url}
+                      autoPlay
+                      playsInline
+                      muted
+                      loop
+                      preload="metadata"
+                      onPlay={() => setPlaying((s) => ({ ...s, [v.id]: true }))}
+                      onPause={() => setPlaying((s) => ({ ...s, [v.id]: false }))}
+                      aria-label={v.title || 'Customer video'}
+                    />
+                    <button type="button" className="video-toggle" onClick={() => toggleVideo(v.id)} aria-label={playing[v.id] ? 'Pause video' : 'Play video'}>
+                      {playing[v.id] ? 'Pause' : 'Play'}
+                    </button>
+                  </div>
+                  <figcaption className="social-card-footer">
+                    <strong>{v.title || 'In the studio'}</strong>
+                    {v.customer_name && <span>{v.customer_name}</span>}
+                  </figcaption>
+                </figure>
+              ))}
+              {instagram.map((v) => {
+                const id = instagramId(v.post_url);
+                return (
+                  <figure key={v.id} className="social-card">
+                    <div className="social-media">
+                      {id ? (
+                        <iframe src={`https://www.instagram.com/p/${id}/embed/`} loading="lazy" title={v.title || 'Instagram post'} allow="encrypted-media; picture-in-picture" />
+                      ) : v.image_url ? (
+                        <img src={v.image_url} alt={v.title || 'Vishrea Studio on Instagram'} loading="lazy" />
+                      ) : null}
+                    </div>
+                    <figcaption className="social-card-footer">
+                      <a href={v.post_url} target="_blank" rel="noopener noreferrer">{v.title || 'On Instagram'}</a>
+                    </figcaption>
+                  </figure>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </main>
+      <Footer />
+    </div>
+  );
+};
