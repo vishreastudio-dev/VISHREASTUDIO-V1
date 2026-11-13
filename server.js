@@ -191,7 +191,12 @@ export async function createApp() {
       res.setHeader('Vary', 'Accept-Encoding');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.type(path.extname(name));
-      return res.sendFile(file);
+      return res.sendFile(file, (err) => {
+        if (err) {
+          precompressed.set(file, false);
+          if (!res.headersSent) next();
+        }
+      });
     }
     next();
   });
@@ -217,11 +222,17 @@ export async function createApp() {
     if (path.extname(req.path)) return next();
     const index = path.join(reactDistPath, 'index.html');
     if (!fs.existsSync(index)) return res.status(503).send('Storefront build not found. Run `npm run build`, or use the Vite dev server.');
-    const meta = await pageMeta(req);
-    if (meta.redirect) return res.redirect(301, meta.redirect);
-    for (const [k, v] of Object.entries(meta.headers || {})) res.setHeader(k, v);
-    res.setHeader('Cache-Control', 'no-cache');
-    res.status(meta.status).type('html').send(renderHtml(loadTemplate(index), meta));
+    try {
+      const meta = await pageMeta(req);
+      if (meta.redirect) return res.redirect(301, meta.redirect);
+      for (const [k, v] of Object.entries(meta.headers || {})) res.setHeader(k, v);
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.status(meta.status).type('html').send(renderHtml(loadTemplate(index), meta));
+    } catch (err) {
+      log.warn('seo.pageMeta_failed', { path: req.path, error: err.message });
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.status(200).type('html').sendFile(index);
+    }
   }));
   app.use((req, res) => res.status(404).type('text/plain').send('Not found'));
 

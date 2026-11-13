@@ -11,54 +11,32 @@ import { categoryIntro } from '../content/categories';
 import { useStore } from '../context/StoreContext';
 import { saveRecent } from '../lib/recentSearches';
 import { NotFound } from './NotFound';
+import {
+  ColourSwatchFilter,
+  SizeFilter,
+  OccasionFilter,
+  PriceRangeFilter,
+  CategoryFilter,
+  AvailabilityFilter,
+  ActiveFilterSummary,
+  MobileFilterDrawer,
+} from '../components/CatalogueFilters';
 
 const PAGE_SIZE = 24;
-// Multi-value filters, repeated in the URL (?size=S&size=M), and the facet each one lists.
 const LIST_FILTERS = [
   ['size', 'Size', 'sizes'],
   ['colour', 'Colour', 'colours'],
   ['occasion', 'Occasion', 'occasions'],
 ];
-const SORT_LABELS = { relevance: 'Best match', featured: 'Featured', newest: 'Newest', price_asc: 'Price, low to high', price_desc: 'Price, high to low', name: 'Name, A to Z' };
-const isRupees = (v) => /^\d{1,8}$/.test(v);
-
-/** Min/max price in whole rupees; the placeholders are the lowest and highest prices on offer. */
-const PriceFilter = ({ min, max, range, onApply }) => {
-  const [value, setValue] = useState({ min, max });
-  const field = (key, label) => (
-    <label>
-      <span className="visually-hidden">{label}</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={8}
-        value={value[key]}
-        onChange={(e) => setValue((v) => ({ ...v, [key]: e.target.value.replace(/\D/g, '') }))}
-        placeholder={range ? String(range[key]) : key === 'min' ? 'Min' : 'Max'}
-      />
-    </label>
-  );
-  return (
-    <form
-      className="filter-group filter-price"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onApply(value.min, value.max);
-      }}
-    >
-      <fieldset>
-        <legend className="eyebrow">Price (₹)</legend>
-        <div className="filter-price-row">
-          {field('min', 'Minimum price in rupees')}
-          <span aria-hidden="true">–</span>
-          {field('max', 'Maximum price in rupees')}
-          <button type="submit" className="filter-apply">Apply</button>
-        </div>
-      </fieldset>
-    </form>
-  );
+const SORT_LABELS = {
+  relevance: 'Best match',
+  featured: 'Featured',
+  newest: 'Newest',
+  price_asc: 'Price, low to high',
+  price_desc: 'Price, high to low',
+  name: 'Name, A to Z',
 };
+const isRupees = (v) => /^\d{1,8}$/.test(v);
 
 export const Catalogue = () => {
   const params = useParams();
@@ -73,15 +51,28 @@ export const Catalogue = () => {
   const season = searchParams.get('colour_season') || '';
   const priceMin = isRupees(searchParams.get('price_min') || '') ? searchParams.get('price_min') : '';
   const priceMax = isRupees(searchParams.get('price_max') || '') ? searchParams.get('price_max') : '';
-  const selected = useMemo(() => Object.fromEntries(LIST_FILTERS.map(([key]) => [key, searchParams.getAll(key).filter(Boolean)])), [searchParams]);
+  const selected = useMemo(
+    () => Object.fromEntries(LIST_FILTERS.map(([key]) => [key, searchParams.getAll(key).filter(Boolean)])),
+    [searchParams]
+  );
   const { colourProfile } = useStore();
   const mySeason = colourProfile?.season || '';
   const [query, setQuery] = useState(q);
-  // Keep the search box in step with the URL (category links and Back/Forward clear or restore it).
+
   useEffect(() => setQuery(q), [q]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [state, setState] = useState({ products: [], total: 0, categories: [], facets: null, corrected: null, page: 1, loading: true, error: null, loadingMore: false });
+  const [state, setState] = useState({
+    products: [],
+    total: 0,
+    categories: [],
+    facets: null,
+    corrected: null,
+    page: 1,
+    loading: true,
+    error: null,
+    loadingMore: false,
+  });
 
   // Legacy ?category= links move to the clean URL.
   useEffect(() => {
@@ -105,7 +96,6 @@ export const Catalogue = () => {
     noIndex: Boolean(q) || filterCount > 0 || (category && !state.loading && !current),
     breadcrumbs: [{ name: 'Home', url: '/' }, { name: 'Shop', url: '/catalogue' }, ...(current ? [{ name: current.name, url: path }] : [])],
     schema: state.products.length ? itemListSchema(absoluteUrl(path), state.products) : null,
-    // An unknown category renders <NotFound />, which sets its own title.
     ready: !state.loading && !(category && state.categories.length && !current),
   });
 
@@ -123,17 +113,29 @@ export const Catalogue = () => {
   const activeQuery = useRef(apiQuery);
   activeQuery.current = apiQuery;
 
-  // Matches the API's public Cache-Control; a manual retry always goes to the network.
   const fetchPage = (page, { fresh = false } = {}) => cachedGet(`/api/catalogue?${apiQuery}&page=${page}`, { maxAge: fresh ? 0 : 30_000 });
 
   useEffect(() => {
-    let current = true;
+    let active = true;
     setState((s) => ({ ...s, loading: true, error: null }));
     fetchPage(1, { fresh: reloadKey > 0 })
-      .then((d) => current && setState({ products: d.products, total: d.total, categories: d.categories || [], facets: d.facets || null, corrected: d.corrected_query || null, page: 1, loading: false, error: null, loadingMore: false }))
-      .catch((error) => current && setState((s) => ({ ...s, loading: false, error })));
+      .then((d) =>
+        active &&
+        setState({
+          products: d.products,
+          total: d.total,
+          categories: d.categories || [],
+          facets: d.facets || null,
+          corrected: d.corrected_query || null,
+          page: 1,
+          loading: false,
+          error: null,
+          loadingMore: false,
+        })
+      )
+      .catch((error) => active && setState((s) => ({ ...s, loading: false, error })));
     return () => {
-      current = false;
+      active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiQuery, reloadKey]);
@@ -144,7 +146,6 @@ export const Catalogue = () => {
     setState((s) => ({ ...s, loadingMore: true }));
     try {
       const d = await fetchPage(state.page + 1);
-      // A filter changed while this page was loading: the new first page replaces the list instead.
       if (activeQuery.current !== requested) return;
       setState((s) => ({ ...s, products: [...s.products, ...d.products], page: s.page + 1, loadingMore: false }));
     } catch (error) {
@@ -176,7 +177,10 @@ export const Catalogue = () => {
     });
   const applyPrice = (min, max) =>
     update((next) => {
-      for (const [key, value] of [['price_min', min], ['price_max', max]]) {
+      for (const [key, value] of [
+        ['price_min', min],
+        ['price_max', max],
+      ]) {
         if (isRupees(value)) next.set(key, value);
         else next.delete(key);
       }
@@ -184,19 +188,71 @@ export const Catalogue = () => {
 
   const facetValues = (key, facet) => {
     const available = state.facets?.[facet] || [];
-    // Keep a value from the URL visible (and removable) even if nothing currently carries it.
     const extra = selected[key].filter((v) => !available.some((a) => a.toLowerCase() === v.toLowerCase()));
     return [...available, ...extra];
   };
-  const isSelected = (key, value) => selected[key].some((v) => v.toLowerCase() === value.toLowerCase());
 
   const activeChips = [
-    ...LIST_FILTERS.flatMap(([key, label]) => selected[key].map((v) => ({ id: `${key}:${v}`, label: `${label}: ${v}`, remove: () => toggleValue(key, v) }))),
+    ...selected.colour.map((v) => ({
+      id: `colour:${v}`,
+      type: 'colour',
+      raw: v,
+      label: v,
+      remove: () => toggleValue('colour', v),
+    })),
+    ...selected.size.map((v) => ({
+      id: `size:${v}`,
+      type: 'size',
+      raw: v,
+      label: `Size: ${v}`,
+      remove: () => toggleValue('size', v),
+    })),
+    ...selected.occasion.map((v) => ({
+      id: `occasion:${v}`,
+      type: 'occasion',
+      raw: v,
+      label: v,
+      remove: () => toggleValue('occasion', v),
+    })),
     ...(priceMin || priceMax
-      ? [{ id: 'price', label: priceMin && priceMax ? `${formatINR(priceMin)} – ${formatINR(priceMax)}` : priceMin ? `From ${formatINR(priceMin)}` : `Up to ${formatINR(priceMax)}`, remove: () => update((n) => { n.delete('price_min'); n.delete('price_max'); }) }]
+      ? [
+          {
+            id: 'price',
+            type: 'price',
+            label:
+              priceMin && priceMax
+                ? `${formatINR(priceMin)} – ${formatINR(priceMax)}`
+                : priceMin
+                ? `From ${formatINR(priceMin)}`
+                : `Up to ${formatINR(priceMax)}`,
+            remove: () =>
+              update((n) => {
+                n.delete('price_min');
+                n.delete('price_max');
+              }),
+          },
+        ]
       : []),
-    ...(inStock ? [{ id: 'in_stock', label: 'In stock', remove: () => setParam('in_stock', '') }] : []),
-    ...(season ? [{ id: 'season', label: `In ${season}`, remove: () => setParam('colour_season', '') }] : []),
+    ...(inStock
+      ? [
+          {
+            id: 'in_stock',
+            type: 'in_stock',
+            label: 'In stock only',
+            remove: () => setParam('in_stock', ''),
+          },
+        ]
+      : []),
+    ...(season
+      ? [
+          {
+            id: 'season',
+            type: 'season',
+            label: `Season: ${season}`,
+            remove: () => setParam('colour_season', ''),
+          },
+        ]
+      : []),
   ];
 
   if (category && !state.loading && state.categories.length && !current) return <NotFound />;
@@ -204,6 +260,51 @@ export const Catalogue = () => {
   const listFilters = filterCount - (inStock ? 1 : 0) - (season ? 1 : 0);
   const emptyTitle = listFilters > 0 ? 'No pieces match these filters' : q ? `Nothing matches “${q}”` : season ? `No pieces tagged ${season} right now` : inStock ? 'Nothing in stock here right now' : 'Nothing here yet';
   const emptyHint = listFilters > 0 ? 'Remove a filter, or clear them all to see more pieces.' : q ? 'Check the spelling, try a shorter word or a colour, or browse a category.' : 'New pieces arrive most weeks.';
+
+  const filterContent = (
+    <>
+      <CategoryFilter categories={state.categories} activeCategory={category} q={q} />
+      <ColourSwatchFilter
+        colours={facetValues('colour', 'colours')}
+        selected={selected.colour}
+        onToggle={(v) => toggleValue('colour', v)}
+      />
+      <SizeFilter
+        sizes={facetValues('size', 'sizes')}
+        selected={selected.size}
+        onToggle={(v) => toggleValue('size', v)}
+      />
+      <OccasionFilter
+        occasions={facetValues('occasion', 'occasions')}
+        selected={selected.occasion}
+        onToggle={(v) => toggleValue('occasion', v)}
+      />
+      {(state.facets?.price || priceMin || priceMax) && (
+        <PriceRangeFilter
+          key={`${priceMin}-${priceMax}`}
+          min={priceMin}
+          max={priceMax}
+          range={state.facets?.price}
+          onApply={applyPrice}
+          onReset={() => {
+            update((n) => {
+              n.delete('price_min');
+              n.delete('price_max');
+            });
+          }}
+        />
+      )}
+      <AvailabilityFilter
+        inStock={inStock}
+        onToggle={(val) => setParam('in_stock', val ? 'true' : '')}
+      />
+      {filterCount > 0 && (
+        <button type="button" className="filter-clear" onClick={clearFilters}>
+          Clear all filters
+        </button>
+      )}
+    </>
+  );
 
   return (
     <div>
@@ -245,89 +346,95 @@ export const Catalogue = () => {
               }}
             >
               <label htmlFor="catalogue-search" className="visually-hidden">Search pieces</label>
-              <input id="catalogue-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search pieces, colours, categories" maxLength={80} enterKeyHint="search" />
+              <input
+                id="catalogue-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search pieces, colours, categories"
+                maxLength={80}
+                enterKeyHint="search"
+              />
             </form>
             <div className="toolbar-actions">
-              <span id="resultCount" aria-live="polite">{state.loading ? '' : `${state.total} ${state.total === 1 ? 'piece' : 'pieces'}`}</span>
+              <span id="resultCount" aria-live="polite">
+                {state.loading ? 'Updating…' : `${state.total} ${state.total === 1 ? 'piece' : 'pieces'}`}
+              </span>
               <label className="toolbar-check">
-                <input type="checkbox" checked={inStock} onChange={(e) => setParam('in_stock', e.target.checked ? 'true' : '')} /> In stock
+                <input
+                  type="checkbox"
+                  checked={inStock}
+                  onChange={(e) => setParam('in_stock', e.target.checked ? 'true' : '')}
+                /> In stock
               </label>
               {(mySeason || season) && (
                 <label className="toolbar-check" title={mySeason ? `Pieces tagged ${mySeason}` : undefined}>
-                  <input type="checkbox" checked={Boolean(season)} onChange={(e) => setParam('colour_season', e.target.checked ? mySeason || season : '')} /> {season ? `In ${season}` : 'In my colours'}
+                  <input
+                    type="checkbox"
+                    checked={Boolean(season)}
+                    onChange={(e) => setParam('colour_season', e.target.checked ? mySeason || season : '')}
+                  /> {season ? `In ${season}` : 'In my colours'}
                 </label>
               )}
               <label htmlFor="sort" className="visually-hidden">Sort by</label>
-              <select value={sort} onChange={(e) => setParam('sort', e.target.value === defaultSort ? '' : e.target.value)} id="sort">
-                {Object.entries(SORT_LABELS)
-                  .filter(([value]) => value !== 'relevance' || q)
-                  .map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-              </select>
-              <button id="filterToggle" type="button" aria-expanded={filterOpen} aria-controls="filter-panel" onClick={() => setFilterOpen(!filterOpen)}>
-                Filters{filterCount ? ` (${filterCount})` : ''}
+              <div className="sort-dropdown-wrap">
+                <select
+                  value={sort}
+                  onChange={(e) => setParam('sort', e.target.value === defaultSort ? '' : e.target.value)}
+                  id="sort"
+                  aria-label="Sort pieces by"
+                >
+                  {Object.entries(SORT_LABELS)
+                    .filter(([value]) => value !== 'relevance' || q)
+                    .map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                </select>
+              </div>
+              <button
+                id="filterToggle"
+                type="button"
+                className="filter-toggle-btn"
+                aria-expanded={filterOpen}
+                aria-controls="filter-panel"
+                onClick={() => setFilterOpen(true)}
+              >
+                <span>Filters</span>
+                {filterCount > 0 && <span className="filter-badge-count">{filterCount}</span>}
               </button>
             </div>
           </div>
 
           <div className="catalogue-layout">
-            <aside id="filter-panel" className={`filter-panel ${filterOpen ? 'mobile-open' : ''}`} aria-label="Filters">
-              <p className="eyebrow">Categories</p>
-              <div className="category-links">
-                <Link className={!category ? 'active' : ''} to={q ? `/catalogue?q=${encodeURIComponent(q)}` : '/catalogue'} aria-current={!category ? 'page' : undefined}>All pieces</Link>
-                {state.categories.map((c) => (
-                  <Link key={c.id} className={category === c.slug ? 'active' : ''} to={`/catalogue/${c.slug}${q ? `?q=${encodeURIComponent(q)}` : ''}`} aria-current={category === c.slug ? 'page' : undefined}>
-                    {c.name}
-                  </Link>
-                ))}
-              </div>
-
-              {LIST_FILTERS.map(([key, label, facet]) => {
-                const values = facetValues(key, facet);
-                if (!values.length) return null;
-                return (
-                  <fieldset key={key} className="filter-group">
-                    <legend className="eyebrow">{label}</legend>
-                    <div className="filter-chips">
-                      {values.map((v) => (
-                        <button key={v} type="button" className={`filter-chip${isSelected(key, v) ? ' is-on' : ''}`} aria-pressed={isSelected(key, v)} onClick={() => toggleValue(key, v)}>
-                          {v}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                );
-              })}
-
-              {(state.facets?.price || priceMin || priceMax) && (
-                <PriceFilter key={`${priceMin}-${priceMax}`} min={priceMin} max={priceMax} range={state.facets?.price} onApply={applyPrice} />
-              )}
-
-              {filterCount > 0 && (
-                <button type="button" className="filter-clear" onClick={clearFilters}>
-                  Clear all filters
-                </button>
-              )}
+            <aside id="filter-panel" className="filter-panel" aria-label="Filters">
+              {filterContent}
             </aside>
 
-            <div>
+            {/* Mobile slide-in drawer */}
+            <MobileFilterDrawer
+              open={filterOpen}
+              onClose={() => setFilterOpen(false)}
+              onClearAll={clearFilters}
+              total={state.total}
+              filterCount={filterCount}
+            >
+              {filterContent}
+            </MobileFilterDrawer>
+
+            <div className="catalogue-main">
               {state.corrected && q && !state.loading && (
                 <p className="search-correction" role="status">
                   No exact matches for “{q}”. Showing results for “{state.corrected}”.
                 </p>
               )}
-              {activeChips.length > 0 && (
-                <div className="active-filters" aria-label="Active filters" role="group">
-                  {activeChips.map((chip) => (
-                    <button key={chip.id} type="button" className="active-filter" onClick={chip.remove}>
-                      {chip.label} <span aria-hidden="true">×</span>
-                      <span className="visually-hidden">, remove filter</span>
-                    </button>
-                  ))}
-                  <button type="button" className="filter-clear" onClick={clearFilters}>Clear all</button>
-                </div>
-              )}
+
+              <ActiveFilterSummary
+                chips={activeChips}
+                onClearAll={clearFilters}
+                total={state.total}
+                loading={state.loading}
+              />
+
               {state.loading ? (
                 <LoadingState label={q ? 'Searching…' : 'Loading pieces…'} />
               ) : state.error && !state.products.length ? (

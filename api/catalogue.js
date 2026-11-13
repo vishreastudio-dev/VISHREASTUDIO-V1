@@ -112,7 +112,11 @@ async function listing(args) {
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     ),
-    db.query('SELECT id, name, slug, sort_order FROM categories WHERE is_active = true ORDER BY sort_order, name'),
+    db.query(`SELECT c.id, c.name, c.slug, c.sort_order,
+                     (SELECT count(*)::int FROM products p WHERE p.category_id = c.id AND p.is_active = true AND p.archived_at IS NULL) AS product_count
+                FROM categories c
+               WHERE c.is_active = true
+               ORDER BY c.sort_order, c.name`),
     // Filter options are only needed with the first page; "Show more" keeps the ones it has.
     args.offset === 0 ? facets(args) : null,
   ]);
@@ -167,20 +171,38 @@ export function catalogueFilters(query) {
 
 export default async function catalogue(req, res) {
   const filters = catalogueFilters(req.query);
-  const [member, settings] = await Promise.all([hasEarlyAccess(db, req.user), getSettings()]);
-  const args = { ...filters, member, earlyHours: settings.early_access_hours };
+  try {
+    const [member, settings] = await Promise.all([
+      hasEarlyAccess(db, req.user).catch(() => false),
+      getSettings().catch(() => ({ early_access_hours: 0 })),
+    ]);
+    const args = { ...filters, member, earlyHours: settings.early_access_hours };
 
-  // Members can see early-access pieces, so only the shared guest/non-member view is cached.
-  let body;
-  if (member) body = await search(args);
-  else {
-    const { tokens, ...keyed } = filters;
-    const lower = (v) => (Array.isArray(v) ? v.map((s) => s.toLowerCase()).sort() : typeof v === 'string' ? v.toLowerCase() : v);
-    const key = `catalogue:${JSON.stringify({ ...Object.fromEntries(Object.entries(keyed).map(([k, v]) => [k, lower(v)])), tokens, h: settings.early_access_hours })}`;
-    const r = await cachedPublic(key, 10_000, () => search(args));
-    res.setHeader('X-Cache', r.cached ? 'hit' : 'miss');
-    body = r.value;
+    // Members can see early-access pieces, so only the shared guest/non-member view is cached.
+    let body;
+    if (member) body = await search(args);
+    else {
+      const { tokens, ...keyed } = filters;
+      const lower = (v) => (Array.isArray(v) ? v.map((s) => s.toLowerCase()).sort() : typeof v === 'string' ? v.toLowerCase() : v);
+      const key = `catalogue:${JSON.stringify({ ...Object.fromEntries(Object.entries(keyed).map(([k, v]) => [k, lower(v)])), tokens, h: settings.early_access_hours })}`;
+      const r = await cachedPublic(key, 10_000, () => search(args));
+      res.setHeader('X-Cache', r.cached ? 'hit' : 'miss');
+      body = r.value;
+    }
+    res.setHeader('Cache-Control', member ? 'private, max-age=15' : 'public, max-age=30');
+    res.json({ ...body, query: filters.q });
+  } catch {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({
+      products: [],
+      total: 0,
+      page: filters.page,
+      limit: filters.limit,
+      categories: [],
+      facets: { sizes: [], colours: [], occasions: [], price: null },
+      sort: filters.sort,
+      query: filters.q,
+      offline: true,
+    });
   }
-  res.setHeader('Cache-Control', member ? 'private, max-age=15' : 'public, max-age=30');
-  res.json({ ...body, query: filters.q });
 }

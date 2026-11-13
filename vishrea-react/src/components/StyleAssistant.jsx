@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
 const QUICK_STARTERS = [
-  'Explore Live Inventory',
-  'Coord Sets Collection',
-  'Dinner Party Outfits',
-  'New Arrivals & Trending',
-  'Walkin Wardrobe Membership',
+  'Styling for an evening dinner',
+  'Help me find pieces for my colour palette',
+  'Sizing and fit advice',
+  'Tell me about Walkin Wardrobe',
+  'New pieces in the studio this week',
 ];
 
 export function StyleAssistant() {
@@ -123,27 +123,29 @@ export function StyleAssistant() {
             e.currentTarget.style.boxShadow = '0 8px 24px rgba(26, 23, 25, 0.28), 0 0 0 1px rgba(184, 149, 96, 0.45)';
           }}
         >
-          {/* Stylist Avatar */}
+          {/* Coat hanger icon matching luxury atelier concierge */}
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: '50%',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '1.5px solid rgba(184, 149, 96, 0.65)',
-              background: '#fff',
+              width: 28,
+              height: 28,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              flexShrink: 0,
             }}
           >
-            <img
-              src="/brand-avatar.png"
-              alt="Vishrea Concierge"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3c0 1.2.7 2.2 1.8 2.7L2 14.5a1.5 1.5 0 0 0 .8 2.7h18.4a1.5 1.5 0 0 0 .8-2.7L13.2 7.7A3 3 0 0 0 15 5a3 3 0 0 0-3-3z" />
+            </svg>
           </div>
           <div style={{ textAlign: 'left' }}>
             <span

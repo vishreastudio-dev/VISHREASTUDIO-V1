@@ -106,7 +106,7 @@ export const Header = () => {
             <SearchIcon />
             <span className="search-trigger-label" aria-hidden="true">Search</span>
           </button>
-          <Link to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
+          <Link className="account-link" to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
           <Link className="bag-button" to="/cart" aria-label={`Shopping bag, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}>
             Bag <span id="bagCount">{cartCount}</span>
           </Link>
@@ -119,7 +119,7 @@ export const Header = () => {
               <Link key={to} to={to}>{label}</Link>
             ))}
             <Link to="/orders">Orders</Link>
-            <Link to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
+            <Link className="account-link" to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
             {user?.is_admin && <Link to="/admin">Admin studio</Link>}
             <Link to="/contact">Contact</Link>
           </nav>

@@ -10,11 +10,11 @@ import { itemListSchema } from '../lib/schema';
 import { SITE } from '../site.config.js';
 
 const CATEGORIES = [
-  ['tops', 'Tops', 'Shirts, blouses, knits', 'tall cat-tops'],
-  ['dresses', 'Dresses', 'Day to evening', 'cat-dresses'],
-  ['coord-sets', 'Co-ord sets', 'Wear together or apart', 'cat-coords'],
-  ['pants', 'Trousers', 'Wide-leg and tailored', 'cat-pants'],
-  ['party-dresses', 'Party dresses', 'For evenings out', 'cat-party'],
+  { slug: 'dresses', name: 'Dresses', tagline: 'ELEGANT • TIMELESS • YOU', cls: 'cat-dresses' },
+  { slug: 'coord-sets', name: 'Co-ord Sets', tagline: 'MATCH • STYLE • REPEAT', cls: 'cat-coords' },
+  { slug: 'tops', name: 'Tops', tagline: 'CHIC • VERSATILE • MODERN', cls: 'cat-tops' },
+  { slug: 'pants', name: 'Trousers', tagline: 'COMFORT • STYLE • CONFIDENCE', cls: 'cat-pants' },
+  { slug: 'party-dresses', name: 'Party Dresses', tagline: 'CELEBRATE • SPARKLE • SHINE', cls: 'cat-party' },
 ];
 
 const instagramId = (url) => (String(url || '').match(/instagram\.com\/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1] || null;
@@ -99,20 +99,48 @@ export const Home = () => {
         <HomeHero />
 
         <section className="section collections" id="collections" aria-labelledby="collections-title">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Shop by category</p>
-              <h2 id="collections-title">Start with what you reach for.</h2>
+          <div className="category-mosaic-grid">
+            <div className="category-mosaic-hero">
+              <div className="category-mosaic-eyebrow">
+                <span className="category-gold-dash" aria-hidden="true" />
+                <span>EXPLORE CATEGORIES</span>
+              </div>
+              <h2 id="collections-title" className="category-mosaic-heading">
+                Start with what<br />
+                you reach for.
+              </h2>
+              <p className="category-mosaic-text">
+                Discover our curated edit of styles for every mood and moment.
+              </p>
+              <Link className="category-mosaic-btn" to="/catalogue">
+                <span>VIEW ALL CATEGORIES</span>
+                <span aria-hidden="true">→</span>
+              </Link>
             </div>
-            <Link className="text-link" to="/catalogue">All categories <span aria-hidden="true">→</span></Link>
-          </div>
-          <div className="category-grid">
-            {CATEGORIES.map(([slug, name, note, cls]) => (
-              <Link key={slug} className={`category-card ${cls}`} to={`/catalogue/${slug}`}>
-                <span>{name}</span>
-                <small>{note}</small>
+
+            {CATEGORIES.map((cat) => (
+              <Link key={cat.slug} className={`category-mosaic-card ${cat.cls}`} to={`/catalogue/${cat.slug}`}>
+                <div className="category-mosaic-card-content">
+                  <div>
+                    <span className="category-card-accent" aria-hidden="true" />
+                    <h3 className="category-card-title">{cat.name}</h3>
+                    <p className="category-card-tagline">{cat.tagline}</p>
+                  </div>
+                  <div className="category-card-arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
               </Link>
             ))}
+          </div>
+
+          <div className="category-mosaic-footer" aria-hidden="true">
+            <span className="footer-star">✦</span>
+            <span className="footer-line" />
+            <span className="footer-text">FASHION FOR EVERY YOU</span>
+            <span className="footer-line" />
           </div>
         </section>
 
