@@ -24,8 +24,15 @@ export const rateLimitPerUser = { windowMs: 60_000, max: 240 };
 
 const ORDER_STATUSES = ['pending_payment', 'processing', 'packed', 'dispatched', 'delivered', 'cancelled', 'refund_required', 'refunded'];
 const FULFILMENT_FLOW = { processing: ['packed', 'dispatched', 'cancelled'], packed: ['dispatched', 'processing', 'cancelled'], dispatched: ['delivered'], delivered: [], pending_payment: ['cancelled'] };
-const EXCHANGE_STATUSES = ['requested', 'review', 'approved', 'rejected', 'completed'];
-const EXCHANGE_FLOW = { requested: ['review', 'approved', 'rejected'], review: ['approved', 'rejected'], approved: ['completed'], rejected: [], completed: [] };
+const EXCHANGE_STATUSES = ['requested', 'review', 'approved', 'not_approved', 'rejected', 'completed'];
+const EXCHANGE_FLOW = {
+  requested: ['review', 'approved', 'not_approved', 'rejected'],
+  review: ['approved', 'not_approved', 'rejected'],
+  approved: ['not_approved', 'completed', 'review', 'rejected'],
+  not_approved: ['approved', 'review', 'rejected', 'completed'],
+  rejected: ['review', 'approved', 'not_approved'],
+  completed: ['approved', 'not_approved'],
+};
 
 const isoDate = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : null);
 
@@ -161,24 +168,42 @@ async function handleGet(req, res) {
         ),
       });
     }
-    case 'customers':
+    case 'customers': {
+      const minSpent = Math.max(0, Number(q.min_spent) || 0);
+      const sort = String(q.sort || '').toLowerCase();
+      const isTopSpending = sort === 'top_spending' || sort === 'spent_desc' || q.top_spending === 'true';
       return res.json({
         customers: await rows(
-          `SELECT cp.auth_user_id, cp.full_name, cp.email, cp.phone, cp.marketing_opt_in, cp.created_at, m.status AS membership_status, m.credits_balance,
-                  (SELECT count(*)::int FROM orders o WHERE o.auth_user_id = cp.auth_user_id AND o.payment_status = 'paid') AS order_count
-             FROM customer_profiles cp LEFT JOIN memberships m ON m.auth_user_id = cp.auth_user_id
+          `SELECT cp.auth_user_id, cp.full_name, cp.email, cp.phone, cp.marketing_opt_in, cp.created_at,
+                  m.status AS membership_status, m.credits_balance,
+                  COALESCE(orders_summary.order_count, 0)::int AS order_count,
+                  COALESCE(orders_summary.total_spent, 0)::numeric(12,2) AS total_spent
+             FROM customer_profiles cp
+             LEFT JOIN memberships m ON m.auth_user_id = cp.auth_user_id
+             LEFT JOIN (
+               SELECT auth_user_id,
+                      count(*)::int AS order_count,
+                      COALESCE(SUM(total), 0)::numeric(12,2) AS total_spent
+                 FROM orders
+                WHERE payment_status = 'paid'
+                GROUP BY auth_user_id
+             ) orders_summary ON orders_summary.auth_user_id = cp.auth_user_id
             WHERE ($3 = '' OR lower(COALESCE(cp.full_name, '')) LIKE '%' || $3 || '%' OR lower(COALESCE(cp.email, '')) LIKE '%' || $3 || '%'
                    OR regexp_replace(COALESCE(cp.phone, ''), '\\D', '', 'g') LIKE '%' || NULLIF(regexp_replace($3, '\\D', '', 'g'), '') || '%')
               AND ($4 = '' OR ($4 = 'none' AND m.id IS NULL) OR m.status = $4)
-            ORDER BY cp.created_at DESC LIMIT $1 OFFSET $2`,
+              AND ($5::numeric = 0 OR COALESCE(orders_summary.total_spent, 0) >= $5::numeric)
+            ORDER BY ${isTopSpending ? 'COALESCE(orders_summary.total_spent, 0) DESC, ' : ''}cp.created_at DESC
+            LIMIT $1 OFFSET $2`,
           [
             limit,
             offset,
             String(q.q || '').trim().toLowerCase().slice(0, 80),
             oneOf(q.membership || '', ['', 'none', 'active', 'paused', 'expired', 'cancelled', 'pending_payment', 'payment_failed', 'inactive'], { field: 'membership' }),
+            minSpent,
           ]
         ),
       });
+    }
     case 'memberships':
       return res.json({ memberships: await rows('SELECT m.*, cp.full_name, cp.email FROM memberships m LEFT JOIN customer_profiles cp ON cp.auth_user_id = m.auth_user_id ORDER BY m.updated_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
     case 'credits':
@@ -193,8 +218,12 @@ async function handleGet(req, res) {
       return res.json({ exchanges: list });
     }
     case 'loyalty': {
-      const [rules, events] = await Promise.all([rows('SELECT * FROM loyalty_rules ORDER BY created_at DESC LIMIT 200'), rows('SELECT le.*, lr.name AS rule_name FROM loyalty_events le LEFT JOIN loyalty_rules lr ON lr.id = le.rule_id ORDER BY le.created_at DESC LIMIT 100')]);
-      return res.json({ rules, events });
+      const [rules, events, offers] = await Promise.all([
+        rows('SELECT * FROM loyalty_rules ORDER BY created_at DESC LIMIT 200'),
+        rows('SELECT le.*, lr.name AS rule_name FROM loyalty_events le LEFT JOIN loyalty_rules lr ON lr.id = le.rule_id ORDER BY le.created_at DESC LIMIT 100'),
+        rows('SELECT * FROM offers ORDER BY created_at DESC LIMIT 50'),
+      ]);
+      return res.json({ rules, events, offers });
     }
     case 'drops':
       return res.json({ drops: await rows('SELECT * FROM drop_settings ORDER BY starts_at DESC LIMIT 200') });
@@ -704,7 +733,7 @@ async function handleWrite(req, res) {
       if (next !== x.status && !(EXCHANGE_FLOW[x.status] || []).includes(next)) {
         throw conflict('invalid_transition', `Cannot move an exchange from ${x.status} to ${next}`);
       }
-      if (['approved', 'rejected'].includes(next) && next !== x.status && !text(b.resolution ?? x.resolution, { max: 500, field: 'resolution' })) {
+      if (['approved', 'not_approved', 'rejected'].includes(next) && next !== x.status && !text(b.resolution ?? x.resolution, { max: 500, field: 'resolution' })) {
         throw badRequest('resolution_required', 'Add a resolution note for the customer');
       }
       await c.query('UPDATE exchanges SET status = $1, resolution = $2, quality_check = $3, return_tracking = $4, updated_at = now() WHERE id = $5', [
@@ -788,6 +817,114 @@ async function handleWrite(req, res) {
     else await db.query('INSERT INTO loyalty_rules (name, audience, trigger_config, reward_config, applies_to, limits, starts_at, ends_at, active, estimated_monthly_cost) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', vals);
     await audit(db, { actor: uid, action: 'save_loyalty_rule', entityType: 'loyalty_rule', entityId: b.id || null, details: { name, active: bool(b.active) } });
     return res.json({ ok: true });
+  }
+
+  if (section === 'distribute_offer') {
+    const customerIds = Array.isArray(b.customer_ids) ? b.customer_ids : b.auth_user_id ? [b.auth_user_id] : [];
+    if (!customerIds.length) throw badRequest('customer_required', 'Select at least one customer');
+    const code = text(b.code, { max: 30, field: 'code', required: true }).toUpperCase();
+    const title = text(b.title, { max: 120, field: 'title', required: true });
+    const description = text(b.description, { max: 300, field: 'description' }) || `Special VIP offer: ${title}`;
+    const discountType = oneOf(b.discount_type || 'percentage', ['percentage', 'fixed'], { field: 'discount_type' });
+    const discountValue = Math.max(1, Number(b.discount_value) || 10);
+    const validDays = Math.max(1, Math.min(365, Number(b.valid_days) || 30));
+
+    await db.query(
+      `INSERT INTO offers (code, title, description, discount_type, discount_value, active, starts_at, ends_at)
+       VALUES ($1, $2, $3, $4, $5, true, now(), now() + make_interval(days => $6))
+       ON CONFLICT (code) DO UPDATE SET title = excluded.title, description = excluded.description,
+         discount_type = excluded.discount_type, discount_value = excluded.discount_value, active = true,
+         ends_at = now() + make_interval(days => $6)`,
+      [code, title, description, discountType, discountValue, validDays]
+    );
+
+    for (const authUserId of customerIds) {
+      await db.query(
+        `INSERT INTO loyalty_events (auth_user_id, event_type, reward_value, details)
+         VALUES ($1, 'special_offer_distributed', $2, $3)`,
+        [authUserId, discountValue, JSON.stringify({ code, title, discount_type: discountType, valid_days: validDays })]
+      );
+      await notify(db, {
+        authUserId,
+        event: 'special_offer_granted',
+        data: {
+          code,
+          title,
+          discount: discountType === 'percentage' ? `${discountValue}% OFF` : `₹${discountValue} OFF`,
+          link: `${config.publicSiteUrl}/catalogue`,
+        },
+        dedupeKey: `offer:${authUserId}:${code}`,
+      }).catch(() => {});
+    }
+
+    await audit(db, {
+      actor: uid,
+      action: 'distribute_special_offer',
+      entityType: 'offer',
+      entityId: code,
+      details: { customers_count: customerIds.length, discount_type: discountType, discount_value: discountValue },
+    });
+
+    return res.json({ ok: true, count: customerIds.length, code });
+  }
+
+  if (section === 'run_loyalty_triggers') {
+    const rules = (await db.query("SELECT * FROM loyalty_rules WHERE active = true AND (trigger_config->>'event' LIKE 'tenure%' OR trigger_config->>'event' = 'tenure')")).rows;
+    let triggeredCount = 0;
+    const triggeredDetails = [];
+
+    for (const rule of rules) {
+      let months = Number(rule.trigger_config?.months);
+      if (!months) {
+        const match = String(rule.trigger_config?.event || '').match(/tenure_(\d+)_months/);
+        if (match) months = Number(match[1]);
+      }
+      if (!months || months < 1) continue;
+
+      const eligible = (await db.query(
+        `SELECT cp.auth_user_id, cp.email, cp.full_name, cp.created_at
+           FROM customer_profiles cp
+          WHERE cp.created_at <= now() - make_interval(months => $1)
+            AND NOT EXISTS (
+              SELECT 1 FROM loyalty_events le
+               WHERE le.auth_user_id = cp.auth_user_id
+                 AND (le.rule_id = $2 OR (le.event_type = 'tenure_milestone' AND (le.details->>'tenure_months')::int = $1))
+            )
+          LIMIT 100`,
+        [months, rule.id]
+      )).rows;
+
+      for (const cust of eligible) {
+        await db.query(
+          `INSERT INTO loyalty_events (rule_id, auth_user_id, event_type, reward_value, details)
+           VALUES ($1, $2, 'tenure_milestone', $3, $4)`,
+          [rule.id, cust.auth_user_id, Number(rule.reward_config?.discount?.replace(/\\D/g, '') || rule.reward_config?.credits || 0), JSON.stringify({ tenure_months: months, rule_name: rule.name })]
+        );
+        await notify(db, {
+          authUserId: cust.auth_user_id,
+          event: 'loyalty_milestone_reward',
+          data: {
+            milestone: `${months} Months Tenure Loyalty Privilege`,
+            message: `Thank you for being with Vishrea Studio for ${months} months! A special tenure privilege has been unlocked on your account.`,
+            reward: rule.reward_config,
+            link: `${config.publicSiteUrl}/account`,
+          },
+          dedupeKey: `tenure:${cust.auth_user_id}:${rule.id}`,
+        }).catch(() => {});
+
+        triggeredCount += 1;
+        triggeredDetails.push({ customer: cust.email || cust.full_name, rule: rule.name, months });
+      }
+    }
+
+    await audit(db, {
+      actor: uid,
+      action: 'run_loyalty_tenure_triggers',
+      entityType: 'loyalty_rule',
+      details: { triggered_count: triggeredCount, rules_count: rules.length },
+    });
+
+    return res.json({ ok: true, triggered_count: triggeredCount, details: triggeredDetails });
   }
 
   if (section === 'drop') {

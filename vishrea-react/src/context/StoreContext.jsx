@@ -153,7 +153,24 @@ export const StoreProvider = ({ children }) => {
   const verifyCode = useCallback(async (email, code) => {
     const d = await api('/api/auth/verify-code', { method: 'POST', body: { email, code } });
     setUser(d.user);
-    return d.user;
+    return d;
+  }, []);
+
+  const completeProfile = useCallback(async (profileData) => {
+    const res = await api('/api/account', {
+      method: 'PUT',
+      body: { ...profileData, profile_completed: true },
+    });
+    setUser((prev) => (prev ? { ...prev, name: profileData.full_name || prev.name, phone: profileData.phone || prev.phone, profile_completed: true } : prev));
+    return res;
+  }, []);
+
+  const completeOnboarding = useCallback(async () => {
+    await api('/api/account', {
+      method: 'PUT',
+      body: { onboarding_completed: true },
+    }).catch(() => {});
+    setUser((prev) => (prev ? { ...prev, onboarding_completed: true } : prev));
   }, []);
 
   const signOut = useCallback(async () => {
@@ -261,8 +278,10 @@ export const StoreProvider = ({ children }) => {
       colourProfile,
       setColourProfile,
       referral,
+      completeProfile,
+      completeOnboarding,
     }),
-    [user, authReady, refreshSession, startLogin, verifyCode, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral]
+    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

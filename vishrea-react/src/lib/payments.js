@@ -50,6 +50,20 @@ export async function openRazorpay(rp, { description = 'Vishrea Studio order' } 
       prefill: rp.prefill || {},
       theme: { color: '#1a1719' },
       retry: { enabled: true, max_count: 3 },
+      // Explicitly disable and hide EMI option from payment methods
+      method: {
+        netbanking: true,
+        card: true,
+        wallet: true,
+        upi: true,
+        emi: false,
+      },
+      config: {
+        display: {
+          hide: [{ method: 'emi' }],
+          preferences: { show_default_blocks: true },
+        },
+      },
       handler: (resp) => {
         settled = true;
         resolve(resp);

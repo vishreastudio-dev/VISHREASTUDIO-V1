@@ -406,7 +406,7 @@ export function StyleAssistant() {
                             <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9e7b47', fontWeight: 600 }}>
                               Live Inventory Feed ({m.products.length} {m.products.length === 1 ? 'Piece' : 'Pieces'})
                             </span>
-                            <span style={{ fontSize: 8.5, color: '#8c7d75' }}>Tap card to view details ↗</span>
+                            <span style={{ fontSize: 8.5, color: '#8c7d75' }}>Tap card to view details</span>
                           </div>
 
                           <div

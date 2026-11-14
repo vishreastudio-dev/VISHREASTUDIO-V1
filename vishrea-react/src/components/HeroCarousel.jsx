@@ -48,7 +48,15 @@ function Cta({ cta, secondary }) {
   const link = ctaLink(cta.url);
   if (!cta.visible || !cta.label || !link) return null;
   const className = `hc-cta hc-cta-${cta.size}${cta.uppercase ? ' is-upper' : ''}${secondary ? ' is-secondary' : ''}`;
-  const style = { '--cta-bg': cta.bg, '--cta-color': cta.color, '--cta-border': cta.border, '--cta-bw': `${cta.border_width}px`, '--cta-radius': `${cta.radius}px` };
+  const hasOffset = (Number(cta.offset_x) || 0) !== 0 || (Number(cta.offset_y) || 0) !== 0;
+  const style = {
+    '--cta-bg': cta.bg,
+    '--cta-color': cta.color,
+    '--cta-border': cta.border,
+    '--cta-bw': `${cta.border_width}px`,
+    '--cta-radius': `${cta.radius}px`,
+    ...(hasOffset ? { transform: `translate(${Number(cta.offset_x || 0)}px, ${Number(cta.offset_y || 0)}px)`, position: 'relative', zIndex: 2 } : {}),
+  };
   if (link.internal && !cta.new_tab) return <Link className={className} style={style} to={link.href}>{cta.label}</Link>;
   return (
     <a className={className} style={style} href={link.href} {...(cta.new_tab ? { target: '_blank' } : {})} rel={link.internal ? undefined : 'noopener noreferrer'}>

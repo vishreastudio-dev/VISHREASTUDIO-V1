@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Header, Footer } from '../components/Layout';
 import { ProductCard } from '../components/ProductCard';
@@ -85,11 +85,44 @@ export const Home = () => {
 
   usePageSeo({ schema: featured.length ? itemListSchema(SITE.url + '/', featured) : null, ready: !featuredReq.loading });
 
+  // Autoplay IG reels and feedback videos when they enter the viewport
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const vid = entry.target;
+          if (entry.isIntersecting) {
+            vid.muted = true;
+            vid.play().catch(() => {});
+          } else {
+            vid.pause();
+          }
+        });
+      },
+      { threshold: 0.25 }
+    );
+    Object.values(videoRefs.current).forEach((el) => {
+      if (el) {
+        el.muted = true;
+        observer.observe(el);
+      }
+    });
+    return () => observer.disconnect();
+  }, [videos.length]);
+
   const toggleVideo = (id) => {
     const vid = videoRefs.current[id];
     if (!vid) return;
-    if (vid.paused) vid.play().catch(() => {});
-    else vid.pause();
+    if (vid.paused) {
+      vid.muted = false;
+      vid.play().catch(() => {
+        vid.muted = true;
+        vid.play().catch(() => {});
+      });
+    } else {
+      vid.pause();
+    }
   };
 
   return (
@@ -224,13 +257,19 @@ export const Home = () => {
                 <figure key={v.id} className="social-card">
                   <div className="social-media">
                     <video
-                      ref={(el) => (videoRefs.current[v.id] = el)}
+                      ref={(el) => {
+                        if (el) {
+                          videoRefs.current[v.id] = el;
+                          el.muted = true;
+                          el.play().catch(() => {});
+                        }
+                      }}
                       src={v.video_url}
                       autoPlay
                       playsInline
                       muted
                       loop
-                      preload="metadata"
+                      preload="auto"
                       onPlay={() => setPlaying((s) => ({ ...s, [v.id]: true }))}
                       onPause={() => setPlaying((s) => ({ ...s, [v.id]: false }))}
                       aria-label={v.title || 'Customer video'}
@@ -247,11 +286,20 @@ export const Home = () => {
               ))}
               {instagram.map((v) => {
                 const id = instagramId(v.post_url);
+                const isReel = /instagram\.com\/(?:reel|reels)\//.test(v.post_url);
+                const embedSrc = id
+                  ? (isReel ? `https://www.instagram.com/reel/${id}/embed/` : `https://www.instagram.com/p/${id}/embed/`)
+                  : null;
                 return (
                   <figure key={v.id} className="social-card">
                     <div className="social-media">
-                      {id ? (
-                        <iframe src={`https://www.instagram.com/p/${id}/embed/`} loading="lazy" title={v.title || 'Instagram post'} allow="encrypted-media; picture-in-picture" />
+                      {embedSrc ? (
+                        <iframe
+                          src={embedSrc}
+                          loading="eager"
+                          title={v.title || 'Instagram reel'}
+                          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                        />
                       ) : v.image_url ? (
                         <img src={v.image_url} alt={v.title || 'Vishrea Studio on Instagram'} loading="lazy" />
                       ) : null}

@@ -97,6 +97,7 @@ router.post(
     // administrator: once any active admin exists it grants nothing, so a demoted account stays demoted.
     const bootstrapAdmin = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@vishrea.com').trim().toLowerCase();
 
+    let isNewUser = false;
     const profile = await db.tx(async (c) => {
       await c.query("SELECT pg_advisory_xact_lock(hashtext('admin_bootstrap'))");
       const adminExists = Boolean(
@@ -105,6 +106,7 @@ router.post(
       const shouldBeAdmin = (email.toLowerCase() === adminEmail || (!adminExists && email.toLowerCase() === bootstrapAdmin)) && onAdminAllowlist(email);
       let p = (await c.query('SELECT * FROM profiles WHERE lower(email) = $1 ORDER BY created_at LIMIT 1', [email])).rows[0];
       if (!p) {
+        isNewUser = true;
         p = (
           await c.query(
             `INSERT INTO profiles (auth_user_id, email, full_name, is_admin, role)
@@ -124,10 +126,23 @@ router.post(
     });
     if (profile.is_active === false) throw new AppError(403, 'account_disabled', 'This account is disabled.');
 
-    const user = { id: profile.auth_user_id, email: profile.email, name: profile.full_name || '', is_admin: isAdminRow(profile) };
+    const admin = isAdminRow(profile);
+    const cpRow = (await db.query('SELECT profile_completed, onboarding_completed, phone FROM customer_profiles WHERE auth_user_id = $1 LIMIT 1', [profile.auth_user_id]).catch(() => ({ rows: [] }))).rows[0];
+    const profileCompleted = admin || Boolean(cpRow?.profile_completed || (cpRow?.phone && String(cpRow.phone).trim().length > 5));
+    const onboardingCompleted = admin || Boolean(cpRow?.onboarding_completed);
+
+    const user = {
+      id: profile.auth_user_id,
+      email: profile.email,
+      name: profile.full_name || '',
+      phone: cpRow?.phone || '',
+      is_admin: admin,
+      profile_completed: profileCompleted,
+      onboarding_completed: onboardingCompleted,
+    };
     res.cookie(AUTH_COOKIE, auth.signToken(user), cookieOptions(req));
     await audit(db, { actor: user.id, action: user.is_admin ? 'admin_login' : 'login', entityType: 'profile', entityId: user.id, details: { ip: req.ip } });
-    res.json({ ok: true, user });
+    res.json({ ok: true, user, is_first_login: isNewUser || !profileCompleted });
   })
 );
 

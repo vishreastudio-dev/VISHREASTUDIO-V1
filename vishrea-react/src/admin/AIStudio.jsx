@@ -508,17 +508,63 @@ export function AIStudio() {
                 </select>
               </div>
 
-              {/* Verified Product Facts Preview */}
+              {/* Verified Product Facts & Image Preview */}
               {selectedProduct && (
-                <div style={{ background: '#fcfaf7', border: '1px solid #e7ded3', borderRadius: 6, padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#8a6538', fontWeight: 600 }}>
-                      Verified Catalogue Data
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#1a1719' }}>₹{selectedProduct.price_inr}</span>
+                <div style={{ background: '#fcfaf7', border: '1px solid #e7ded3', borderRadius: 6, padding: '16px', display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+                  {/* Product Image Display */}
+                  <div style={{ flexShrink: 0, position: 'relative' }}>
+                    {selectedProduct.image_url || (Array.isArray(selectedProduct.images) && selectedProduct.images[0]) ? (
+                      <div style={{ width: 100, height: 130, borderRadius: 4, overflow: 'hidden', border: '1px solid #dcd4cc', background: '#fff', position: 'relative' }}>
+                        <img
+                          src={selectedProduct.image_url || selectedProduct.images[0]}
+                          alt={selectedProduct.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                        {Array.isArray(selectedProduct.images) && selectedProduct.images.length > 1 && (
+                          <span style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 9, padding: '2px 5px', borderRadius: 2 }}>
+                            {selectedProduct.images.length} photos
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ width: 100, height: 130, borderRadius: 4, border: '1px dashed #d0c5bc', background: '#f5efe8', display: 'grid', placeItems: 'center', textAlign: 'center', padding: 8 }}>
+                        <span style={{ fontSize: 10, color: '#888', textTransform: 'uppercase' }}>No image uploaded</span>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, lineHeight: 1.55, color: '#444' }}>
-                    <strong>Name:</strong> {selectedProduct.name} &bull; <strong>Category:</strong> {selectedProduct.category || 'Tops'} &bull; <strong>Color:</strong> {selectedProduct.color || 'Studio shade'} &bull; <strong>Fabric:</strong> {selectedProduct.material || 'Verified studio material'}
+
+                  {/* Verified Details */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#8a6538', fontWeight: 600 }}>
+                        Verified Catalogue Data
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1719' }}>₹{selectedProduct.price_inr}</span>
+                    </div>
+                    <h4 style={{ margin: '0 0 6px', fontSize: 15, fontFamily: 'Georgia, serif', fontWeight: 400, color: '#1a1719' }}>
+                      {selectedProduct.name}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px 12px', fontSize: 12, color: '#555', marginTop: 8 }}>
+                      <div><strong style={{ color: '#222' }}>Category:</strong> {selectedProduct.category || 'Piece'}</div>
+                      <div><strong style={{ color: '#222' }}>Color:</strong> {selectedProduct.color || 'Studio shade'}</div>
+                      <div><strong style={{ color: '#222' }}>Fabric:</strong> {selectedProduct.material || 'Verified studio material'}</div>
+                      <div><strong style={{ color: '#222' }}>Season:</strong> {selectedProduct.colour_season || 'All seasons'}</div>
+                    </div>
+
+                    {/* Multi-image thumbnail gallery strip if multiple images */}
+                    {Array.isArray(selectedProduct.images) && selectedProduct.images.length > 1 && (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', paddingBottom: 2 }}>
+                        {selectedProduct.images.map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img}
+                            alt=""
+                            style={{ width: 34, height: 42, objectFit: 'cover', borderRadius: 2, border: '1px solid #d5cbc2', cursor: 'pointer' }}
+                            title={`Photo ${idx + 1}`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -951,7 +997,18 @@ export function AIStudio() {
                     <tr key={d.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '12px', fontWeight: 500 }}>{d.title}</td>
                       <td style={{ padding: '12px', color: 'var(--muted, #666)' }}>{d.content_type?.replace(/_/g, ' ')}</td>
-                      <td style={{ padding: '12px' }}>{d.product_name || '—'}</td>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {(() => {
+                            const prod = products.find((p) => p.id === d.product_id);
+                            const img = prod?.image_url || (Array.isArray(prod?.images) && prod?.images[0]);
+                            return img ? (
+                              <img src={img} alt="" style={{ width: 28, height: 36, objectFit: 'cover', borderRadius: 2, border: '1px solid #e0e0e0', flexShrink: 0 }} />
+                            ) : null;
+                          })()}
+                          <span>{d.product_name || '—'}</span>
+                        </div>
+                      </td>
                       <td style={{ padding: '12px' }}>v{d.version}</td>
                       <td style={{ padding: '12px' }}>
                         <span

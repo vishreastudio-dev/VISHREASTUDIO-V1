@@ -58,6 +58,8 @@ const ctaStyle = {
   radius: num(0, 32),
   size: pick('sm', 'md', 'lg'),
   uppercase: flag,
+  offset_x: num(-250, 250),
+  offset_y: num(-250, 250),
 };
 
 const position = (maxWidth, insetX, insetY) => ({
@@ -134,8 +136,8 @@ export const DEFAULT_SLIDE = {
     panel_opacity: 55,
   },
   visibility: { heading: true, subtitle: true, description: true },
-  primary_cta: { label: '', url: '', visible: true, new_tab: false, bg: INK, color: '#ffffff', border: INK, border_width: 1, radius: 0, size: 'md', uppercase: true },
-  secondary_cta: { label: '', url: '', visible: false, new_tab: false, bg: 'transparent', color: INK, border: INK, border_width: 1, radius: 0, size: 'md', uppercase: true },
+  primary_cta: { label: '', url: '', visible: true, new_tab: false, bg: INK, color: '#ffffff', border: INK, border_width: 1, radius: 0, size: 'md', uppercase: true, offset_x: 0, offset_y: 0 },
+  secondary_cta: { label: '', url: '', visible: false, new_tab: false, bg: 'transparent', color: INK, border: INK, border_width: 1, radius: 0, size: 'md', uppercase: true, offset_x: 0, offset_y: 0 },
   starts_at: null,
   ends_at: null,
 };

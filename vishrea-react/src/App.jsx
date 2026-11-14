@@ -13,6 +13,7 @@ import { Legal } from './pages/Legal';
 import { Contact } from './pages/Contact';
 import { NotFound } from './pages/NotFound';
 import { StyleAssistant } from './components/StyleAssistant';
+import { FirstTimeOnboardingModal } from './components/FirstTimeOnboardingModal';
 
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
 const Checkout = named(() => import('./pages/Checkout'), 'Checkout');
@@ -68,6 +69,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       {!isExcluded && <StyleAssistant />}
+      <FirstTimeOnboardingModal />
     </ErrorBoundary>
   );
 }

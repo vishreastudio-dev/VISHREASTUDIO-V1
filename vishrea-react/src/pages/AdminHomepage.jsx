@@ -236,6 +236,79 @@ function CtaEditor({ value, onChange, destinations, errors, prefix }) {
         <Range label="Corner radius" value={value.radius} rule={SLIDE_SPEC.primary_cta.radius} unit="px" onChange={set('radius')} />
         <label className="hce-inline"><input type="checkbox" checked={value.uppercase} onChange={(e) => set('uppercase')(e.target.checked)} /> Capitals</label>
       </div>
+      <div style={{ marginTop: 12, padding: '12px 14px', background: '#f9f8f6', border: '1px solid #e5dfd8', borderRadius: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1a1719', display: 'block', marginBottom: 8 }}>
+          Manual Button Movement &amp; Placement
+        </span>
+        <div className="hce-row">
+          <Range
+            label="Horizontal Position (X)"
+            value={value.offset_x || 0}
+            rule={SLIDE_SPEC.primary_cta.offset_x}
+            unit="px"
+            onChange={set('offset_x')}
+          />
+          <Range
+            label="Vertical Position (Y)"
+            value={value.offset_y || 0}
+            rule={SLIDE_SPEC.primary_cta.offset_y}
+            unit="px"
+            onChange={set('offset_y')}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#777', marginRight: 4 }}>Nudge:</span>
+          <button
+            type="button"
+            className="btn"
+            style={{ padding: '3px 8px', fontSize: 11 }}
+            title="Move left 5px"
+            onClick={() => set('offset_x')(Math.max(-250, (Number(value.offset_x) || 0) - 5))}
+          >
+            &larr; Left 5px
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ padding: '3px 8px', fontSize: 11 }}
+            title="Move right 5px"
+            onClick={() => set('offset_x')(Math.min(250, (Number(value.offset_x) || 0) + 5))}
+          >
+            &rarr; Right 5px
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ padding: '3px 8px', fontSize: 11 }}
+            title="Move up 5px"
+            onClick={() => set('offset_y')(Math.max(-250, (Number(value.offset_y) || 0) - 5))}
+          >
+            &uarr; Up 5px
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ padding: '3px 8px', fontSize: 11 }}
+            title="Move down 5px"
+            onClick={() => set('offset_y')(Math.min(250, (Number(value.offset_y) || 0) + 5))}
+          >
+            &darr; Down 5px
+          </button>
+          {((value.offset_x && value.offset_x !== 0) || (value.offset_y && value.offset_y !== 0)) && (
+            <button
+              type="button"
+              className="btn"
+              style={{ padding: '3px 8px', fontSize: 10, color: 'var(--wine, #752238)' }}
+              onClick={() => {
+                set('offset_x')(0);
+                set('offset_y')(0);
+              }}
+            >
+              Reset (0,0)
+            </button>
+          )}
+        </div>
+      </div>
     </>
   );
 }
@@ -491,12 +564,12 @@ function SlideEditor({ entry, data, onClose, onSaved, toast }) {
             />
             <small className="hce-note">{fitNote(preview)}</small>
             <div className="hce-row">
-              <Range label="Focal point (left ↔ right)" value={im.focal_x} rule={SLIDE_SPEC.image_settings.focal_x} unit="%" onChange={set(['image_settings', 'focal_x'])} />
-              <Range label="Focal point (top ↕ bottom)" value={im.focal_y} rule={SLIDE_SPEC.image_settings.focal_y} unit="%" onChange={set(['image_settings', 'focal_y'])} />
+              <Range label="Focal point (horizontal)" value={im.focal_x} rule={SLIDE_SPEC.image_settings.focal_x} unit="%" onChange={set(['image_settings', 'focal_x'])} />
+              <Range label="Focal point (vertical)" value={im.focal_y} rule={SLIDE_SPEC.image_settings.focal_y} unit="%" onChange={set(['image_settings', 'focal_y'])} />
             </div>
             <div className="hce-row">
-              <Range label="Mobile focal (left ↔ right)" value={im.mobile_focal_x} rule={SLIDE_SPEC.image_settings.mobile_focal_x} unit="%" onChange={set(['image_settings', 'mobile_focal_x'])} />
-              <Range label="Mobile focal (top ↕ bottom)" value={im.mobile_focal_y} rule={SLIDE_SPEC.image_settings.mobile_focal_y} unit="%" onChange={set(['image_settings', 'mobile_focal_y'])} />
+              <Range label="Mobile focal (horizontal)" value={im.mobile_focal_x} rule={SLIDE_SPEC.image_settings.mobile_focal_x} unit="%" onChange={set(['image_settings', 'mobile_focal_x'])} />
+              <Range label="Mobile focal (vertical)" value={im.mobile_focal_y} rule={SLIDE_SPEC.image_settings.mobile_focal_y} unit="%" onChange={set(['image_settings', 'mobile_focal_y'])} />
             </div>
             <ColorField label={slide.layout_type === 'full' ? 'Background colour (behind the image)' : 'Text panel colour'} value={im.background} onChange={set(['image_settings', 'background'])} />
           </Group>
@@ -717,10 +790,12 @@ export function HomepageSection({ toast }) {
             {data.settings.is_enabled ? (live ? `${live} slide${live === 1 ? ' is' : 's are'} live now.` : 'No slide is live, so the homepage shows its original hero.') : 'The carousel is switched off, so the homepage shows its original hero.'}
           </p>
         </div>
-        <div className="actions">
-          <a className="btn" href="/" target="_blank" rel="noopener noreferrer">View homepage</a>
+        <div className="actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+          <a className="btn" href="/" target="_blank" rel="noopener noreferrer">
+            View Homepage
+          </a>
           <button type="button" className="btn primary" disabled={full} title={full ? `At most ${data.limits.max_slides} slides` : undefined} onClick={() => setEditing({ entry: null })}>
-            Add slide
+            + Add Slide
           </button>
         </div>
       </div>
@@ -735,7 +810,14 @@ export function HomepageSection({ toast }) {
         <div className="table-wrap">
           <table className="table hce-list">
             <thead>
-              <tr><th aria-label="Drag to reorder" /><th>Order</th><th>Banner</th><th>Slide</th><th>Status</th><th /></tr>
+              <tr>
+                <th style={{ width: 36 }} aria-label="Drag to reorder" />
+                <th style={{ width: 80 }}>Order</th>
+                <th style={{ width: 140 }}>Banner</th>
+                <th>Slide</th>
+                <th style={{ width: 140 }}>Status</th>
+                <th style={{ minWidth: 480, textAlign: 'right' }}>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {!slides.length && <tr><td colSpan="6" className="empty">No slides yet. Add a slide and upload its banner.</td></tr>}
@@ -759,12 +841,21 @@ export function HomepageSection({ toast }) {
                     }}
                     className={e.is_active ? '' : 'is-muted'}
                   >
-                    <td className="hce-grip" title="Drag to reorder" aria-hidden="true">⠿</td>
+                    <td className="hce-grip" title="Drag to reorder" aria-hidden="true">
+                      <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" style={{ opacity: 0.45, display: 'inline-block', verticalAlign: 'middle' }}>
+                        <circle cx="2.5" cy="2" r="1.5" />
+                        <circle cx="7.5" cy="2" r="1.5" />
+                        <circle cx="2.5" cy="7" r="1.5" />
+                        <circle cx="7.5" cy="7" r="1.5" />
+                        <circle cx="2.5" cy="12" r="1.5" />
+                        <circle cx="7.5" cy="12" r="1.5" />
+                      </svg>
+                    </td>
                     <td>
                       <div className="hce-order">
-                        <span>{i + 1}</span>
-                        <button type="button" className="btn" disabled={busy || i === 0} onClick={() => move(i, i - 1)} aria-label={`Move slide ${i + 1} up`}>↑</button>
-                        <button type="button" className="btn" disabled={busy || i === slides.length - 1} onClick={() => move(i, i + 1)} aria-label={`Move slide ${i + 1} down`}>↓</button>
+                        <span style={{ fontWeight: 600, minWidth: 18, textAlign: 'center' }}>{i + 1}</span>
+                        <button type="button" className="btn" disabled={busy || i === 0} onClick={() => move(i, i - 1)} aria-label={`Move slide ${i + 1} up`} title="Move up">↑</button>
+                        <button type="button" className="btn" disabled={busy || i === slides.length - 1} onClick={() => move(i, i + 1)} aria-label={`Move slide ${i + 1} down`} title="Move down">↓</button>
                       </div>
                     </td>
                     <td>
@@ -784,20 +875,32 @@ export function HomepageSection({ toast }) {
                       {e.has_unpublished_changes && <small style={{ display: 'block', color: '#8a5a00' }}>Unpublished changes</small>}
                       {e.publication_status === 'draft' && !e.is_active && <small style={{ display: 'block', color: 'var(--muted)' }}>Inactive</small>}
                     </td>
-                    <td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div className="hce-row-actions">
-                        <button type="button" className="btn" disabled={busy} onClick={() => setEditing({ entry: e })}>Edit</button>
-                        <button type="button" className="btn" disabled={busy} onClick={() => setPreviewing(e)}>Preview</button>
+                        <button type="button" className="btn primary" disabled={busy} onClick={() => setEditing({ entry: e })} title="Edit slide layout, text & positioning">
+                          Edit
+                        </button>
+                        <button type="button" className="btn" disabled={busy} onClick={() => setPreviewing(e)} title="Preview slide">
+                          Preview
+                        </button>
                         {e.publication_status === 'published' ? (
-                          <button type="button" className="btn" disabled={busy} onClick={() => run(() => act('unpublish', { id: e.id }), 'Slide unpublished. It is now a draft.')}>Unpublish</button>
+                          <button type="button" className="btn" disabled={busy} onClick={() => run(() => act('unpublish', { id: e.id }), 'Slide unpublished. It is now a draft.')} title="Move back to draft">
+                            Unpublish
+                          </button>
                         ) : (
-                          <button type="button" className="btn" disabled={busy || problems.length > 0} title={problems[0]} onClick={() => run(() => act('publish', { id: e.id, version: e.version }), 'Slide published')}>Publish</button>
+                          <button type="button" className="btn" disabled={busy || problems.length > 0} title={problems[0] || 'Publish to live carousel'} onClick={() => run(() => act('publish', { id: e.id, version: e.version }), 'Slide published')}>
+                            Publish
+                          </button>
                         )}
-                        <button type="button" className="btn" disabled={busy} onClick={() => run(() => act('activate', { id: e.id, is_active: !e.is_active }), e.is_active ? 'Slide deactivated' : 'Slide activated')}>
+                        <button type="button" className="btn" disabled={busy} onClick={() => run(() => act('activate', { id: e.id, is_active: !e.is_active }), e.is_active ? 'Slide deactivated' : 'Slide activated')} title={e.is_active ? 'Deactivate slide' : 'Activate slide'}>
                           {e.is_active ? 'Deactivate' : 'Activate'}
                         </button>
-                        <button type="button" className="btn" disabled={busy || full} onClick={() => run(() => act('duplicate', { id: e.id }), 'Slide duplicated as a draft')}>Duplicate</button>
-                        <button type="button" className="btn hce-danger" disabled={busy} onClick={() => remove(e)}>Delete</button>
+                        <button type="button" className="btn" disabled={busy || full} onClick={() => run(() => act('duplicate', { id: e.id }), 'Slide duplicated as a draft')} title="Duplicate as a new draft">
+                          Duplicate
+                        </button>
+                        <button type="button" className="btn hce-danger" disabled={busy} onClick={() => remove(e)} title="Delete slide">
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>

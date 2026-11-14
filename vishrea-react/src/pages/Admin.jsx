@@ -11,10 +11,33 @@ import { AdministratorsSection, CouriersSection, CustomerDetail, GiftEnquiriesSe
 import { AIStudio } from '../admin/AIStudio';
 
 const COLOUR_SEASONS = ['Light Spring', 'True Autumn', 'Soft Autumn', 'Deep Autumn', 'Light Summer', 'Soft Summer', 'True Winter', 'Deep Winter'];
-const EXCHANGE_NEXT = { requested: ['review', 'approved', 'rejected'], review: ['approved', 'rejected'], approved: ['completed'], rejected: [], completed: [] };
+const EXCHANGE_NEXT = {
+  requested: ['review', 'approved', 'not_approved', 'rejected'],
+  review: ['approved', 'not_approved', 'rejected'],
+  approved: ['not_approved', 'completed', 'review', 'rejected'],
+  not_approved: ['approved', 'review', 'rejected', 'completed'],
+  rejected: ['review', 'approved', 'not_approved'],
+  completed: ['approved', 'not_approved'],
+};
+const EXCHANGE_STATUS_LABELS = {
+  requested: 'Requested',
+  review: 'Under Review',
+  approved: 'Approve',
+  not_approved: 'Not Approve',
+  rejected: 'Reject',
+  completed: 'Completed',
+};
+const ALL_EXCHANGE_STATUSES = [
+  ['requested', 'Requested'],
+  ['review', 'Under Review'],
+  ['approved', 'Approve'],
+  ['not_approved', 'Not Approve'],
+  ['completed', 'Completed'],
+  ['rejected', 'Reject'],
+];
 const MEMBERSHIP_STATUSES = ['active', 'paused', 'expired', 'cancelled', 'payment_failed', 'inactive'];
 // Sections that render their own data component instead of the shared section cache.
-const SELF_LOADING = new Set(['listing', 'ai_studio', 'gift_enquiries', 'referrals', 'rewards', 'settings', 'couriers', 'administrators', 'homepage']);
+const SELF_LOADING = new Set(['ai_studio', 'gift_enquiries', 'referrals', 'rewards', 'settings', 'couriers', 'administrators', 'homepage']);
 
 const ORDER_NEXT = { pending_payment: ['cancelled'], processing: ['packed', 'dispatched', 'cancelled'], packed: ['dispatched', 'processing', 'cancelled'], dispatched: ['delivered'], refund_required: ['refunded'], cancelled: ['refunded'] };
 const newVariant = (i = 0) => ({ key: `new-${Date.now()}-${i}`, size_label: '', sku: '', price_inr: '', sale_price_inr: '', stock_quantity: 1, is_active: true });
@@ -50,7 +73,6 @@ const SECTIONS = [
   ['dashboard', 'Overview'],
   ['products', 'Products'],
   ['categories', 'Categories'],
-  ['listing', 'AI Listing Studio'],
   ['ai_studio', 'Vishrea AI Studio'],
   ['orders', 'Orders'],
   ['couriers', 'Couriers'],
@@ -104,7 +126,11 @@ const LIST_FILTERS = {
   },
   customers: {
     placeholder: 'Name, email or phone',
-    selects: [['membership', 'Membership', [['', 'All'], ['none', 'Never joined'], ['active', 'Active'], ['paused', 'Paused'], ['expired', 'Expired'], ['cancelled', 'Cancelled'], ['pending_payment', 'Awaiting payment']]]],
+    selects: [
+      ['membership', 'Membership', [['', 'All'], ['none', 'Never joined'], ['active', 'Active'], ['paused', 'Paused'], ['expired', 'Expired'], ['cancelled', 'Cancelled'], ['pending_payment', 'Awaiting payment']]],
+      ['sort', 'Ranking / Sort', [['', 'Default (Newest)'], ['top_spending', 'Top Spenders (Highest Spend)'], ['order_count', 'Most Orders']]],
+      ['min_spent', 'Minimum Spend', [['', 'Any Spend'], ['1000', 'Over ₹1,000'], ['5000', 'Over ₹5,000 (High Value)'], ['10000', 'Over ₹10,000 (VIP)']]],
+    ],
   },
 };
 
@@ -172,10 +198,6 @@ function AdminStudio({ section }) {
   const [storeSearch, setStoreSearch] = useState('');
   const [storeMode, setStoreMode] = useState('upi');
 
-  const [listingForm, setListingForm] = useState({ category: 'Dresses', occasion: 'Evening', colour: 'Burgundy', fabric: '', cost_price_inr: '', notes: '' });
-  const [aiSuggestion, setAiSuggestion] = useState(null);
-  const [generating, setGenerating] = useState(false);
-
   const videoInputRef = useRef(null);
   const [videoDuration, setVideoDuration] = useState(null);
   const [videoDurationValid, setVideoDurationValid] = useState(false);
@@ -183,6 +205,33 @@ function AdminStudio({ section }) {
   const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const formatPrice = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
+
+  const fulfilmentBadge = (status) => {
+    const map = {
+      delivered: { cls: 'badge-success', label: 'Delivered' },
+      dispatched: { cls: 'badge-dispatched', label: 'Dispatched' },
+      packed: { cls: 'badge-purple', label: 'Packed' },
+      processing: { cls: 'badge-warn', label: 'Processing' },
+      placed: { cls: 'badge-neutral', label: 'Placed' },
+      cancelled: { cls: 'badge-danger', label: 'Cancelled' },
+      refunded: { cls: 'badge-danger', label: 'Refunded' },
+    };
+    const conf = map[status] || { cls: 'badge-neutral', label: status ? status.replace(/_/g, ' ') : '—' };
+    return <span className={`badge ${conf.cls}`}>{conf.label}</span>;
+  };
+
+  const paymentBadge = (status) => {
+    const map = {
+      paid: { cls: 'badge-paid', label: 'Paid' },
+      refund_required: { cls: 'badge-danger', label: 'Refund Req' },
+      refunded: { cls: 'badge-danger', label: 'Refunded' },
+      authorized: { cls: 'badge-info', label: 'Authorized' },
+      pending: { cls: 'badge-warn', label: 'Pending' },
+      failed: { cls: 'badge-danger', label: 'Failed' },
+    };
+    const conf = map[status] || { cls: 'badge-neutral', label: status ? status.replace(/_/g, ' ') : '—' };
+    return <span className={`badge ${conf.cls}`}>{conf.label}</span>;
+  };
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -773,139 +822,6 @@ function AdminStudio({ section }) {
           </section>
         )}
 
-        {/* 4. AI Listing Studio */}
-        {section === 'listing' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>AI Listing Studio</h2>
-                <p>Prepare a listing from owner-supplied facts. AI only suggests; the owner approves before publishing.</p>
-              </div>
-              <span className="status warn">Approval required</span>
-            </div>
-            <form
-              className="form-grid"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (generating) return;
-                setGenerating(true);
-                setAiSuggestion(null);
-                try {
-                  const d = await api('/api/admin/listing-studio', { method: 'POST', body: listingForm, timeoutMs: 45000 });
-                  setAiSuggestion(d.suggestion);
-                } catch (err) {
-                  showToast(err.message);
-                } finally {
-                  setGenerating(false);
-                }
-              }}
-            >
-              <div className="field">
-                <label htmlFor="ls-category">Category</label>
-                <input
-                  id="ls-category"
-                  name="category"
-                  maxLength={80}
-                  required
-                  value={listingForm.category}
-                  onChange={(e) => setListingForm({ ...listingForm, category: e.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="ls-occasion">Occasion</label>
-                <input
-                  id="ls-occasion"
-                  name="occasion"
-                  maxLength={80}
-                  value={listingForm.occasion}
-                  onChange={(e) => setListingForm({ ...listingForm, occasion: e.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="ls-colour">Colour</label>
-                <input
-                  id="ls-colour"
-                  name="colour"
-                  maxLength={60}
-                  value={listingForm.colour}
-                  onChange={(e) => setListingForm({ ...listingForm, colour: e.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="ls-fabric">Fabric</label>
-                <input id="ls-fabric" value={listingForm.fabric} onChange={(e) => setListingForm({ ...listingForm, fabric: e.target.value })} />
-              </div>
-              <div className="field">
-                <label htmlFor="ls-cost">Cost price (INR)</label>
-                <input id="ls-cost" type="number" min="0" value={listingForm.cost_price_inr} onChange={(e) => setListingForm({ ...listingForm, cost_price_inr: e.target.value })} />
-              </div>
-              <div className="field full">
-                <label htmlFor="ls-notes">Notes</label>
-                <input
-                  id="ls-notes"
-                  name="notes"
-                  value={listingForm.notes}
-                  onChange={(e) => setListingForm({ ...listingForm, notes: e.target.value })}
-                />
-              </div>
-              <div className="field full">
-                <button className="btn primary" disabled={generating}>
-                  {generating ? 'Drafting listing…' : 'Generate listing suggestion'}
-                </button>
-              </div>
-            </form>
-            {aiSuggestion && (
-              <div className="panel" style={{ margin: '18px 0 0' }}>
-                <div className="panel-head">
-                  <div>
-                    <h2>{aiSuggestion.title}</h2>
-                    <p>{aiSuggestion.description}</p>
-                  </div>
-                  <span className="status warn">Review before publish</span>
-                </div>
-                <div className="grid2">
-                  <div>
-                    <strong>Category:</strong> <p>{aiSuggestion.category}</p>
-                    <strong>Colour season:</strong> <p>{aiSuggestion.colour_season}</p>
-                  </div>
-                  <div>
-                    <strong>Suggested price:</strong> <p>{formatPrice(aiSuggestion.suggested_price_inr)}</p>
-                    <strong>HSN:</strong> <p>{aiSuggestion.hsn_code}</p>
-                  </div>
-                </div>
-                <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                  <button
-                    type="button"
-                    className="btn primary"
-                    onClick={() => {
-                      const cat = categories.find((c) => c.name.toLowerCase() === String(aiSuggestion.category || '').toLowerCase());
-                      setActiveItem({
-                        name: aiSuggestion.title,
-                        description: aiSuggestion.description,
-                        category_id: cat?.id || categories[0]?.id || '',
-                        cost_price_inr: listingForm.cost_price_inr || '',
-                        color: aiSuggestion.colour || listingForm.colour || '',
-                        colour_season: aiSuggestion.colour_season,
-                        material: aiSuggestion.fabric,
-                        hsn_code: aiSuggestion.hsn_code,
-                        badge: 'NEW',
-                        is_one_of_one: true,
-                        is_active: false,
-                        featured: false,
-                        images: [],
-                        variants: [{ ...newVariant(), size_label: 'Free Size', price_inr: aiSuggestion.suggested_price_inr || '' }],
-                      });
-                      setModalType('product');
-                    }}
-                  >
-                    Review in piece editor
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
         {/* Vishrea AI Studio */}
         {section === 'ai_studio' && <AIStudio />}
 
@@ -929,14 +845,14 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Order</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Payment</th>
-                    <th>Status</th>
-                    <th>Channel</th>
-                    <th>Tracking</th>
-                    <th></th>
+                    <th style={{ minWidth: 130 }}>Order</th>
+                    <th style={{ minWidth: 260 }}>Items</th>
+                    <th style={{ minWidth: 150 }}>Customer</th>
+                    <th style={{ minWidth: 90 }}>Total</th>
+                    <th style={{ minWidth: 110 }}>Payment</th>
+                    <th style={{ minWidth: 110 }}>Status</th>
+                    <th style={{ minWidth: 160 }}>Tracking</th>
+                    <th style={{ minWidth: 140, textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -946,43 +862,86 @@ function AdminStudio({ section }) {
                   {displayOrders.map((o) => (
                     <tr key={o.id}>
                       <td>
-                        {o.id.slice(0, 8).toUpperCase()}
-                        <br />
-                        <small>{new Date(o.created_at).toLocaleDateString('en-IN')}</small>
-                        {(o.items || []).map((i, idx) => {
-                          const imgs = productImages(i);
-                          return (
-                            <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                              <ProductThumb images={imgs} name={i.name} size={36} onOpen={() => { setActiveItem({ name: i.name, images: imgs, index: 0 }); setModalType('image'); }} />
-                              <small style={{ color: 'var(--muted)' }}>{i.name}{i.size ? ` · ${i.size}` : ''} × {i.qty}</small>
-                            </div>
-                          );
-                        })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: 13, letterSpacing: '0.04em', color: 'var(--ink)' }}>
+                            #{o.id.slice(0, 8).toUpperCase()}
+                          </strong>
+                          <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#f0ece7', color: '#555', padding: '1px 5px', borderRadius: 3, fontWeight: 600 }}>
+                            {o.channel || 'web'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                          {new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </div>
                       </td>
-                      <td>{o.full_name || o.email || '—'}</td>
-                      <td>{formatPrice(o.total)}</td>
                       <td>
-                        <span className={`status ${o.payment_status === 'paid' ? 'good' : o.payment_status === 'refund_required' ? 'bad' : 'warn'}`}>{o.payment_status}</span>
-                        {o.payment_failure_reason && <small style={{ display: 'block', color: 'var(--muted)' }}>{PAYMENT_REASON[o.payment_failure_reason] || o.payment_failure_reason.replace(/_/g, ' ')}</small>}
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {(o.items || []).map((i, idx) => {
+                            const imgs = productImages(i);
+                            return (
+                              <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                <ProductThumb images={imgs} name={i.name} size={38} onOpen={() => { setActiveItem({ name: i.name, images: imgs, index: 0 }); setModalType('image'); }} />
+                                <div style={{ minWidth: 0, lineHeight: 1.35 }}>
+                                  <div style={{ fontWeight: 500, fontSize: 12, color: 'var(--ink)' }}>{i.name}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{i.size ? `${i.size} · ` : ''}Qty {i.qty}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </td>
-                      <td>{o.status}</td>
-                      <td>{o.channel || 'web'}</td>
                       <td>
-                        {o.courier_partner && <small style={{ display: 'block', color: 'var(--muted)' }}>{o.courier_partner}</small>}
+                        <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--ink)' }}>{o.full_name || 'Customer'}</div>
+                        {(o.email || o.phone) && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, wordBreak: 'break-all' }}>
+                            {o.email || o.phone}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <strong style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+                          {formatPrice(o.total)}
+                        </strong>
+                        {(o.items?.length || 0) > 1 && (
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                            {o.items.reduce((s, x) => s + (x.qty || 1), 0)} pcs
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {paymentBadge(o.payment_status)}
+                        {o.payment_failure_reason && (
+                          <div style={{ fontSize: 10, color: '#dc2626', marginTop: 4, lineHeight: 1.3 }}>
+                            {PAYMENT_REASON[o.payment_failure_reason] || o.payment_failure_reason.replace(/_/g, ' ')}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {fulfilmentBadge(o.status)}
+                      </td>
+                      <td>
+                        {o.courier_partner && (
+                          <div className="tracking-courier">{o.courier_partner}</div>
+                        )}
                         {o.tracking_number ? (
                           o.tracking_url ? (
-                            <a href={o.tracking_url} target="_blank" rel="noopener noreferrer">{o.tracking_number}</a>
-                          ) : o.tracking_number
-                        ) : '—'}
+                            <a href={o.tracking_url} target="_blank" rel="noopener noreferrer" className="tracking-pill" title="Track shipment">
+                              <span>{o.tracking_number}</span>
+                            </a>
+                          ) : (
+                            <span className="tracking-pill">{o.tracking_number}</span>
+                          )
+                        ) : (
+                          <span style={{ color: 'var(--muted)' }}>—</span>
+                        )}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <div className="table-actions">
                           {(ORDER_NEXT[o.status] || []).filter((s) => s !== 'refunded' || ['paid', 'refund_required'].includes(o.payment_status)).map((s) => (
                             <button
                               key={s}
                               type="button"
-                              className="btn"
-                              style={{ padding: '4px 8px', fontSize: 10 }}
+                              className={`btn-action ${s === 'dispatched' ? 'primary' : s === 'cancelled' ? 'danger' : ''}`}
                               disabled={busy}
                               onClick={() => {
                                 if (s === 'dispatched') {
@@ -993,7 +952,7 @@ function AdminStudio({ section }) {
                                 mutate(() => post('order', { id: o.id, status: s }), { success: `Order marked ${s}`, reload: 'orders' });
                               }}
                             >
-                              {s.replace('_', ' ')}
+                              {s === 'dispatched' ? 'Dispatch' : s.replace('_', ' ')}
                             </button>
                           ))}
                         </div>
@@ -1011,12 +970,32 @@ function AdminStudio({ section }) {
           <section className="panel">
             <div className="panel-head">
               <div>
-                <h2>Customer records</h2>
-                <p>Account, membership, credit and order context.</p>
+                <h2>Customer records & Analytics</h2>
+                <p>Track purchase costs, rank top spenders, and distribute special offers directly to clients.</p>
               </div>
-              <a className="btn" href="/api/admin/ops?section=export&type=customers">
-                Export CSV
-              </a>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => {
+                    setActiveItem({
+                      target_type: 'top_spenders',
+                      code: `VIP${new Date().getFullYear()}`,
+                      title: 'Top Spenders Exclusive Privilege',
+                      description: 'Exclusive seasonal offer for top-spending clients.',
+                      discount_type: 'percentage',
+                      discount_value: 20,
+                      valid_days: 30,
+                    });
+                    setModalType('distribute_offer');
+                  }}
+                >
+                  + Distribute Special Offer to Top Spenders
+                </button>
+                <a className="btn" href="/api/admin/ops?section=export&type=customers">
+                  Export CSV
+                </a>
+              </div>
             </div>
             <ListFilter section="customers" categories={categories} onApply={applyFilter} busy={loading} />
             <div className="table-wrap">
@@ -1028,12 +1007,13 @@ function AdminStudio({ section }) {
                     <th>Membership</th>
                     <th>Credits</th>
                     <th>Orders</th>
+                    <th>Total Spend</th>
                     <th>Consent</th>
-                    <th></th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.customers || []).length && !loading && <tr><td colSpan="7" className="empty">{filterQs.current.customers ? 'No customers match these filters.' : 'No customers yet.'}</td></tr>}
+                  {!(cache.customers || []).length && !loading && <tr><td colSpan="8" className="empty">{filterQs.current.customers ? 'No customers match these filters.' : 'No customers yet.'}</td></tr>}
                   {(cache.customers || []).map((c) => (
                     <tr key={c.auth_user_id}>
                       <td>
@@ -1047,8 +1027,38 @@ function AdminStudio({ section }) {
                       </td>
                       <td>{c.credits_balance ?? '—'}</td>
                       <td>{c.order_count ?? 0}</td>
+                      <td>
+                        <strong>{formatPrice(c.total_spent || 0)}</strong>
+                        {Number(c.total_spent || 0) >= 10000 && (
+                          <span className="status good" style={{ marginLeft: 6, fontSize: 10, padding: '2px 5px' }}>VIP</span>
+                        )}
+                      </td>
                       <td>{c.marketing_opt_in ? 'Marketing on' : 'Marketing off'}</td>
-                      <td><button className="btn" onClick={() => setCustomerId(c.auth_user_id)}>Open</button></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn" onClick={() => setCustomerId(c.auth_user_id)}>Open</button>
+                          <button
+                            className="btn primary"
+                            title="Distribute special offer to this customer"
+                            onClick={() => {
+                              setActiveItem({
+                                customer: c,
+                                auth_user_id: c.auth_user_id,
+                                target_type: 'single',
+                                code: `VIP${Math.floor(100 + Math.random() * 900)}`,
+                                title: `Special Offer for ${c.full_name || 'Client'}`,
+                                description: 'Personalized exclusive privilege from Vishrea Studio.',
+                                discount_type: 'percentage',
+                                discount_value: 20,
+                                valid_days: 30,
+                              });
+                              setModalType('distribute_offer');
+                            }}
+                          >
+                            Offer
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1204,16 +1214,56 @@ function AdminStudio({ section }) {
                           value={x.status}
                           disabled={busy}
                           aria-label="Exchange status"
+                          style={{
+                            padding: '5px 10px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            border: `1px solid ${x.status === 'approved' ? '#c8e6c9' : x.status === 'not_approved' ? '#fecaca' : x.status === 'review' ? '#fde68a' : 'var(--admin-line, #ccc)'}`,
+                            background: x.status === 'approved' ? '#edf7ed' : x.status === 'not_approved' ? '#fef2f2' : x.status === 'review' ? '#fff8e1' : '#fff',
+                            color: x.status === 'approved' ? '#1e4620' : x.status === 'not_approved' ? '#991b1b' : x.status === 'review' ? '#854d0e' : 'var(--ink, #1a1719)',
+                          }}
                           onChange={(e) => {
-                            const resolution = ['approved', 'rejected', 'completed'].includes(e.target.value) ? window.prompt('Resolution note (shown to the customer)', x.resolution || '') : x.resolution;
-                            if (resolution === null) return;
-                            mutate(() => post('exchange', { id: x.id, status: e.target.value, resolution }), { success: 'Exchange updated', reload: 'exchanges' });
+                            const val = e.target.value;
+                            if (val === x.status) return;
+                            setActiveItem({
+                              exchange: x,
+                              nextStatus: val,
+                              resolution: x.resolution || (val === 'not_approved' ? 'Request not approved upon studio inspection.' : val === 'approved' ? 'Approved by studio. Replacement will be processed.' : ''),
+                            });
+                            setModalType('exchange_decision');
                           }}
                         >
-                          {[x.status, ...(EXCHANGE_NEXT[x.status] || [])].map((s) => <option key={s} value={s}>{s}</option>)}
+                          {ALL_EXCHANGE_STATUSES.map(([s, label]) => (
+                            <option key={s} value={s}>
+                              {label}
+                            </option>
+                          ))}
                         </select>
                       </td>
-                      <td>{x.resolution || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 12, color: x.resolution ? 'var(--ink)' : 'var(--muted)' }}>
+                            {x.resolution || '—'}
+                          </span>
+                          <button
+                            type="button"
+                            title="Edit resolution opinion"
+                            style={{ fontSize: 10, padding: '2px 6px', border: '1px solid var(--admin-line, #e5e5e5)', background: '#fff', borderRadius: 3, cursor: 'pointer', color: 'var(--muted)' }}
+                            onClick={() => {
+                              setActiveItem({
+                                exchange: x,
+                                nextStatus: x.status,
+                                resolution: x.resolution || '',
+                              });
+                              setModalType('exchange_decision');
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -1234,21 +1284,40 @@ function AdminStudio({ section }) {
                 <h2>Loyalty & Offers Builder</h2>
                 <p>Rules are data, not developer changes. Keep the profit guard before activation.</p>
               </div>
-              <button
-                className="btn primary"
-                onClick={() => {
-                  setActiveItem({
-                    name: 'VIP Member Perk',
-                    trigger_config: { event: 'second_order' },
-                    reward_config: { discount: '15%' },
-                    active: true,
-                    estimated_monthly_cost: 1500
-                  });
-                  setModalType('loyalty');
-                }}
-              >
-                + Create Offer Rule
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy}
+                  title="Scan customer tenures (6 mo, 8 mo, etc.) and auto-grant anniversary rewards"
+                  onClick={() => {
+                    mutate(
+                      () => post('run_loyalty_triggers', {}),
+                      {
+                        success: (d) => `Automated tenure triggers executed: ${d?.triggered_count ?? 0} customer(s) rewarded!`,
+                        reload: 'loyalty',
+                      }
+                    );
+                  }}
+                >
+                  Run Automated Tenure Triggers
+                </button>
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    setActiveItem({
+                      name: '6-Month Tenure Loyalty Perk',
+                      trigger_config: { event: 'tenure_6_months', months: 6 },
+                      reward_config: { discount: '20% OFF' },
+                      active: true,
+                      estimated_monthly_cost: 1500,
+                    });
+                    setModalType('loyalty');
+                  }}
+                >
+                  + Create Offer Rule
+                </button>
+              </div>
             </div>
             <table className="table">
               <thead>
@@ -1467,7 +1536,7 @@ function AdminStudio({ section }) {
                             <br />
                             <small>
                               <a href={x.post_url} target="_blank" rel="noreferrer" style={{ color: 'var(--wine)' }}>
-                                {x.post_url} ↗
+                                {x.post_url}
                               </a>
                             </small>
                           </td>
@@ -2018,7 +2087,7 @@ function AdminStudio({ section }) {
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', textTransform: 'none', letterSpacing: 0 }}>
                   <input type="checkbox" checked={activeItem.is_active !== false} onChange={(e) => setActiveItem({ ...activeItem, is_active: e.target.checked })} /> Live in catalogue
                 </label>
-                {activeItem.slug && <a className="text-link" href={`/product/${activeItem.slug}`} target="_blank" rel="noreferrer">Preview ↗</a>}
+                {activeItem.slug && <a className="text-link" href={`/product/${activeItem.slug}`} target="_blank" rel="noreferrer">Preview</a>}
               </div>
               <div className="field full">
                 <button className="btn primary" disabled={busy}>{busy ? 'Saving…' : 'Save piece'}</button>
@@ -2216,15 +2285,36 @@ function AdminStudio({ section }) {
                 <label htmlFor="m-trigger-event">Trigger Event</label>
                 <select id="m-trigger-event"
                   value={activeItem.trigger_config?.event || 'order_count'}
-                  onChange={(e) => setActiveItem({ ...activeItem, trigger_config: { ...activeItem.trigger_config, event: e.target.value } })}
+                  onChange={(e) => {
+                    const evt = e.target.value;
+                    const m = evt === 'tenure_6_months' ? 6 : evt === 'tenure_8_months' ? 8 : evt === 'tenure_12_months' ? 12 : 6;
+                    setActiveItem({ ...activeItem, trigger_config: { ...activeItem.trigger_config, event: evt, months: m } });
+                  }}
                 >
                   <option value="signup">Sign Up</option>
                   <option value="first_order">First Order</option>
                   <option value="second_order">Second Order</option>
                   <option value="cart_threshold">Cart Value &gt; ₹5,000</option>
                   <option value="birthday">Member Birthday</option>
+                  <option value="tenure_6_months">Customer Tenure — 6 Months</option>
+                  <option value="tenure_8_months">Customer Tenure — 8 Months</option>
+                  <option value="tenure_12_months">Customer Tenure — 12 Months (1 Year)</option>
+                  <option value="tenure_custom">Custom Tenure (Set Months)</option>
                 </select>
               </div>
+              {String(activeItem.trigger_config?.event || '').startsWith('tenure') && (
+                <div className="field">
+                  <label htmlFor="m-tenure-months">Tenure Months</label>
+                  <input
+                    id="m-tenure-months"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={activeItem.trigger_config?.months || 6}
+                    onChange={(e) => setActiveItem({ ...activeItem, trigger_config: { ...activeItem.trigger_config, months: Number(e.target.value) } })}
+                  />
+                </div>
+              )}
               <div className="field">
                 <label htmlFor="m-reward-benefit">Reward / Benefit</label>
                 <input id="m-reward-benefit"
@@ -2254,6 +2344,131 @@ function AdminStudio({ section }) {
               </div>
               <div className="field full">
                 <button className="btn primary">Save &amp; Activate Rule</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Distribute Special Offer to Customer / Top Spenders */}
+      {modalType === 'distribute_offer' && activeItem && (
+        <div className="modal is-visible" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" onClick={(e) => { if (e.target === e.currentTarget) setModalType(null); }}>
+          <div className="modal-content" style={{ maxWidth: '540px', padding: '28px' }}>
+            <div className="panel-head" style={{ marginBottom: '18px' }}>
+              <div>
+                <h2 id="admin-modal-title">Distribute Special Offer</h2>
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>
+                  {activeItem.target_type === 'single'
+                    ? `Grant bespoke offer to ${activeItem.customer?.full_name || activeItem.customer?.email || 'selected client'}`
+                    : 'Grant special offer to all top-spending customers'}
+                </p>
+              </div>
+              <button type="button" className="btn" style={{ background: 'none', border: 'none', fontSize: '20px' }} aria-label="Close" onClick={() => setModalType(null)}>✕</button>
+            </div>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const payload = {
+                  customer_ids: activeItem.target_type === 'single'
+                    ? [activeItem.auth_user_id || activeItem.customer?.auth_user_id]
+                    : (cache.customers || []).filter((c) => Number(c.total_spent || 0) > 0).map((c) => c.auth_user_id),
+                  code: activeItem.code,
+                  title: activeItem.title,
+                  description: activeItem.description,
+                  discount_type: activeItem.discount_type,
+                  discount_value: activeItem.discount_value,
+                  valid_days: activeItem.valid_days,
+                };
+                mutate(
+                  () => post('distribute_offer', payload),
+                  {
+                    success: (d) => `Special offer "${activeItem.code}" successfully distributed to ${d?.count ?? 1} customer(s)!`,
+                    reload: 'customers',
+                    close: true,
+                  }
+                );
+              }}
+            >
+              <div className="field">
+                <label htmlFor="m-offer-target">Recipient Target</label>
+                <select
+                  id="m-offer-target"
+                  value={activeItem.target_type || 'single'}
+                  onChange={(e) => setActiveItem({ ...activeItem, target_type: e.target.value })}
+                >
+                  {activeItem.customer && <option value="single">Single Client: {activeItem.customer.full_name || activeItem.customer.email}</option>}
+                  <option value="top_spenders">Top Spenders (All Clients with Paid Orders)</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="m-offer-code">Offer Code (Promocode)</label>
+                <input
+                  id="m-offer-code"
+                  required
+                  maxLength={24}
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                  value={activeItem.code || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, code: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="m-offer-title">Offer Title</label>
+                <input
+                  id="m-offer-title"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. VIP Couture Appreciation Perk"
+                  value={activeItem.title || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, title: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="m-discount-type">Discount Type</label>
+                <select
+                  id="m-discount-type"
+                  value={activeItem.discount_type || 'percentage'}
+                  onChange={(e) => setActiveItem({ ...activeItem, discount_type: e.target.value })}
+                >
+                  <option value="percentage">Percentage Discount (%)</option>
+                  <option value="fixed">Flat Amount Discount (₹)</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="m-discount-val">Discount Value ({activeItem.discount_type === 'fixed' ? '₹' : '%'})</label>
+                <input
+                  id="m-discount-val"
+                  type="number"
+                  min="1"
+                  required
+                  value={activeItem.discount_value || 20}
+                  onChange={(e) => setActiveItem({ ...activeItem, discount_value: Number(e.target.value) })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="m-valid-days">Validity (Days)</label>
+                <input
+                  id="m-valid-days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={activeItem.valid_days || 30}
+                  onChange={(e) => setActiveItem({ ...activeItem, valid_days: Number(e.target.value) })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="m-offer-desc">Description (Shown to Customer)</label>
+                <textarea
+                  id="m-offer-desc"
+                  rows={2}
+                  value={activeItem.description || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, description: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <button className="btn primary" disabled={busy}>
+                  {busy ? 'Distributing…' : 'Distribute Special Offer →'}
+                </button>
               </div>
             </form>
           </div>
@@ -2382,6 +2597,92 @@ function AdminStudio({ section }) {
           </div>
         </div>
       )}
+      {/* MODAL: Exchange status & opinion/resolution note */}
+      {modalType === 'exchange_decision' && activeItem && (
+        <div className="modal is-visible" role="dialog" aria-modal="true" aria-labelledby="exchange-decision-title" onClick={(e) => { if (e.target === e.currentTarget) setModalType(null); }}>
+          <div className="modal-content" style={{ maxWidth: '520px', padding: '28px' }}>
+            <div className="panel-head" style={{ marginBottom: '18px' }}>
+              <h2 id="exchange-decision-title">
+                Exchange Decision: {EXCHANGE_STATUS_LABELS[activeItem.nextStatus] || activeItem.nextStatus}
+              </h2>
+              <button type="button" className="btn" style={{ background: 'none', border: 'none', fontSize: '20px' }} aria-label="Close" onClick={() => setModalType(null)}>✕</button>
+            </div>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                mutate(
+                  () => post('exchange', {
+                    id: activeItem.exchange.id,
+                    status: activeItem.nextStatus,
+                    resolution: activeItem.resolution,
+                  }),
+                  {
+                    success: `Exchange updated to ${EXCHANGE_STATUS_LABELS[activeItem.nextStatus] || activeItem.nextStatus}`,
+                    reload: 'exchanges',
+                    close: true,
+                  }
+                );
+              }}
+            >
+              <div className="field full" style={{ background: '#fcfbfa', border: '1px solid var(--admin-line, #eee)', padding: '12px 14px', borderRadius: 4, fontSize: 12 }}>
+                <div><strong>Customer:</strong> {activeItem.exchange.full_name || activeItem.exchange.email}</div>
+                <div style={{ marginTop: 3 }}><strong>Order ID:</strong> #{activeItem.exchange.order_id?.slice(0, 8).toUpperCase()}</div>
+                <div style={{ marginTop: 3 }}><strong>Customer Reason:</strong> {activeItem.exchange.reason || 'None provided'}</div>
+              </div>
+
+              <div className="field full">
+                <label htmlFor="m-exchange-res">Studio Opinion &amp; Resolution Reason (Shown to Customer)</label>
+                <textarea
+                  id="m-exchange-res"
+                  rows={4}
+                  required={['not_approved', 'approved', 'rejected'].includes(activeItem.nextStatus)}
+                  placeholder="Enter studio opinion or explanation why this request is approved or not approved..."
+                  value={activeItem.resolution || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, resolution: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', fontSize: 13, border: '1px solid var(--admin-line, #ccc)', borderRadius: 3 }}
+                />
+              </div>
+
+              {activeItem.nextStatus === 'not_approved' && (
+                <div className="field full" style={{ marginTop: -8 }}>
+                  <small style={{ color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Quick preset opinions / reasons:</small>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[
+                      'Piece shows signs of wear or tags removed.',
+                      'Submitted outside the 7-day exchange window.',
+                      'One-of-one piece; alternative size is unavailable.',
+                      'Inspected in studio; piece matches order specification.',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        style={{ fontSize: 11, padding: '4px 8px', border: '1px solid #e0dcd9', borderRadius: 3, background: '#fbf9f8', cursor: 'pointer', textAlign: 'left' }}
+                        onClick={() => setActiveItem({ ...activeItem, resolution: preset })}
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="field full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
+                <button type="button" className="btn" onClick={() => setModalType(null)}>Cancel</button>
+                <button
+                  type="submit"
+                  className="btn primary"
+                  style={activeItem.nextStatus === 'not_approved' ? { background: '#dc2626', borderColor: '#dc2626', color: '#fff' } : {}}
+                  disabled={busy}
+                >
+                  {busy ? 'Saving…' : `Confirm ${EXCHANGE_STATUS_LABELS[activeItem.nextStatus] || activeItem.nextStatus} →`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {customerId && <CustomerDetail id={customerId} onClose={() => setCustomerId(null)} />}
       {toastMsg && <div className="toast show" role="status" aria-live="polite">{toastMsg}</div>}
     </div>

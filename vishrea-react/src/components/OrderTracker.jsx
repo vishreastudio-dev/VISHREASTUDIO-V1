@@ -157,12 +157,14 @@ function BranchTimeline({ o }) {
 
 function ExchangePanel({ exchange }) {
   if (!exchange) return null;
-  if (exchange.status === 'rejected') {
+  if (['rejected', 'not_approved'].includes(exchange.status)) {
     return (
-      <div className="tracker-exchange">
-        <p className="eyebrow">{exchange.claim_type === 'damage' ? 'DAMAGE REPORT' : 'EXCHANGE'}</p>
-        <strong>Request closed</strong>
-        {exchange.resolution && <p>{exchange.resolution}</p>}
+      <div className="tracker-exchange" style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '14px 16px', borderRadius: 4, marginTop: 18 }}>
+        <p className="eyebrow" style={{ color: '#991b1b', margin: '0 0 4px', fontSize: 10 }}>{exchange.claim_type === 'damage' ? 'DAMAGE REPORT' : 'EXCHANGE'}</p>
+        <strong style={{ color: '#991b1b', fontSize: 14, display: 'block', marginBottom: 4 }}>
+          {exchange.status === 'not_approved' ? 'Exchange Not Approved' : 'Request Closed'}
+        </strong>
+        {exchange.resolution && <p style={{ color: '#7f1d1d', margin: 0, fontSize: 12, lineHeight: 1.5 }}>{exchange.resolution}</p>}
       </div>
     );
   }

@@ -145,7 +145,8 @@ export const OrderDetail = () => {
 
   const o = data.order;
   const inv = data.invoice;
-  const openExchange = (o.exchanges || []).find((x) => ['requested', 'review'].includes(x.status));
+  const latestExchange = (o.exchanges || [])[0];
+  const openExchange = (o.exchanges || []).find((x) => ['requested', 'review', 'approved'].includes(x.status));
   const canPay = o.payment_status === 'pending' && new Date(o.payment_expires_at) > new Date();
 
   return (
@@ -156,7 +157,7 @@ export const OrderDetail = () => {
         <section className="account-content" style={{ display: 'grid', gap: 24 }}>
           <div className="no-print">
             <Link to="/orders" className="text-link" style={{ fontSize: 11 }}>← All orders</Link>
-            <h1 style={{ fontFamily: 'Georgia, serif', fontWeight: 400, margin: '8px 0 6px', fontSize: 40 }}>Order #{o.id.slice(0, 8).toUpperCase()}</h1>
+            <h1 style={{ fontFamily: 'Georgia, serif', fontWeight: 400, margin: '8px 0 6px', fontSize: 40 }}>Order <span style={{ fontFamily: 'Inter, system-ui, sans-serif', fontVariantNumeric: 'lining-nums tabular-nums' }}>#{o.id.slice(0, 8).toUpperCase()}</span></h1>
             <span className={`status ${statusTone(o.payment_status === 'paid' ? o.status : o.payment_status)}`}>{statusText(o)}</span>
             <InlineMessage tone={msg.tone}>{msg.text}</InlineMessage>
             {canPay && (
@@ -222,8 +223,15 @@ export const OrderDetail = () => {
           {o.status === 'delivered' && (
             <section className="no-print" style={{ border: '1px solid var(--line)', padding: 20 }}>
               <h2 style={{ fontFamily: 'Georgia, serif', fontWeight: 400, margin: '0 0 10px' }}>Exchange or report damage</h2>
-              {openExchange ? (
-                <p style={{ fontSize: 13 }}>Your request is <strong>{openExchange.status}</strong>. We will be in touch.</p>
+              {latestExchange?.status === 'not_approved' ? (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '14px 16px', borderRadius: 4 }}>
+                  <strong style={{ color: '#991b1b', fontSize: 13, display: 'block', marginBottom: 4 }}>Exchange Not Approved</strong>
+                  <p style={{ margin: 0, fontSize: 12, color: '#7f1d1d', lineHeight: 1.5 }}>
+                    {latestExchange.resolution || 'Your exchange request could not be approved upon studio inspection. Please reach out to customer care on WhatsApp if you have questions.'}
+                  </p>
+                </div>
+              ) : openExchange ? (
+                <p style={{ fontSize: 13 }}>Your request is <strong>{openExchange.status.replace('_', ' ')}</strong>. We will be in touch.</p>
               ) : (
                 <form onSubmit={(e) => { e.preventDefault(); exchange.run().catch((err) => setMsg({ tone: 'error', text: err.message })); }} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
                   <label style={{ display: 'grid', gap: 6, fontSize: 11 }}>

@@ -42,7 +42,12 @@ export default async function account(req, res) {
 
   if (req.method === 'GET') {
     const [p, m, w, a, n, l, colour, rewards] = await Promise.all([
-      db.query('SELECT full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in FROM customer_profiles WHERE auth_user_id = $1', [uid]),
+      db.query(
+        'SELECT full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in, COALESCE(profile_completed, false) AS profile_completed, COALESCE(onboarding_completed, false) AS onboarding_completed FROM customer_profiles WHERE auth_user_id = $1',
+        [uid]
+      ).catch(() =>
+        db.query('SELECT full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in FROM customer_profiles WHERE auth_user_id = $1', [uid])
+      ),
       db.query('SELECT status, credits_balance, renewal_at, paid_through, consecutive_paid_months FROM memberships WHERE auth_user_id = $1', [uid]),
       db.query('SELECT * FROM wearer_profiles WHERE auth_user_id = $1 ORDER BY created_at', [uid]),
       db.query('SELECT * FROM addresses WHERE auth_user_id = $1 ORDER BY is_default DESC, created_at DESC LIMIT 20', [uid]),
@@ -67,16 +72,40 @@ export default async function account(req, res) {
   }
 
   if (req.method === 'PUT' && !action) {
-    const r = await db.query(
-      `INSERT INTO customer_profiles (auth_user_id, full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       ON CONFLICT (auth_user_id) DO UPDATE SET full_name = excluded.full_name, phone = excluded.phone, email = excluded.email,
-         gst_number = excluded.gst_number, age_confirmed = excluded.age_confirmed, marketing_opt_in = excluded.marketing_opt_in,
-         whatsapp_opt_in = excluded.whatsapp_opt_in, updated_at = now()
-       RETURNING full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in`,
-      [uid, text(b.full_name, { max: 120, field: 'full_name' }) || req.user.name || '', phone(b.phone) || '', b.email ? validEmail(b.email) : req.user.email,
-       gstin(b.gst_number) || '', bool(b.age_confirmed), bool(b.marketing_opt_in), bool(b.whatsapp_opt_in)]
-    );
+    const profCompleted = b.profile_completed !== undefined ? bool(b.profile_completed) : Boolean(b.full_name && b.phone);
+    const onboardCompleted = b.onboarding_completed !== undefined ? bool(b.onboarding_completed) : false;
+    let r;
+    try {
+      r = await db.query(
+        `INSERT INTO customer_profiles (auth_user_id, full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in, profile_completed, onboarding_completed)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (auth_user_id) DO UPDATE SET full_name = excluded.full_name, phone = excluded.phone, email = excluded.email,
+           gst_number = excluded.gst_number, age_confirmed = excluded.age_confirmed, marketing_opt_in = excluded.marketing_opt_in,
+           whatsapp_opt_in = excluded.whatsapp_opt_in,
+           profile_completed = CASE WHEN customer_profiles.profile_completed OR excluded.profile_completed THEN true ELSE false END,
+           onboarding_completed = CASE WHEN customer_profiles.onboarding_completed OR excluded.onboarding_completed THEN true ELSE false END,
+           updated_at = now()
+         RETURNING full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in, profile_completed, onboarding_completed`,
+        [uid, text(b.full_name, { max: 120, field: 'full_name' }) || req.user.name || '', phone(b.phone) || '', b.email ? validEmail(b.email) : req.user.email,
+         gstin(b.gst_number) || '', bool(b.age_confirmed), bool(b.marketing_opt_in), bool(b.whatsapp_opt_in), profCompleted, onboardCompleted]
+      );
+    } catch {
+      // Fallback if migration columns not added yet
+      r = await db.query(
+        `INSERT INTO customer_profiles (auth_user_id, full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (auth_user_id) DO UPDATE SET full_name = excluded.full_name, phone = excluded.phone, email = excluded.email,
+           gst_number = excluded.gst_number, age_confirmed = excluded.age_confirmed, marketing_opt_in = excluded.marketing_opt_in,
+           whatsapp_opt_in = excluded.whatsapp_opt_in, updated_at = now()
+         RETURNING full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in`,
+        [uid, text(b.full_name, { max: 120, field: 'full_name' }) || req.user.name || '', phone(b.phone) || '', b.email ? validEmail(b.email) : req.user.email,
+         gstin(b.gst_number) || '', bool(b.age_confirmed), bool(b.marketing_opt_in), bool(b.whatsapp_opt_in)]
+      );
+    }
+    // Also update full_name on profiles table
+    if (b.full_name) {
+      await db.query('UPDATE profiles SET full_name = $1 WHERE auth_user_id = $2', [text(b.full_name, { max: 120, field: 'full_name' }), uid]).catch(() => {});
+    }
     if (b.notifications && typeof b.notifications === 'object') {
       const nf = b.notifications;
       await db.query(
