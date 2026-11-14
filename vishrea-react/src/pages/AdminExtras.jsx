@@ -135,22 +135,24 @@ function GiftEnquiryDetail({ id, onClose, onChanged, toast }) {
                 <small>Expires {d(issued.gift.expires_at)}</small>
               </div>
             )}
-            <table className="table">
-              <thead><tr><th>Code</th><th>Status</th><th>Issued</th><th>Expires</th><th>Redeemed</th><th></th></tr></thead>
-              <tbody>
-                {!data.tokens.length && <tr><td colSpan="6" className="empty">No codes issued.</td></tr>}
-                {data.tokens.map((t) => (
-                  <tr key={t.id}>
-                    <td>…{t.token_hint}</td>
-                    <td>{t.status}</td>
-                    <td>{d(t.created_at)}</td>
-                    <td>{d(t.expires_at)}</td>
-                    <td>{t.redeemed_at ? `${d(t.redeemed_at)} · ${t.redeemed_by_email || ''}` : '—'}</td>
-                    <td>{t.status === 'issued' && <button className="btn" disabled={busy} onClick={() => window.confirm('Revoke this code?') && act(() => post('gift_token_revoke', { id: t.id }), 'Code revoked')}>Revoke</button>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Code</th><th>Status</th><th>Issued</th><th>Expires</th><th>Redeemed</th><th></th></tr></thead>
+                <tbody>
+                  {!data.tokens.length && <tr><td colSpan="6" className="empty">No codes issued.</td></tr>}
+                  {data.tokens.map((t) => (
+                    <tr key={t.id}>
+                      <td>…{t.token_hint}</td>
+                      <td>{t.status}</td>
+                      <td>{d(t.created_at)}</td>
+                      <td>{d(t.expires_at)}</td>
+                      <td>{t.redeemed_at ? `${d(t.redeemed_at)} · ${t.redeemed_by_email || ''}` : '—'}</td>
+                      <td>{t.status === 'issued' && <button className="btn" disabled={busy} onClick={() => window.confirm('Revoke this code?') && act(() => post('gift_token_revoke', { id: t.id }), 'Code revoked')}>Revoke</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {e.status === 'invoiced' && e.refund_status !== 'refunded' && data.tokens.filter((t) => t.status !== 'revoked').length < e.quantity && (
               <button className="btn primary" disabled={busy} onClick={async () => { const r = await act(() => post('gift_token', { enquiry_id: e.id }), 'Code issued'); if (r) setIssued(r); }}>Generate redemption code</button>
             )}
@@ -890,9 +892,11 @@ export function CustomerDetail({ id, onClose }) {
           <h3>Membership</h3>
           {m ? <p>{m.status} · paid until {d(m.paid_through)} · {m.credits_balance} credits · {m.consecutive_paid_months} consecutive months</p> : <p className="empty">No membership.</p>}
           {data.periods.length > 0 && (
-            <table className="table"><thead><tr><th>Month</th><th>Source</th><th>Starts</th><th>Credits</th><th>State</th></tr></thead>
-              <tbody>{data.periods.map((x, i) => <tr key={i}><td>{x.streak_month}</td><td>{x.source}</td><td>{d(x.starts_at)}</td><td>{x.credits}</td><td>{x.voided_at ? 'void' : x.credits_granted_at ? 'granted' : 'upcoming'}</td></tr>)}</tbody>
-            </table>
+            <div className="table-wrap">
+              <table className="table"><thead><tr><th>Month</th><th>Source</th><th>Starts</th><th>Credits</th><th>State</th></tr></thead>
+                <tbody>{data.periods.map((x, i) => <tr key={i}><td>{x.streak_month}</td><td>{x.source}</td><td>{d(x.starts_at)}</td><td>{x.credits}</td><td>{x.voided_at ? 'void' : x.credits_granted_at ? 'granted' : 'upcoming'}</td></tr>)}</tbody>
+              </table>
+            </div>
           )}
           <h3>Wearer profiles</h3>
           {data.wearers.length ? <ul>{data.wearers.map((w) => <li key={w.id}>{w.name}{w.relationship ? ` (${w.relationship})` : ''}{w.size_label ? ` · size ${w.size_label}` : ''}{['bust_cm', 'waist_cm', 'hip_cm', 'length_cm'].filter((k) => w[k]).map((k) => ` · ${k.replace('_cm', '')} ${Number(w[k])}cm`).join('')}</li>)}</ul> : <p className="empty">None saved.</p>}
@@ -901,18 +905,22 @@ export function CustomerDetail({ id, onClose }) {
             <p>{data.colour_reviews[0].season || '—'} · {data.colour_reviews[0].undertone} · {d(data.colour_reviews[0].created_at)} <span style={{ display: 'inline-flex', gap: 4, verticalAlign: 'middle' }}>{(data.colour_reviews[0].palette || []).map((h) => <i key={h} style={{ width: 16, height: 16, background: h, display: 'inline-block' }} />)}</span></p>
           ) : <p className="empty">No colour profile saved.</p>}
           <h3>Orders</h3>
-          <table className="table"><thead><tr><th>Date</th><th>Items</th><th>Status</th><th>Total</th></tr></thead>
-            <tbody>
-              {!data.orders.length && <tr><td colSpan="4" className="empty">No orders.</td></tr>}
-              {data.orders.map((o) => <tr key={o.id}><td>{d(o.created_at)}</td><td>{o.items.map((i) => `${i.name} (${i.size}) ×${i.qty}`).join(', ')}</td><td>{o.payment_status === 'paid' ? o.status : o.payment_status}</td><td>{inr(o.total)}</td></tr>)}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="table"><thead><tr><th>Date</th><th>Items</th><th>Status</th><th>Total</th></tr></thead>
+              <tbody>
+                {!data.orders.length && <tr><td colSpan="4" className="empty">No orders.</td></tr>}
+                {data.orders.map((o) => <tr key={o.id}><td>{d(o.created_at)}</td><td>{o.items.map((i) => `${i.name} (${i.size}) ×${i.qty}`).join(', ')}</td><td>{o.payment_status === 'paid' ? o.status : o.payment_status}</td><td>{inr(o.total)}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
           <h3>Rewards & referrals</h3>
           <p>{data.rewards.length} reward(s): {data.rewards.map((r) => `${r.kind} ${r.status}`).join(', ') || '—'} · {data.referrals.length} referral record(s)</p>
           <h3>Recent credit ledger</h3>
-          <table className="table"><thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Expires</th></tr></thead>
-            <tbody>{data.credits.slice(0, 15).map((c, i) => <tr key={i}><td>{d(c.created_at)}</td><td>{c.delta > 0 ? `+${c.delta}` : c.delta}</td><td>{c.reason}</td><td>{d(c.expires_at)}</td></tr>)}</tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="table"><thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Expires</th></tr></thead>
+              <tbody>{data.credits.slice(0, 15).map((c, i) => <tr key={i}><td>{d(c.created_at)}</td><td>{c.delta > 0 ? `+${c.delta}` : c.delta}</td><td>{c.reason}</td><td>{d(c.expires_at)}</td></tr>)}</tbody>
+            </table>
+          </div>
         </div>
       )}
     </Modal>

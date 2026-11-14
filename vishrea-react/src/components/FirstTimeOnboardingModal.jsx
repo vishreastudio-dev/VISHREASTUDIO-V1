@@ -111,6 +111,28 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ tone: 'info', text: '' });
 
+  // Size & Fit Profile state
+  const [sizeStandard, setSizeStandard] = useState('India');
+  const [clothingSize, setClothingSize] = useState('M');
+  const [customSize, setCustomSize] = useState('');
+  const [categorySizes, setCategorySizes] = useState({
+    tops: 'M',
+    dresses: 'M',
+    skirts: 'M',
+    pants: '30',
+    jeans: '30',
+    coord_sets: 'M',
+  });
+  const [showMeasurements, setShowMeasurements] = useState(false);
+  const [measurementUnit, setMeasurementUnit] = useState('cm');
+  const [bust, setBust] = useState('');
+  const [waist, setWaist] = useState('');
+  const [hips, setHips] = useState('');
+  const [shoulder, setShoulder] = useState('');
+  const [inseam, setInseam] = useState('');
+  const [height, setHeight] = useState('');
+  const [fitPreference, setFitPreference] = useState('regular');
+
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     if (!fullName.trim()) {
@@ -136,6 +158,18 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
         age_confirmed: true,
         whatsapp_opt_in: whatsappOptIn,
         preferred_silhouette: preferredSilhouette,
+        size_standard: sizeStandard,
+        clothing_size: clothingSize,
+        custom_size: clothingSize === 'Custom' ? customSize : null,
+        category_sizes: categorySizes,
+        measurement_unit: measurementUnit,
+        bust: bust || null,
+        waist: waist || null,
+        hips: hips || null,
+        shoulder: shoulder || null,
+        inseam: inseam || null,
+        height: height || null,
+        fit_preference: fitPreference,
       });
       setStage('tour');
     } catch (err) {
@@ -179,7 +213,7 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 'clamp(8px, 2.5vw, 20px)',
         animation: 'fadeIn 0.3s ease-out',
       }}
       role="dialog"
@@ -189,7 +223,7 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
       <div
         style={{
           width: 'min(620px, 100%)',
-          maxHeight: '92vh',
+          maxHeight: 'min(92vh, 92dvh)',
           overflowY: 'auto',
           background: '#ffffff',
           borderRadius: 2,
@@ -201,7 +235,7 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
       >
         {stage === 'profile' ? (
           /* STAGE 1: MANDATORY PROFILE CREATION */
-          <div style={{ padding: 'clamp(28px, 5vw, 44px)' }}>
+          <div style={{ padding: 'clamp(20px, 4.5vw, 44px)' }}>
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
               <span
                 style={{
@@ -279,6 +313,245 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
                 </span>
               </div>
 
+              {/* YOUR SIZE & FIT PROFILE */}
+              <div style={{ borderTop: '1px solid var(--line, #e2dcd7)', paddingTop: 18, marginTop: 4 }}>
+                <span style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--wine, #752238)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  Your Size & Fit Profile
+                </span>
+                <p style={{ fontSize: 12, color: 'var(--muted, #666)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  Vishrea curates collections matching your exact sizing so you only see pieces that fit.
+                </p>
+
+                {/* Region Standard & General Size */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4, color: '#333' }}>
+                      Size Standard
+                    </label>
+                    <select
+                      value={sizeStandard}
+                      onChange={(e) => setSizeStandard(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 13, fontFamily: 'inherit' }}
+                    >
+                      <option value="India">India (Standard)</option>
+                      <option value="UK">UK Sizing</option>
+                      <option value="US">US Sizing</option>
+                      <option value="EU">EU Sizing</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4, color: '#333' }}>
+                      Primary Clothing Size
+                    </label>
+                    <select
+                      value={clothingSize}
+                      onChange={(e) => {
+                        const s = e.target.value;
+                        setClothingSize(s);
+                        if (s !== 'Custom') {
+                          setCategorySizes((prev) => ({
+                            ...prev,
+                            tops: s,
+                            dresses: s,
+                            skirts: s,
+                            coord_sets: s,
+                          }));
+                        }
+                      }}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 13, fontFamily: 'inherit' }}
+                    >
+                      <option value="XS">XS (Extra Small)</option>
+                      <option value="S">S (Small)</option>
+                      <option value="M">M (Medium)</option>
+                      <option value="L">L (Large)</option>
+                      <option value="XL">XL (Extra Large)</option>
+                      <option value="XXL">XXL (2X Large)</option>
+                      <option value="Custom">Custom / Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {clothingSize === 'Custom' && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4, color: '#333' }}>
+                      Specify Custom Size
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Petite M or 38B"
+                      value={customSize}
+                      onChange={(e) => setCustomSize(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line, #dcd4ce)', fontSize: 13, fontFamily: 'inherit' }}
+                    />
+                  </div>
+                )}
+
+                {/* Category-Specific Sizing */}
+                <div style={{ background: '#faf8f6', border: '1px solid var(--line, #e8e2dd)', padding: '12px 14px', borderRadius: 2, marginBottom: 14 }}>
+                  <span style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8, color: '#1a1719' }}>
+                    Category-Specific Sizes
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 10 }}>
+                    <div>
+                      <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted, #666)', display: 'block', marginBottom: 2 }}>Tops</label>
+                      <select
+                        value={categorySizes.tops}
+                        onChange={(e) => setCategorySizes({ ...categorySizes, tops: e.target.value })}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted, #666)', display: 'block', marginBottom: 2 }}>Dresses</label>
+                      <select
+                        value={categorySizes.dresses}
+                        onChange={(e) => setCategorySizes({ ...categorySizes, dresses: e.target.value })}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted, #666)', display: 'block', marginBottom: 2 }}>Pants / Trousers</label>
+                      <select
+                        value={categorySizes.pants}
+                        onChange={(e) => setCategorySizes({ ...categorySizes, pants: e.target.value, jeans: e.target.value })}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {['26', '28', '30', '32', '34', '36', 'XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted, #666)', display: 'block', marginBottom: 2 }}>Skirts</label>
+                      <select
+                        value={categorySizes.skirts}
+                        onChange={(e) => setCategorySizes({ ...categorySizes, skirts: e.target.value })}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: 'var(--muted, #666)', display: 'block', marginBottom: 2 }}>Co-ord Sets</label>
+                      <select
+                        value={categorySizes.coord_sets}
+                        onChange={(e) => setCategorySizes({ ...categorySizes, coord_sets: e.target.value })}
+                        style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--line, #dcd4ce)', background: '#fff', fontSize: 12, fontFamily: 'inherit' }}
+                      >
+                        {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fit Preference */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, color: '#333' }}>
+                    Fit Preference
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    {['relaxed', 'regular', 'slim', 'oversized'].map((fp) => (
+                      <button
+                        key={fp}
+                        type="button"
+                        onClick={() => setFitPreference(fp)}
+                        style={{
+                          padding: '8px 4px',
+                          border: `1px solid ${fitPreference === fp ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
+                          background: fitPreference === fp ? '#fbf5f6' : '#fff',
+                          color: fitPreference === fp ? 'var(--wine, #752238)' : '#333',
+                          fontWeight: fitPreference === fp ? 600 : 400,
+                          fontSize: 11.5,
+                          textTransform: 'capitalize',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          borderRadius: 2,
+                        }}
+                      >
+                        {fp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Optional Body Measurements Toggle */}
+                <div style={{ marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMeasurements((v) => !v)}
+                    style={{
+                      background: 'transparent',
+                      border: 0,
+                      padding: 0,
+                      color: 'var(--wine, #752238)',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>{showMeasurements ? '− Hide optional measurements' : '+ Add precise body measurements (Optional)'}</span>
+                  </button>
+
+                  {showMeasurements && (
+                    <div style={{ background: '#fdfbf9', border: '1px solid var(--line, #e2dcd7)', padding: 14, marginTop: 8, borderRadius: 2 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted, #666)' }}>Used to verify tailored fits & recommendations</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {['cm', 'inches'].map((u) => (
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => setMeasurementUnit(u)}
+                              style={{
+                                padding: '2px 8px',
+                                border: `1px solid ${measurementUnit === u ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
+                                background: measurementUnit === u ? '#752238' : '#fff',
+                                color: measurementUnit === u ? '#fff' : '#444',
+                                fontSize: 10,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {u}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Bust</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '88' : '34.5'} value={bust} onChange={(e) => setBust(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Waist</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '72' : '28'} value={waist} onChange={(e) => setWaist(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Hips</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '96' : '38'} value={hips} onChange={(e) => setHips(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Shoulder</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '38' : '15'} value={shoulder} onChange={(e) => setShoulder(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Inseam</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '76' : '30'} value={inseam} onChange={(e) => setInseam(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9.5, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: 2 }}>Height</label>
+                          <input type="number" step="0.5" placeholder={measurementUnit === 'cm' ? '165' : '65'} value={height} onChange={(e) => setHeight(e.target.value)} style={{ width: '100%', padding: '6px', fontSize: 12, border: '1px solid #dcd4ce' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, color: '#333' }}>
                   Preferred Silhouette & Fit Style
@@ -350,11 +623,13 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
             {/* Header with step pill */}
             <div
               style={{
-                padding: '24px 32px 18px',
+                padding: 'clamp(16px, 4vw, 24px) clamp(16px, 4vw, 32px) clamp(12px, 3vw, 18px)',
                 borderBottom: '1px solid var(--line, #eee)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 10,
               }}
             >
               <div>
@@ -398,17 +673,18 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
             </div>
 
             {/* Feature Content Card */}
-            <div style={{ padding: '32px 32px 28px' }}>
+            <div style={{ padding: 'clamp(16px, 4vw, 32px) clamp(16px, 4vw, 32px) 24px' }}>
               <div
                 style={{
                   background: 'linear-gradient(135deg, #fcfaf8 0%, #f6f1eb 100%)',
                   border: '1px solid #e7ded5',
-                  padding: '28px',
+                  padding: 'clamp(16px, 4vw, 28px)',
                   borderRadius: 4,
                   marginBottom: 24,
                   display: 'flex',
-                  gap: 20,
+                  gap: 'clamp(12px, 3vw, 20px)',
                   alignItems: 'flex-start',
+                  flexWrap: 'wrap',
                 }}
               >
                 <div

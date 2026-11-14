@@ -6,6 +6,7 @@ import { bool, email as validEmail, gstin, indianState, label, phone, text, uuid
 import { cancelMembershipTx } from '../lib/billing.js';
 import { AUTH_COOKIE, cookieOptions } from '../lib/auth.js';
 import { razorpay } from '../lib/razorpay.js';
+import { fetchCustomerSizeProfiles, createSizeProfile, updateSizeProfile } from '../lib/size-profiles.js';
 
 export const access = 'user';
 export const methods = ['GET', 'PUT', 'POST', 'DELETE'];
@@ -55,6 +56,7 @@ export default async function account(req, res) {
       db.query('SELECT id, name, created_at FROM saved_looks WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 50', [uid]),
       db.query('SELECT undertone, season, palette, confidence, lighting, created_at FROM colour_reviews WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 1', [uid]),
       db.query("SELECT count(*) FILTER (WHERE status = 'available')::int AS available, count(*) FILTER (WHERE status = 'redeemed')::int AS redeemed FROM reward_entitlements WHERE auth_user_id = $1", [uid]),
+      fetchCustomerSizeProfiles(db, uid).catch(() => ({ profiles: [], active_profile_id: null, active_profile: null })),
     ]);
     const settings = await getSettings();
     return res.json({
@@ -62,6 +64,9 @@ export default async function account(req, res) {
       profile: p.rows[0] || null,
       membership: m.rows[0] || { status: 'inactive', credits_balance: 0 },
       wearers: w.rows,
+      size_profiles: sizeData?.profiles || [],
+      active_size_profile_id: sizeData?.active_profile_id || null,
+      active_size_profile: sizeData?.active_profile || null,
       max_wearers: Number(settings.max_wearers),
       addresses: a.rows,
       notifications: n.rows[0] || { whatsapp: true, email: true, sms: true, marketing: false },
@@ -106,6 +111,56 @@ export default async function account(req, res) {
     if (b.full_name) {
       await db.query('UPDATE profiles SET full_name = $1 WHERE auth_user_id = $2', [text(b.full_name, { max: 120, field: 'full_name' }), uid]).catch(() => {});
     }
+    if (b.preferred_silhouette) {
+      await db.query('UPDATE customer_profiles SET preferred_silhouette = $1 WHERE auth_user_id = $2', [text(b.preferred_silhouette, { max: 80, field: 'preferred_silhouette' }), uid]).catch(() => {});
+    }
+    // Update or bootstrap primary size profile
+    let sizeProfile = null;
+    if (b.clothing_size || b.category_sizes || b.size_standard || b.bust || b.waist || b.fit_preference || b.preferred_silhouette) {
+      try {
+        const existingPrimary = (await db.query('SELECT id FROM customer_size_profiles WHERE auth_user_id = $1 AND is_primary = true LIMIT 1', [uid])).rows[0];
+        if (existingPrimary) {
+          sizeProfile = await updateSizeProfile(db, uid, existingPrimary.id, {
+            name: b.full_name || undefined,
+            size_standard: b.size_standard,
+            clothing_size: b.clothing_size,
+            custom_size: b.custom_size,
+            category_sizes: b.category_sizes,
+            bust: b.bust,
+            waist: b.waist,
+            hips: b.hips,
+            shoulder: b.shoulder,
+            inseam: b.inseam,
+            height: b.height,
+            measurement_unit: b.measurement_unit,
+            fit_preference: b.fit_preference,
+            silhouette_preference: b.preferred_silhouette,
+          });
+        } else {
+          sizeProfile = await createSizeProfile(db, uid, {
+            name: b.full_name || 'My Wardrobe',
+            relationship: 'self',
+            is_primary: true,
+            make_active: true,
+            size_standard: b.size_standard || 'India',
+            clothing_size: b.clothing_size || 'M',
+            custom_size: b.custom_size,
+            category_sizes: b.category_sizes,
+            bust: b.bust,
+            waist: b.waist,
+            hips: b.hips,
+            shoulder: b.shoulder,
+            inseam: b.inseam,
+            height: b.height,
+            measurement_unit: b.measurement_unit || 'cm',
+            fit_preference: b.fit_preference || 'regular',
+            silhouette_preference: b.preferred_silhouette,
+          });
+        }
+      } catch (err) {
+        // Non-blocking for primary profile save
+      }
+    }
     if (b.notifications && typeof b.notifications === 'object') {
       const nf = b.notifications;
       await db.query(
@@ -114,7 +169,7 @@ export default async function account(req, res) {
         [uid, bool(nf.whatsapp), bool(nf.email), bool(nf.sms), bool(nf.marketing)]
       );
     }
-    return res.json({ profile: r.rows[0] });
+    return res.json({ profile: r.rows[0], size_profile: sizeProfile });
   }
 
   if (req.method === 'POST' && action === 'wearer') {

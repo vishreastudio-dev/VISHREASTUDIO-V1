@@ -92,6 +92,7 @@ export function StyleAssistant() {
       {!isOpen && (
         <button
           type="button"
+          className="style-assistant-launcher"
           aria-label="Open Vishrea Style Concierge"
           onClick={() => {
             setIsOpen(true);
@@ -99,8 +100,8 @@ export function StyleAssistant() {
           }}
           style={{
             position: 'fixed',
-            right: 24,
-            bottom: 24,
+            right: 'clamp(12px, 3vw, 24px)',
+            bottom: 'clamp(12px, 3vw, 24px)',
             zIndex: 999,
             display: 'flex',
             alignItems: 'center',
@@ -149,6 +150,7 @@ export function StyleAssistant() {
           </div>
           <div style={{ textAlign: 'left' }}>
             <span
+              className="concierge-title"
               style={{
                 fontFamily: 'Georgia, serif',
                 fontSize: 13,
@@ -160,7 +162,7 @@ export function StyleAssistant() {
             >
               Style Concierge
             </span>
-            <small style={{ fontSize: 9.5, color: '#d8c2aa', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <small className="concierge-subtext" style={{ fontSize: 9.5, color: '#d8c2aa', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Personal Stylist
             </small>
           </div>
@@ -187,11 +189,11 @@ export function StyleAssistant() {
           aria-label="Vishrea Style Concierge"
           style={{
             position: 'fixed',
-            right: 20,
-            bottom: 20,
-            width: isMinimized ? 330 : 'clamp(340px, 92vw, 440px)',
-            height: isMinimized ? 58 : 'clamp(500px, 82vh, 660px)',
-            maxHeight: 'calc(100vh - 40px)',
+            right: 'clamp(10px, 3vw, 20px)',
+            bottom: 'clamp(10px, 3vw, 20px)',
+            width: isMinimized ? 'min(280px, calc(100vw - 20px))' : 'min(440px, calc(100vw - 20px))',
+            height: isMinimized ? 56 : 'clamp(420px, 80dvh, 640px)',
+            maxHeight: 'calc(100dvh - 24px)',
             background: '#faf8f5',
             borderRadius: 16,
             boxShadow: '0 20px 48px rgba(21, 19, 21, 0.28), 0 0 0 1px rgba(184, 149, 96, 0.3)',

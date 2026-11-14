@@ -55,7 +55,7 @@ export const Catalogue = () => {
     () => Object.fromEntries(LIST_FILTERS.map(([key]) => [key, searchParams.getAll(key).filter(Boolean)])),
     [searchParams]
   );
-  const { colourProfile } = useStore();
+  const { colourProfile, activeSizeProfile, sizeFilterEnabled, setSizeFilterEnabled } = useStore();
   const mySeason = colourProfile?.season || '';
   const [query, setQuery] = useState(q);
 
@@ -108,8 +108,12 @@ export const Catalogue = () => {
     for (const [key] of LIST_FILTERS) for (const v of selected[key]) p.append(key, v);
     if (priceMin) p.set('price_min', priceMin);
     if (priceMax) p.set('price_max', priceMax);
+    if (activeSizeProfile) {
+      p.set('profile_id', activeSizeProfile.id);
+      p.set('size_filter', sizeFilterEnabled ? 'true' : 'false');
+    }
     return p.toString();
-  }, [sort, category, q, inStock, season, selected, priceMin, priceMax]);
+  }, [sort, category, q, inStock, season, selected, priceMin, priceMax, activeSizeProfile, sizeFilterEnabled]);
   const activeQuery = useRef(apiQuery);
   activeQuery.current = apiQuery;
 
@@ -428,6 +432,32 @@ export const Catalogue = () => {
                 </p>
               )}
 
+              {activeSizeProfile && (
+                <div className="catalogue-size-filter-banner">
+                  <div className="catalogue-size-filter-info">
+                    <span>
+                      Shopping for <strong>{activeSizeProfile.name}</strong> ({category ? (activeSizeProfile.category_sizes?.[category] || activeSizeProfile.clothing_size || 'M') : activeSizeProfile.clothing_size || 'M'})
+                    </span>
+                    {sizeFilterEnabled ? (
+                      <span style={{ fontSize: 10, color: '#2e7d32', background: '#eef5ec', padding: '2px 7px', fontWeight: 600 }}>
+                        ✓ SIZES FILTERED
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, color: '#666', background: '#eee', padding: '2px 7px' }}>
+                        EXPANDED CATALOGUE (ALL SIZES)
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="catalogue-size-toggle-btn"
+                    onClick={() => setSizeFilterEnabled(!sizeFilterEnabled)}
+                  >
+                    {sizeFilterEnabled ? 'View All Sizes (Expanded)' : `Filter to ${activeSizeProfile.name}’s Size`}
+                  </button>
+                </div>
+              )}
+
               <ActiveFilterSummary
                 chips={activeChips}
                 onClearAll={clearFilters}
@@ -441,9 +471,14 @@ export const Catalogue = () => {
                 <ErrorState error={state.error} onRetry={() => setReloadKey((k) => k + 1)} title={q ? 'We couldn’t run that search' : 'We couldn’t load the pieces'} />
               ) : !state.products.length ? (
                 <EmptyState
-                  title={emptyTitle}
+                  title={sizeFilterEnabled && activeSizeProfile ? `No pieces currently available in size ${activeSizeProfile.clothing_size} for ${activeSizeProfile.name}` : emptyTitle}
                   action={
                     <div className="empty-actions">
+                      {sizeFilterEnabled && activeSizeProfile && (
+                        <button type="button" className="button button-outline" onClick={() => setSizeFilterEnabled(false)}>
+                          View All Sizes (Expanded)
+                        </button>
+                      )}
                       {filterCount > 0 && (
                         <button type="button" className="button button-outline" onClick={clearFilters}>
                           Clear filters
@@ -453,7 +488,7 @@ export const Catalogue = () => {
                     </div>
                   }
                 >
-                  {emptyHint}
+                  {sizeFilterEnabled && activeSizeProfile ? `Try viewing all sizes to see pieces outside ${activeSizeProfile.name}’s saved sizing, or switch to another size profile in the header.` : emptyHint}
                 </EmptyState>
               ) : (
                 <>

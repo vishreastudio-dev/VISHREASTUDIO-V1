@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { useApi, useMutation } from '../lib/useApi';
 import { usePageSeo } from '../lib/usePageSeo';
 import { clearOnInput, markFieldError } from '../lib/fieldErrors';
+import { SizeProfilesSection } from '../components/SizeProfilesSection';
 
 const Card = ({ label, value, children }) => (
   <article className="account-card">
@@ -271,6 +272,7 @@ export const Account = () => {
                 <Card label="Orders" value={orders.data?.total ?? '—'}><Link to="/orders" className="text-link">View order history →</Link></Card>
               </div>
               <ProfileForm profile={account.data?.profile} user={user} notifications={account.data?.notifications} onSaved={account.reload} />
+              <SizeProfilesSection />
               <Wearers wearers={account.data?.wearers || []} max={account.data?.max_wearers || 5} onChange={account.reload} />
               <div className="account-panel" id="colour">
                 <h2>Colour profile</h2>

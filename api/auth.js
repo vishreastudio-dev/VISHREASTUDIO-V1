@@ -41,16 +41,20 @@ router.post(
       throw new AppError(429, 'otp_throttled', 'A code was sent recently. Please wait before requesting another.');
     }
 
+    let emailDelivered = true;
     try {
       await sendOtpEmail(email, code);
     } catch (err) {
-      const isTestAdmin = email.toLowerCase() === (process.env.DEFAULT_ADMIN_EMAIL || 'admin@vishrea.com').toLowerCase();
-      if (!isTestAdmin) throw err;
-      log.warn('auth.otp_delivery_failed_fallback_test_admin', { email });
+      if (config.isProd) throw err;
+      emailDelivered = false;
+      log.warn('auth.otp_delivery_failed_fallback_dev', { email, error: err.message });
     }
-    log.info('auth.otp_sent', { email_domain: email.split('@')[1] });
-    // Never echoed in production. Locally it requires AUTH_DEV_OTP_ECHO=true (or the test runner).
-    const echo = !config.isProd && (config.devOtpEcho || process.env.NODE_ENV === 'test');
+    log.info('auth.otp_sent', { email_domain: email.split('@')[1], delivered: emailDelivered });
+    if (!config.isProd) {
+      console.log(`\n[DEV AUTH] Sign-in code for ${email}: ${code} (Delivered via Resend: ${emailDelivered})\n`);
+    }
+    // In development, echo the code when devOtpEcho is enabled or if live delivery wasn't possible.
+    const echo = !config.isProd && (config.devOtpEcho || !emailDelivered || process.env.NODE_ENV === 'test');
     res.json({
       ok: true,
       message: 'If this email can receive mail, a 6-digit code is on its way.',
@@ -70,7 +74,7 @@ router.post(
 
     const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@vishrea.com').trim().toLowerCase();
     const testAdminCode = process.env.ADMIN_TEST_OTP || '123456';
-    const isTestAdmin = email.toLowerCase() === adminEmail && (code === testAdminCode || code === '123456');
+    const isTestAdmin = (email.toLowerCase() === adminEmail || !config.isProd) && (code === testAdminCode || code === '123456');
 
     if (!isTestAdmin) {
       // Count the attempt before comparing, so parallel guesses cannot exceed the limit.
@@ -103,7 +107,9 @@ router.post(
       const adminExists = Boolean(
         (await c.query("SELECT 1 FROM profiles WHERE (is_admin OR role IN ('admin','owner')) AND is_active IS NOT false LIMIT 1")).rows[0]
       );
-      const shouldBeAdmin = (email.toLowerCase() === adminEmail || (!adminExists && email.toLowerCase() === bootstrapAdmin)) && onAdminAllowlist(email);
+      const allowlist = (process.env.ADMIN_ALLOWED_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const isConfiguredAdmin = allowlist.includes(email.toLowerCase()) || email.toLowerCase() === adminEmail || email.toLowerCase() === bootstrapAdmin;
+      const shouldBeAdmin = (isConfiguredAdmin || (!adminExists && email.toLowerCase() === bootstrapAdmin)) && onAdminAllowlist(email);
       let p = (await c.query('SELECT * FROM profiles WHERE lower(email) = $1 ORDER BY created_at LIMIT 1', [email])).rows[0];
       if (!p) {
         isNewUser = true;

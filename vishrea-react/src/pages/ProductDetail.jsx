@@ -23,12 +23,19 @@ const STOCK_COPY = {
 export const ProductDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { addToCart, cartBusy, cart, user } = useStore();
+  const { addToCart, cartBusy, cart, user, activeSizeProfile } = useStore();
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(null);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const { data, error, loading, reload } = useApi(`/api/product?slug=${encodeURIComponent(slug)}`, { maxAge: 15_000 });
   const product = data?.product || null;
   const variants = useMemo(() => product?.variants || [], [product]);
+
+  const matchingVariant = useMemo(() => {
+    if (!variants.length || !activeSizeProfile) return null;
+    const target = (activeSizeProfile.category_sizes?.[product?.category_slug] || activeSizeProfile.clothing_size || 'M').toUpperCase();
+    return variants.find((v) => v.size_label && String(v.size_label).toUpperCase() === target) || null;
+  }, [variants, activeSizeProfile, product?.category_slug]);
 
   const [variantId, setVariantId] = useState(null);
   const [qty, setQty] = useState(1);
@@ -37,11 +44,12 @@ export const ProductDetail = () => {
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    setVariantId(variants.length === 1 ? variants[0].id : (variants.find((v) => v.in_stock) || null)?.id || null);
+    const preferredId = matchingVariant && matchingVariant.in_stock ? matchingVariant.id : (variants.find((v) => v.in_stock) || null)?.id;
+    setVariantId(variants.length === 1 ? variants[0].id : preferredId || null);
     setQty(1);
     setActiveThumb(0);
     setMsg({ tone: 'info', text: '' });
-  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [product?.id, matchingVariant]);
 
   const selected = useMemo(() => variants.find((v) => v.id === variantId) || null, [variants, variantId]);
   const maxQty = selected ? Math.max(1, selected.available_quantity) : 1;
@@ -214,10 +222,50 @@ export const ProductDetail = () => {
               {soldOut ? 'Sold out' : selected ? STOCK_COPY[selected.stock_state] : 'Choose a size to see availability'}
             </p>
 
+            {activeSizeProfile && (
+              <div
+                style={{
+                  background: '#faf6f4',
+                  border: '1px solid var(--line, #e2dcd7)',
+                  padding: '10px 14px',
+                  marginBottom: 14,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  fontSize: 12,
+                }}
+              >
+                <span>
+                  {matchingVariant ? (
+                    <>
+                      Your Profile Match: <strong style={{ color: 'var(--wine, #752238)' }}>{matchingVariant.size_label}</strong> ({activeSizeProfile.name})
+                    </>
+                  ) : (
+                    <>
+                      Saved Size for {activeSizeProfile.name}: <strong style={{ color: 'var(--wine, #752238)' }}>{activeSizeProfile.category_sizes?.[product.category_slug] || activeSizeProfile.clothing_size || 'M'}</strong>
+                    </>
+                  )}
+                </span>
+                <Link to="/account#size-profiles" className="text-link" style={{ fontSize: 11 }}>
+                  Switch profile
+                </Link>
+              </div>
+            )}
+
             {variants.length > 0 && (
               <fieldset className="pdp-option-v2" style={{ border: 0, padding: 0, margin: 0 }}>
-                <div className="pdp-option-head">
+                <div className="pdp-option-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <legend>{variants.length === 1 ? 'Size' : 'Choose a size'}</legend>
+                  <button
+                    type="button"
+                    className="text-link"
+                    style={{ fontSize: 11, cursor: 'pointer', background: 'none', border: 0, padding: 0 }}
+                    onClick={() => setSizeGuideOpen(true)}
+                  >
+                    Size Guide 📏
+                  </button>
                 </div>
                 <div className="size-grid-v2" role="radiogroup" aria-label="Size">
                   {variants.map((v) => {
@@ -387,6 +435,115 @@ export const ProductDetail = () => {
           </div>
         </section>
       )}
+
+      {/* SIZE GUIDE MODAL */}
+      {sizeGuideOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="size-guide-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(26, 23, 25, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            zIndex: 2000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setSizeGuideOpen(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 600,
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '28px 24px',
+              border: '1px solid var(--line, #e2dcd7)',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.2)',
+              position: 'relative',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: 9.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--wine, #752238)', fontWeight: 600 }}>
+                  Vishrea Studio Fit Guide
+                </span>
+                <h3 id="size-guide-title" style={{ fontFamily: 'Georgia, serif', fontSize: 22, margin: '4px 0 0', fontWeight: 400 }}>
+                  {product.category || 'Clothing'} Size Guide
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSizeGuideOpen(false)}
+                style={{ background: 'none', border: 0, fontSize: 20, cursor: 'pointer', color: '#666', padding: 4 }}
+                aria-label="Close size guide"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 16 }}>
+              {product.size_notes || (product.fit_type ? `Fit profile: ${product.fit_type.charAt(0).toUpperCase() + product.fit_type.slice(1)}. ` : '')}
+              {product.one_size_fit_range ? `One-size range: ${product.one_size_fit_range}. ` : ''}
+              Body measurements below are given in centimeters. If you fall between sizes, select based on your desired fit style.
+            </p>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left', marginBottom: 20 }}>
+              <thead>
+                <tr style={{ borderBottom: '1.5px solid #1a1719', background: '#faf8f6' }}>
+                  <th style={{ padding: '8px 10px' }}>Size</th>
+                  <th style={{ padding: '8px 10px' }}>Bust (cm)</th>
+                  <th style={{ padding: '8px 10px' }}>Waist (cm)</th>
+                  <th style={{ padding: '8px 10px' }}>Hips (cm)</th>
+                  <th style={{ padding: '8px 10px' }}>UK</th>
+                  <th style={{ padding: '8px 10px' }}>US</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { s: 'XS', b: '80–84', w: '62–66', h: '88–92', uk: '6', us: '2' },
+                  { s: 'S', b: '85–89', w: '67–71', h: '93–97', uk: '8', us: '4' },
+                  { s: 'M', b: '90–94', w: '72–76', h: '98–102', uk: '10', us: '6' },
+                  { s: 'L', b: '95–100', w: '77–83', h: '103–108', uk: '12', us: '8' },
+                  { s: 'XL', b: '101–107', w: '84–90', h: '109–115', uk: '14', us: '10' },
+                  { s: 'XXL', b: '108–114', w: '91–97', h: '116–122', uk: '16', us: '12' },
+                ].map((row) => (
+                  <tr key={row.s} style={{ borderBottom: '1px solid var(--line, #e2dcd7)' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>{row.s}</td>
+                    <td style={{ padding: '8px 10px' }}>{row.b}</td>
+                    <td style={{ padding: '8px 10px' }}>{row.w}</td>
+                    <td style={{ padding: '8px 10px' }}>{row.h}</td>
+                    <td style={{ padding: '8px 10px' }}>{row.uk}</td>
+                    <td style={{ padding: '8px 10px' }}>{row.us}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ background: '#faf6f4', border: '1px solid #e8e2dd', padding: 14, fontSize: 12, lineHeight: 1.6 }}>
+              <strong style={{ display: 'block', color: 'var(--wine, #752238)', marginBottom: 4 }}>Bespoke Studio Guarantee</strong>
+              Most Vishrea Studio pieces are one-of-one handcrafted garments. If your piece arrives and does not fit to your liking, exchange requests are accepted within 7 days of delivery.
+            </div>
+
+            <div style={{ marginTop: 20, textAlign: 'right' }}>
+              <button
+                type="button"
+                className="button button-dark"
+                style={{ padding: '10px 24px', fontSize: 11 }}
+                onClick={() => setSizeGuideOpen(false)}
+              >
+                Close Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

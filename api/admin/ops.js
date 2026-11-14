@@ -279,7 +279,7 @@ async function handleGet(req, res) {
         [id]
       ))[0];
       if (!profile) throw notFound('customer_not_found', 'Customer not found');
-      const [membership, wearers, orders, colour, referrals, rewards, credits, periods] = await Promise.all([
+      const [membership, wearers, orders, colour, referrals, rewards, credits, periods, sizeProfiles] = await Promise.all([
         rows('SELECT * FROM memberships WHERE auth_user_id = $1', [id]),
         rows('SELECT id, name, relationship, size_label, bust_cm, waist_cm, hip_cm, length_cm, birthday, created_at FROM wearer_profiles WHERE auth_user_id = $1 ORDER BY created_at', [id]),
         rows(`SELECT o.id, o.created_at, o.status, o.payment_status, o.total, o.invoice_number, o.channel, o.credits_used, o.rewards_used,
@@ -292,8 +292,9 @@ async function handleGet(req, res) {
         rows('SELECT delta, reason, expires_at, order_id, created_at FROM credit_ledger WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 50', [id]),
         rows(`SELECT mp.month_index, mp.streak_month, mp.source, mp.starts_at, mp.ends_at, mp.credits, mp.credits_granted_at, mp.voided_at
                 FROM membership_periods mp JOIN memberships m ON m.id = mp.membership_id WHERE m.auth_user_id = $1 ORDER BY mp.starts_at DESC LIMIT 36`, [id]),
+        rows('SELECT id, name, relationship, is_primary, size_standard, clothing_size, category_sizes, fit_preference, silhouette_preference, created_at FROM customer_size_profiles WHERE auth_user_id = $1 ORDER BY is_primary DESC, created_at ASC', [id]).catch(() => []),
       ]);
-      return res.json({ profile, membership: membership[0] || null, periods, wearers, orders, colour_reviews: colour, referrals, rewards, credits });
+      return res.json({ profile, membership: membership[0] || null, periods, wearers, size_profiles: sizeProfiles, orders, colour_reviews: colour, referrals, rewards, credits });
     }
     case 'gift_enquiries': {
       const status = q.status && q.status !== 'all' ? oneOf(q.status, Object.keys(GIFT_ENQUIRY_FLOW), { field: 'status' }) : null;

@@ -291,7 +291,7 @@ export const Home = () => {
                   ? (isReel ? `https://www.instagram.com/reel/${id}/embed/` : `https://www.instagram.com/p/${id}/embed/`)
                   : null;
                 return (
-                  <figure key={v.id} className="social-card">
+                  <figure key={v.id} className={`social-card ${embedSrc ? 'social-card-embed' : ''}`}>
                     <div className="social-media">
                       {embedSrc ? (
                         <iframe
@@ -299,14 +299,17 @@ export const Home = () => {
                           loading="eager"
                           title={v.title || 'Instagram reel'}
                           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                          scrolling="no"
                         />
                       ) : v.image_url ? (
                         <img src={v.image_url} alt={v.title || 'Vishrea Studio on Instagram'} loading="lazy" />
                       ) : null}
                     </div>
-                    <figcaption className="social-card-footer">
-                      <a href={v.post_url} target="_blank" rel="noopener noreferrer">{v.title || 'On Instagram'}</a>
-                    </figcaption>
+                    {!embedSrc && (
+                      <figcaption className="social-card-footer">
+                        <a href={v.post_url} target="_blank" rel="noopener noreferrer">{v.title || 'On Instagram'}</a>
+                      </figcaption>
+                    )}
                   </figure>
                 );
               })}

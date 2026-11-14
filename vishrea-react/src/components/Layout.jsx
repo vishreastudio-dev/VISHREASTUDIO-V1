@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import { ShoppingProfileSwitcher } from './ShoppingProfileSwitcher';
 
 // The search panel loads on first use; hovering or focusing the button fetches it early. If it
 // cannot load (offline, or a tab left open across a deploy), the full catalogue page opens instead.
@@ -117,6 +118,7 @@ export const Header = () => {
             <SearchIcon />
             <span className="search-trigger-label" aria-hidden="true">Search</span>
           </button>
+          <ShoppingProfileSwitcher />
           <Link className="account-link" to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
           <Link className="bag-button" to="/cart" aria-label={`Shopping bag, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}>
             Bag <span id="bagCount">{cartCount}</span>
@@ -126,6 +128,9 @@ export const Header = () => {
       {menuOpen && (
         <div className="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.target === e.currentTarget && setMenuOpen(false)}>
           <nav aria-label="Mobile navigation">
+            <div style={{ padding: '0 0 16px 0', borderBottom: '1px solid var(--line, #e2dcd7)', marginBottom: 12 }}>
+              <ShoppingProfileSwitcher isMobile />
+            </div>
             {NAV.map(([to, label]) => (
               <Link key={to} to={to}>{label}</Link>
             ))}

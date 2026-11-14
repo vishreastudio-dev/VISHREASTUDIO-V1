@@ -322,9 +322,9 @@ export function AIStudio() {
   return (
     <div style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 16px', fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 24, margin: 0, fontWeight: 500, letterSpacing: '0.02em' }}>
               Vishrea AI Studio
             </h1>
@@ -349,7 +349,7 @@ export function AIStudio() {
         </div>
 
         {/* Tab Switcher (No Emojis) */}
-        <div style={{ display: 'flex', background: '#f0ece7', borderRadius: 8, padding: 3 }}>
+        <div style={{ display: 'flex', background: '#f0ece7', borderRadius: 8, padding: 3, flexWrap: 'wrap', gap: 2 }}>
           <button
             type="button"
             onClick={() => setActiveTab('generator')}
@@ -436,7 +436,7 @@ export function AIStudio() {
 
       {/* TAB 1: CONTENT GENERATOR */}
       {activeTab === 'generator' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 24, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 24, alignItems: 'start' }}>
           {/* Left Configuration Column */}
           <div style={{ background: '#fff', border: '1px solid var(--admin-line, #e5e7eb)', borderRadius: 8, padding: 22, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -449,7 +449,7 @@ export function AIStudio() {
             </div>
 
             {/* Tool Selection Grid (Clean Icons, No Emojis) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: 10, marginBottom: 24 }}>
               {TOOLS.map((t) => {
                 const isSelected = selectedTool === t.id;
                 return (
@@ -835,7 +835,7 @@ export function AIStudio() {
 
       {/* TAB 2: CONVERSATIONAL CO-PILOT (No Emojis) */}
       {activeTab === 'copilot' && (
-        <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid var(--admin-line, #e5e7eb)', borderRadius: 8, display: 'flex', flexDirection: 'column', height: 650, boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid var(--admin-line, #e5e7eb)', borderRadius: 8, display: 'flex', flexDirection: 'column', height: 'clamp(460px, 75dvh, 650px)', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
           {/* Chat Header */}
           <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--admin-line, #e5e7eb)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -955,8 +955,8 @@ export function AIStudio() {
 
       {/* TAB 3: DRAFTS & VERSIONS (No Emojis) */}
       {activeTab === 'drafts' && (
-        <div style={{ background: '#fff', border: '1px solid var(--admin-line, #e5e7eb)', borderRadius: 8, padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ background: '#fff', border: '1px solid var(--admin-line, #e5e7eb)', borderRadius: 8, padding: 'clamp(16px, 3vw, 24px)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 18, margin: 0, fontWeight: 500 }}>Saved Content Drafts & Versions</h2>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted, #666)' }}>

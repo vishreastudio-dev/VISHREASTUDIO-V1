@@ -192,6 +192,18 @@ function AdminStudio({ section }) {
   const [loadError, setLoadError] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [adminNavOpen, setAdminNavOpen] = useState(false);
+
+  useEffect(() => {
+    setAdminNavOpen(false);
+  }, [section]);
+
+  useEffect(() => {
+    if (!adminNavOpen) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setAdminNavOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [adminNavOpen]);
 
   const [modalType, setModalType] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
@@ -451,14 +463,34 @@ function AdminStudio({ section }) {
 
   return (
     <div className="admin-shell">
-      <aside className="admin-side">
-        <div className="admin-brand">
-          VISHREA <span>STUDIO</span>
+      {adminNavOpen && (
+        <div
+          className="admin-drawer-backdrop"
+          onClick={() => setAdminNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`admin-side${adminNavOpen ? ' is-open' : ''}`}>
+        <div className="admin-brand-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="admin-brand">
+            VISHREA <span>STUDIO</span>
+          </div>
+          {adminNavOpen && (
+            <button
+              type="button"
+              className="admin-drawer-close"
+              onClick={() => setAdminNavOpen(false)}
+              aria-label="Close navigation"
+              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <div className="admin-kicker">Operations</div>
         <nav className="nav" aria-label="Admin sections">
           {SECTIONS.map(([k, v]) => (
-            <NavLink key={k} to={sectionPath(k)} end>
+            <NavLink key={k} to={sectionPath(k)} end onClick={() => setAdminNavOpen(false)}>
               {v}
             </NavLink>
           ))}
@@ -472,13 +504,29 @@ function AdminStudio({ section }) {
 
       <main className="admin-main">
         <div className="topbar">
-          <div>
-            <h1>{sectionLabel}</h1>
-            <p>
-              {section === 'dashboard'
-                ? 'Your store, membership and operations at a glance.'
-                : 'Manage the studio workflow without a developer.'}
-            </p>
+          <div className="topbar-title-group" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              type="button"
+              className="btn admin-menu-toggle"
+              onClick={() => setAdminNavOpen((v) => !v)}
+              aria-label={adminNavOpen ? 'Close navigation drawer' : 'Open navigation drawer'}
+              aria-expanded={adminNavOpen}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+              <span>Sections</span>
+            </button>
+            <div>
+              <h1>{sectionLabel}</h1>
+              <p>
+                {section === 'dashboard'
+                  ? 'Your store, membership and operations at a glance.'
+                  : 'Manage the studio workflow without a developer.'}
+              </p>
+            </div>
           </div>
           <div className="actions">
             <Link className="btn" to="/">
@@ -765,60 +813,62 @@ function AdminStudio({ section }) {
                 Add category
               </button>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Slug</th>
-                  <th>Order</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayCategories.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.slug}</td>
-                    <td>{c.sort_order || 1}</td>
-                    <td>{c.is_active ? 'Live' : 'Hidden'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <button
-                          className="btn"
-                          style={{ padding: '4px 10px', fontSize: '11px' }}
-                          onClick={() => {
-                            setActiveItem(c);
-                            setModalType('category');
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn"
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          disabled={busy}
-                          onClick={() => mutate(() => post('category', { ...c, is_active: !c.is_active }), { success: c.is_active ? 'Category hidden' : 'Category is live', reload: 'categories' }).then(loadCategories)}
-                        >
-                          {c.is_active ? 'Hide' : 'Show'}
-                        </button>
-                        <button
-                          className="btn"
-                          style={{ padding: '4px 8px', fontSize: '11px', color: '#c3272b', borderColor: '#f2dede' }}
-                          disabled={busy}
-                          onClick={() => {
-                            if (!window.confirm(`Delete category "${c.name}"? Products in this category will become unassigned.`)) return;
-                            mutate(() => api(`/api/admin/ops?section=category&id=${encodeURIComponent(c.id)}`, { method: 'DELETE' }), { success: 'Category deleted', reload: 'categories' }).then(loadCategories);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Order</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {displayCategories.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.name}</td>
+                      <td>{c.slug}</td>
+                      <td>{c.sort_order || 1}</td>
+                      <td>{c.is_active ? 'Live' : 'Hidden'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            className="btn"
+                            style={{ padding: '4px 10px', fontSize: '11px' }}
+                            onClick={() => {
+                              setActiveItem(c);
+                              setModalType('category');
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            disabled={busy}
+                            onClick={() => mutate(() => post('category', { ...c, is_active: !c.is_active }), { success: c.is_active ? 'Category hidden' : 'Category is live', reload: 'categories' }).then(loadCategories)}
+                          >
+                            {c.is_active ? 'Hide' : 'Show'}
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ padding: '4px 8px', fontSize: '11px', color: '#c3272b', borderColor: '#f2dede' }}
+                            disabled={busy}
+                            onClick={() => {
+                              if (!window.confirm(`Delete category "${c.name}"? Products in this category will become unassigned.`)) return;
+                              mutate(() => api(`/api/admin/ops?section=category&id=${encodeURIComponent(c.id)}`, { method: 'DELETE' }), { success: 'Category deleted', reload: 'categories' }).then(loadCategories);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1076,42 +1126,44 @@ function AdminStudio({ section }) {
                 <p>₹1,799/month · 4 credits · membership operations.</p>
               </div>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Member</th>
-                  <th>Status</th>
-                  <th>Credits</th>
-                  <th>Paid until</th>
-                  <th>Months</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!(cache.memberships || []).length && <tr><td colSpan="5" className="empty">No memberships yet.</td></tr>}
-                {(cache.memberships || []).map((m) => (
-                  <tr key={m.id}>
-                    <td>{m.full_name || m.email || m.auth_user_id}</td>
-                    <td>
-                      <select
-                        value={m.status}
-                        disabled={busy}
-                        aria-label={`Membership status for ${m.full_name || m.email || 'member'}`}
-                        onChange={(e) => {
-                          const status = e.target.value;
-                          if (!window.confirm(`Change this membership to ${status}?`)) return;
-                          mutate(() => post('membership', { id: m.id, status }), { success: `Membership ${status}`, reload: 'memberships' });
-                        }}
-                      >
-                        {[...new Set([m.status, ...MEMBERSHIP_STATUSES])].map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td>{m.credits_balance}</td>
-                    <td>{m.paid_through || m.renewal_at ? new Date(m.paid_through || m.renewal_at).toLocaleDateString('en-IN') : '—'}</td>
-                    <td>{m.consecutive_paid_months || 0}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Status</th>
+                    <th>Credits</th>
+                    <th>Paid until</th>
+                    <th>Months</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!(cache.memberships || []).length && <tr><td colSpan="5" className="empty">No memberships yet.</td></tr>}
+                  {(cache.memberships || []).map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.full_name || m.email || m.auth_user_id}</td>
+                      <td>
+                        <select
+                          value={m.status}
+                          disabled={busy}
+                          aria-label={`Membership status for ${m.full_name || m.email || 'member'}`}
+                          onChange={(e) => {
+                            const status = e.target.value;
+                            if (!window.confirm(`Change this membership to ${status}?`)) return;
+                            mutate(() => post('membership', { id: m.id, status }), { success: `Membership ${status}`, reload: 'memberships' });
+                          }}
+                        >
+                          {[...new Set([m.status, ...MEMBERSHIP_STATUSES])].map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td>{m.credits_balance}</td>
+                      <td>{m.paid_through || m.renewal_at ? new Date(m.paid_through || m.renewal_at).toLocaleDateString('en-IN') : '—'}</td>
+                      <td>{m.consecutive_paid_months || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1141,27 +1193,29 @@ function AdminStudio({ section }) {
                 + Adjust Credits
               </button>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Customer</th>
-                  <th>Change</th>
-                  <th>Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!(cache.credits || []).length && <tr><td colSpan="4" className="empty">No credit movements yet.</td></tr>}
-                {(cache.credits || []).map((x) => (
-                  <tr key={x.id}>
-                    <td>{new Date(x.created_at).toLocaleString('en-IN')}</td>
-                    <td>{x.full_name || x.email || 'Member'}</td>
-                    <td>{x.delta > 0 ? `+${x.delta}` : x.delta}</td>
-                    <td>{x.reason}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Change</th>
+                    <th>Reason</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!(cache.credits || []).length && <tr><td colSpan="4" className="empty">No credit movements yet.</td></tr>}
+                  {(cache.credits || []).map((x) => (
+                    <tr key={x.id}>
+                      <td>{new Date(x.created_at).toLocaleString('en-IN')}</td>
+                      <td>{x.full_name || x.email || 'Member'}</td>
+                      <td>{x.delta > 0 ? `+${x.delta}` : x.delta}</td>
+                      <td>{x.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1174,105 +1228,107 @@ function AdminStudio({ section }) {
                 <p>7-day exchange · damage reported within 24 hours.</p>
               </div>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Order</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Resolution</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(cache.exchanges || []).length ? (
-                  cache.exchanges.map((x) => (
-                    <tr key={x.id}>
-                      <td>{x.full_name || x.email}<small style={{ display: 'block', color: 'var(--muted)' }}>{x.reason}</small></td>
-                      <td>
-                        {x.order_id?.slice(0, 8).toUpperCase()}
-                        {(x.evidence || []).some((ev) => ev.url) && (
-                          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                            {x.evidence.filter((ev) => ev.url).map((ev, i, all) => (
-                              <button
-                                key={ev.ref}
-                                type="button"
-                                title="Customer photo (private link, expires in a few minutes)"
-                                aria-label={`View customer photo ${i + 1}`}
-                                onClick={() => { setActiveItem({ name: `${x.claim_type === 'damage' ? 'Damage' : 'Exchange'} photos · ${x.full_name || x.email || ''}`, images: all.map((a) => a.url), index: i }); setModalType('image'); }}
-                                style={{ width: 36, height: 44, padding: 0, border: '1px solid var(--admin-line, #e5e5e5)', background: '#f4f1ee', cursor: 'zoom-in', overflow: 'hidden' }}
-                              >
-                                <img src={ev.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td>{x.claim_type || 'exchange'}</td>
-                      <td>
-                        <select
-                          value={x.status}
-                          disabled={busy}
-                          aria-label="Exchange status"
-                          style={{
-                            padding: '5px 10px',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            border: `1px solid ${x.status === 'approved' ? '#c8e6c9' : x.status === 'not_approved' ? '#fecaca' : x.status === 'review' ? '#fde68a' : 'var(--admin-line, #ccc)'}`,
-                            background: x.status === 'approved' ? '#edf7ed' : x.status === 'not_approved' ? '#fef2f2' : x.status === 'review' ? '#fff8e1' : '#fff',
-                            color: x.status === 'approved' ? '#1e4620' : x.status === 'not_approved' ? '#991b1b' : x.status === 'review' ? '#854d0e' : 'var(--ink, #1a1719)',
-                          }}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === x.status) return;
-                            setActiveItem({
-                              exchange: x,
-                              nextStatus: val,
-                              resolution: x.resolution || (val === 'not_approved' ? 'Request not approved upon studio inspection.' : val === 'approved' ? 'Approved by studio. Replacement will be processed.' : ''),
-                            });
-                            setModalType('exchange_decision');
-                          }}
-                        >
-                          {ALL_EXCHANGE_STATUSES.map(([s, label]) => (
-                            <option key={s} value={s}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 12, color: x.resolution ? 'var(--ink)' : 'var(--muted)' }}>
-                            {x.resolution || '—'}
-                          </span>
-                          <button
-                            type="button"
-                            title="Edit resolution opinion"
-                            style={{ fontSize: 10, padding: '2px 6px', border: '1px solid var(--admin-line, #e5e5e5)', background: '#fff', borderRadius: 3, cursor: 'pointer', color: 'var(--muted)' }}
-                            onClick={() => {
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Order</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Resolution</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(cache.exchanges || []).length ? (
+                    cache.exchanges.map((x) => (
+                      <tr key={x.id}>
+                        <td>{x.full_name || x.email}<small style={{ display: 'block', color: 'var(--muted)' }}>{x.reason}</small></td>
+                        <td>
+                          {x.order_id?.slice(0, 8).toUpperCase()}
+                          {(x.evidence || []).some((ev) => ev.url) && (
+                            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                              {x.evidence.filter((ev) => ev.url).map((ev, i, all) => (
+                                <button
+                                  key={ev.ref}
+                                  type="button"
+                                  title="Customer photo (private link, expires in a few minutes)"
+                                  aria-label={`View customer photo ${i + 1}`}
+                                  onClick={() => { setActiveItem({ name: `${x.claim_type === 'damage' ? 'Damage' : 'Exchange'} photos · ${x.full_name || x.email || ''}`, images: all.map((a) => a.url), index: i }); setModalType('image'); }}
+                                  style={{ width: 36, height: 44, padding: 0, border: '1px solid var(--admin-line, #e5e5e5)', background: '#f4f1ee', cursor: 'zoom-in', overflow: 'hidden' }}
+                                >
+                                  <img src={ev.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td>{x.claim_type || 'exchange'}</td>
+                        <td>
+                          <select
+                            value={x.status}
+                            disabled={busy}
+                            aria-label="Exchange status"
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              border: `1px solid ${x.status === 'approved' ? '#c8e6c9' : x.status === 'not_approved' ? '#fecaca' : x.status === 'review' ? '#fde68a' : 'var(--admin-line, #ccc)'}`,
+                              background: x.status === 'approved' ? '#edf7ed' : x.status === 'not_approved' ? '#fef2f2' : x.status === 'review' ? '#fff8e1' : '#fff',
+                              color: x.status === 'approved' ? '#1e4620' : x.status === 'not_approved' ? '#991b1b' : x.status === 'review' ? '#854d0e' : 'var(--ink, #1a1719)',
+                            }}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === x.status) return;
                               setActiveItem({
                                 exchange: x,
-                                nextStatus: x.status,
-                                resolution: x.resolution || '',
+                                nextStatus: val,
+                                resolution: x.resolution || (val === 'not_approved' ? 'Request not approved upon studio inspection.' : val === 'approved' ? 'Approved by studio. Replacement will be processed.' : ''),
                               });
                               setModalType('exchange_decision');
                             }}
                           >
-                            Edit
-                          </button>
-                        </div>
-                      </td>
+                            {ALL_EXCHANGE_STATUSES.map(([s, label]) => (
+                              <option key={s} value={s}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 12, color: x.resolution ? 'var(--ink)' : 'var(--muted)' }}>
+                              {x.resolution || '—'}
+                            </span>
+                            <button
+                              type="button"
+                              title="Edit resolution opinion"
+                              style={{ fontSize: 10, padding: '2px 6px', border: '1px solid var(--admin-line, #e5e5e5)', background: '#fff', borderRadius: 3, cursor: 'pointer', color: 'var(--muted)' }}
+                              onClick={() => {
+                                setActiveItem({
+                                  exchange: x,
+                                  nextStatus: x.status,
+                                  resolution: x.resolution || '',
+                                });
+                                setModalType('exchange_decision');
+                              }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="empty">No active exchange or damage requests.</td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="empty">No active exchange or damage requests.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1319,39 +1375,41 @@ function AdminStudio({ section }) {
                 </button>
               </div>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Rule</th>
-                  <th>Trigger</th>
-                  <th>Reward</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!(cache.rules || []).length && <tr><td colSpan="5" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
-                {(cache.rules || []).map((r) => (
-                  <tr key={r.id}>
-                    <td><strong>{r.name}</strong></td>
-                    <td><code>{typeof r.trigger_config === 'object' ? JSON.stringify(r.trigger_config) : r.trigger_config}</code></td>
-                    <td><code>{typeof r.reward_config === 'object' ? JSON.stringify(r.reward_config) : r.reward_config}</code></td>
-                    <td>
-                      <span className={`status ${r.active ? 'good' : 'bad'}`}>{r.active ? 'Live' : 'Paused'}</span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn"
-                        disabled={busy}
-                        onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
-                      >
-                        {r.active ? 'Pause' : 'Activate'}
-                      </button>
-                    </td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Rule</th>
+                    <th>Trigger</th>
+                    <th>Reward</th>
+                    <th>Status</th>
+                    <th>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!(cache.rules || []).length && <tr><td colSpan="5" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
+                  {(cache.rules || []).map((r) => (
+                    <tr key={r.id}>
+                      <td><strong>{r.name}</strong></td>
+                      <td><code>{typeof r.trigger_config === 'object' ? JSON.stringify(r.trigger_config) : r.trigger_config}</code></td>
+                      <td><code>{typeof r.reward_config === 'object' ? JSON.stringify(r.reward_config) : r.reward_config}</code></td>
+                      <td>
+                        <span className={`status ${r.active ? 'good' : 'bad'}`}>{r.active ? 'Live' : 'Paused'}</span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn"
+                          disabled={busy}
+                          onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
+                        >
+                          {r.active ? 'Pause' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1376,29 +1434,31 @@ function AdminStudio({ section }) {
                 + Schedule Weekly Drop
               </button>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Member access</th>
-                  <th>Public</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!(cache.drops || []).length && <tr><td colSpan="4" className="empty">No drops scheduled.</td></tr>}
-                {(cache.drops || []).map((d) => (
-                  <tr key={d.id}>
-                    <td><strong>{d.name}</strong></td>
-                    <td>{d.starts_at ? new Date(d.starts_at).toLocaleString('en-IN') : '48h prior'}</td>
-                    <td>{new Date(d.public_at).toLocaleString('en-IN')}</td>
-                    <td>
-                      <span className="status good">{d.active ? 'Active' : 'Off'}</span>
-                    </td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Member access</th>
+                    <th>Public</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!(cache.drops || []).length && <tr><td colSpan="4" className="empty">No drops scheduled.</td></tr>}
+                  {(cache.drops || []).map((d) => (
+                    <tr key={d.id}>
+                      <td><strong>{d.name}</strong></td>
+                      <td>{d.starts_at ? new Date(d.starts_at).toLocaleString('en-IN') : '48h prior'}</td>
+                      <td>{new Date(d.public_at).toLocaleString('en-IN')}</td>
+                      <td>
+                        <span className="status good">{d.active ? 'Active' : 'Off'}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1420,25 +1480,27 @@ function AdminStudio({ section }) {
                 + Add Sourcing Batch
               </button>
             </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Supplier</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!(cache.batches || []).length && <tr><td colSpan="3" className="empty">No sourcing batches recorded.</td></tr>}
-                {(cache.batches || []).map((x) => (
-                  <tr key={x.id}>
-                    <td>{x.batch_date}</td>
-                    <td><strong>{x.supplier_name}</strong></td>
-                    <td>{x.notes}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!(cache.batches || []).length && <tr><td colSpan="3" className="empty">No sourcing batches recorded.</td></tr>}
+                  {(cache.batches || []).map((x) => (
+                    <tr key={x.id}>
+                      <td>{x.batch_date}</td>
+                      <td><strong>{x.supplier_name}</strong></td>
+                      <td>{x.notes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
@@ -1519,61 +1581,63 @@ function AdminStudio({ section }) {
                 >
                   + Add Instagram Reel / Story
                 </button>
-                <table className="table" style={{ marginTop: '14px' }}>
-                  <thead>
-                    <tr>
-                      <th>Title / Link</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayInstagram.length ? (
-                      displayInstagram.map((x) => (
-                        <tr key={x.id}>
-                          <td>
-                            <strong>{x.title || 'Instagram Feature'}</strong>
-                            <br />
-                            <small>
-                              <a href={x.post_url} target="_blank" rel="noreferrer" style={{ color: 'var(--wine)' }}>
-                                {x.post_url}
-                              </a>
-                            </small>
-                          </td>
-                          <td>
-                            <span className={`status ${x.active !== false ? 'good' : 'warn'}`}>
-                              {x.active !== false ? 'Live' : 'Hidden'}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button
-                                className="btn"
-                                disabled={busy}
-                                onClick={() => toggleContentStatus('instagram', x.id, x.active === false)}
-                              >
-                                {x.active === false ? 'Publish' : 'Unpublish'}
-                              </button>
-                              <button
-                                className="btn"
-                                style={{ color: '#8a2b3e' }}
-                                onClick={() => deleteContentItem('instagram', x.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
+                <div className="table-wrap">
+                  <table className="table" style={{ marginTop: '14px' }}>
+                    <thead>
+                      <tr>
+                        <th>Title / Link</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayInstagram.length ? (
+                        displayInstagram.map((x) => (
+                          <tr key={x.id}>
+                            <td>
+                              <strong>{x.title || 'Instagram Feature'}</strong>
+                              <br />
+                              <small>
+                                <a href={x.post_url} target="_blank" rel="noreferrer" style={{ color: 'var(--wine)' }}>
+                                  {x.post_url}
+                                </a>
+                              </small>
+                            </td>
+                            <td>
+                              <span className={`status ${x.active !== false ? 'good' : 'warn'}`}>
+                                {x.active !== false ? 'Live' : 'Hidden'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  className="btn"
+                                  disabled={busy}
+                                  onClick={() => toggleContentStatus('instagram', x.id, x.active === false)}
+                                >
+                                  {x.active === false ? 'Publish' : 'Unpublish'}
+                                </button>
+                                <button
+                                  className="btn"
+                                  style={{ color: '#8a2b3e' }}
+                                  onClick={() => deleteContentItem('instagram', x.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="3" className="empty">
+                            No Instagram features yet.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="3" className="empty">
-                          No Instagram features yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </section>
 
               {/* Customer Feedback Reels (Rule: <=10s duration, max 3 live) */}
@@ -1598,70 +1662,72 @@ function AdminStudio({ section }) {
                 >
                   + Add Customer Video Reel
                 </button>
-                <table className="table" style={{ marginTop: '14px' }}>
-                  <thead>
-                    <tr>
-                      <th>Video</th>
-                      <th>Customer / Title</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayVideos.length ? (
-                      displayVideos.map((x) => (
-                        <tr key={x.id}>
-                          <td style={{ width: '50px' }}>
-                            <div style={{ width: '44px', height: '56px', background: '#171316', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-                              <video src={x.video_url} preload="metadata" controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted aria-label={`Preview ${x.title || 'customer video'}`} />
-                            </div>
-                          </td>
-                          <td>
-                            <strong>{x.title || 'Customer look'}</strong>
-                            {x.customer_name && <small style={{ display: 'block' }}>{x.customer_name}</small>}
-                            {x.duration_seconds && <small style={{ display: 'block', color: 'var(--muted)' }}>{Number(x.duration_seconds)}s</small>}
-                          </td>
-                          <td>
-                            <span className={`status ${x.active ? 'good' : 'warn'}`}>{x.active ? 'Live' : 'Hidden'}</span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              <button className="btn" disabled={busy} onClick={() => toggleContentStatus('video', x.id, !x.active)}>
-                                {x.active ? 'Hide' : 'Publish'}
-                              </button>
-                              <button
-                                className="btn"
-                                disabled={busy}
-                                onClick={() => {
-                                  setActiveItem({ id: x.id, title: x.title, customer_name: x.customer_name, active: x.active });
-                                  setUploadedVideoUrl(x.video_url);
-                                  setVideoDuration(x.duration_seconds);
-                                  setVideoDurationValid(true);
-                                  setModalType('video');
-                                }}
-                              >
-                                Edit / replace
-                              </button>
-                              <button
-                                className="btn"
-                                style={{ color: '#8a2b3e' }}
-                                onClick={() => deleteContentItem('video', x.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
+                <div className="table-wrap">
+                  <table className="table" style={{ marginTop: '14px' }}>
+                    <thead>
+                      <tr>
+                        <th>Video</th>
+                        <th>Customer / Title</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayVideos.length ? (
+                        displayVideos.map((x) => (
+                          <tr key={x.id}>
+                            <td style={{ width: '50px' }}>
+                              <div style={{ width: '44px', height: '56px', background: '#171316', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+                                <video src={x.video_url} preload="metadata" controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted aria-label={`Preview ${x.title || 'customer video'}`} />
+                              </div>
+                            </td>
+                            <td>
+                              <strong>{x.title || 'Customer look'}</strong>
+                              {x.customer_name && <small style={{ display: 'block' }}>{x.customer_name}</small>}
+                              {x.duration_seconds && <small style={{ display: 'block', color: 'var(--muted)' }}>{Number(x.duration_seconds)}s</small>}
+                            </td>
+                            <td>
+                              <span className={`status ${x.active ? 'good' : 'warn'}`}>{x.active ? 'Live' : 'Hidden'}</span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <button className="btn" disabled={busy} onClick={() => toggleContentStatus('video', x.id, !x.active)}>
+                                  {x.active ? 'Hide' : 'Publish'}
+                                </button>
+                                <button
+                                  className="btn"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setActiveItem({ id: x.id, title: x.title, customer_name: x.customer_name, active: x.active });
+                                    setUploadedVideoUrl(x.video_url);
+                                    setVideoDuration(x.duration_seconds);
+                                    setVideoDurationValid(true);
+                                    setModalType('video');
+                                  }}
+                                >
+                                  Edit / replace
+                                </button>
+                                <button
+                                  className="btn"
+                                  style={{ color: '#8a2b3e' }}
+                                  onClick={() => deleteContentItem('video', x.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="empty">
+                            No customer reels uploaded yet.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className="empty">
-                          No customer reels uploaded yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </section>
             </div>
 
@@ -1673,29 +1739,31 @@ function AdminStudio({ section }) {
                   <p>Privacy, terms, exchange/damage, membership terms and grievance details.</p>
                 </div>
               </div>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Slug</th>
-                    <th>Title</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!(cache.legal || []).length && <tr><td colSpan="3" className="empty">No legal pages published yet.</td></tr>}
-                  {(cache.legal || []).map((x) => (
-                    <tr key={x.slug}>
-                      <td>
-                        <Link to={`/legal?slug=${x.slug}`} target="_blank" style={{ color: 'var(--wine)' }}>
-                          {x.slug} (view)
-                        </Link>
-                      </td>
-                      <td>{x.title}</td>
-                      <td>{new Date(x.updated_at).toLocaleDateString('en-IN')}</td>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Slug</th>
+                      <th>Title</th>
+                      <th>Updated</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {!(cache.legal || []).length && <tr><td colSpan="3" className="empty">No legal pages published yet.</td></tr>}
+                    {(cache.legal || []).map((x) => (
+                      <tr key={x.slug}>
+                        <td>
+                          <Link to={`/legal?slug=${x.slug}`} target="_blank" style={{ color: 'var(--wine)' }}>
+                            {x.slug} (view)
+                          </Link>
+                        </td>
+                        <td>{x.title}</td>
+                        <td>{new Date(x.updated_at).toLocaleDateString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </div>
         )}

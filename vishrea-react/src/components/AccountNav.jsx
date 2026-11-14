@@ -5,6 +5,7 @@ export const AccountNav = () => (
   <nav className="account-nav" aria-label="Account" style={{ display: 'grid', gap: '8px', height: 'fit-content' }}>
     <p className="eyebrow">MY VISHREA</p>
     <NavLink to="/account" end>Overview</NavLink>
+    <a href="#size-profiles">My size profiles</a>
     <NavLink to="/orders">Orders & exchanges</NavLink>
     <NavLink to="/membership">Membership & credits</NavLink>
     <NavLink to="/wardrobe">Wardrobe Bag</NavLink>

@@ -49,7 +49,12 @@ export const Login = () => {
       const d = await startLogin(email.trim());
       setStep('code');
       setCooldown(30);
-      setMsg({ tone: 'success', text: d.debug_code ? `Development code: ${d.debug_code}` : 'We have emailed you a 6-digit code. It expires in 10 minutes.' });
+      if (d.debug_code) {
+        setCode(d.debug_code);
+        setMsg({ tone: 'success', text: `Development code auto-filled: ${d.debug_code}` });
+      } else {
+        setMsg({ tone: 'success', text: 'We have emailed you a 6-digit code. It expires in 10 minutes.' });
+      }
     } catch (err) {
       setMsg({ tone: 'error', text: err.message });
     } finally {
@@ -131,6 +136,19 @@ export const Login = () => {
                   {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
                 </button>
               </div>
+
+              {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                <div style={{ padding: '10px 12px', background: '#faf9f5', border: '1px dashed #d6cebe', fontSize: '12px', color: '#555', textAlign: 'center', lineHeight: 1.5 }}>
+                  Local testing code: <strong style={{ color: 'var(--ink)' }}>123456</strong>
+                  <button
+                    type="button"
+                    onClick={() => setCode('123456')}
+                    style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--wine)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  >
+                    Use 123456
+                  </button>
+                </div>
+              )}
             </form>
           )}
           <InlineMessage id="login-msg" tone={msg.tone}>{msg.text}</InlineMessage>

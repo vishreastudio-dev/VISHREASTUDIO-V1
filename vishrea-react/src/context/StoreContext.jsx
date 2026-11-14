@@ -6,6 +6,7 @@ const StoreContext = createContext(null);
 const GUEST_CART_KEY = 'vishrea_guest_cart';
 const COLOUR_KEY = 'vishrea_colour_profile';
 const REFERRAL_KEY = 'vishrea_referral';
+const SIZE_FILTER_KEY = 'vishrea_size_filter_enabled';
 const REFERRAL_TTL_MS = 30 * 86_400_000;
 
 function readJson(key, fallback) {
@@ -28,6 +29,70 @@ export const StoreProvider = ({ children }) => {
   const [cartBusy, setCartBusy] = useState(false);
   // Derived colour attributes only (never images); kept on this device.
   const [colourProfile, setColourProfileState] = useState(() => readJson(COLOUR_KEY, null));
+  // Personalized Size Profiles & Active Shopping Profile
+  const [sizeProfiles, setSizeProfiles] = useState([]);
+  const [activeSizeProfile, setActiveSizeProfile] = useState(null);
+  const [sizeFilterEnabled, setSizeFilterEnabledState] = useState(() => readJson(SIZE_FILTER_KEY, true));
+
+  const setSizeFilterEnabled = useCallback((enabled) => {
+    setSizeFilterEnabledState(enabled);
+    localStorage.setItem(SIZE_FILTER_KEY, JSON.stringify(enabled));
+  }, []);
+
+  const refreshSizeProfiles = useCallback(async () => {
+    try {
+      const d = await api('/api/size-profiles');
+      if (Array.isArray(d?.profiles)) {
+        setSizeProfiles(d.profiles);
+        setActiveSizeProfile(d.active_profile || d.profiles.find((p) => p.id === d.active_profile_id) || d.profiles[0] || null);
+        return d;
+      }
+    } catch {
+      setSizeProfiles([]);
+      setActiveSizeProfile(null);
+    }
+    return null;
+  }, []);
+
+  const switchActiveProfile = useCallback(async (profileId) => {
+    try {
+      const res = await api('/api/size-profiles', {
+        method: 'PUT',
+        body: { action: 'set_active', id: profileId },
+      });
+      if (res?.active_profile) {
+        setActiveSizeProfile(res.active_profile);
+      } else {
+        const found = sizeProfiles.find((p) => p.id === profileId);
+        if (found) setActiveSizeProfile(found);
+      }
+      setSizeFilterEnabled(true);
+      await refreshSizeProfiles();
+      return res;
+    } catch (e) {
+      console.error('Failed to switch active profile:', e);
+      throw e;
+    }
+  }, [sizeProfiles, refreshSizeProfiles, setSizeFilterEnabled]);
+
+  const saveSizeProfile = useCallback(async (data) => {
+    const isEdit = Boolean(data.id);
+    const res = await api('/api/size-profiles', {
+      method: isEdit ? 'PUT' : 'POST',
+      body: data,
+    });
+    await refreshSizeProfiles();
+    return res;
+  }, [refreshSizeProfiles]);
+
+  const deleteSizeProfile = useCallback(async (profileId) => {
+    const res = await api(`/api/size-profiles?id=${encodeURIComponent(profileId)}`, {
+      method: 'DELETE',
+    });
+    await refreshSizeProfiles();
+    return res;
+  }, [refreshSizeProfiles]);
+
   // Bag loads wait for an in-flight guest-bag merge, and only the newest response is applied,
   // so a fetch that started before the merge can never overwrite the merged bag.
   const mergePromise = useRef(null);
@@ -47,14 +112,22 @@ export const StoreProvider = ({ children }) => {
     try {
       const d = await cachedGet('/api/auth/session');
       setUser(d?.user || null);
+      if (d?.user) {
+        refreshSizeProfiles().catch(() => {});
+      } else {
+        setSizeProfiles([]);
+        setActiveSizeProfile(null);
+      }
       return d?.user || null;
     } catch {
       setUser(null);
+      setSizeProfiles([]);
+      setActiveSizeProfile(null);
       return null;
     } finally {
       setAuthReady(true);
     }
-  }, []);
+  }, [refreshSizeProfiles]);
 
   const applyCart = useCallback((d, seq) => {
     const next = {
@@ -179,6 +252,8 @@ export const StoreProvider = ({ children }) => {
     } finally {
       setUser(null);
       setGuestCart([]);
+      setSizeProfiles([]);
+      setActiveSizeProfile(null);
     }
   }, []);
 
@@ -280,8 +355,16 @@ export const StoreProvider = ({ children }) => {
       referral,
       completeProfile,
       completeOnboarding,
+      sizeProfiles,
+      activeSizeProfile,
+      sizeFilterEnabled,
+      setSizeFilterEnabled,
+      refreshSizeProfiles,
+      switchActiveProfile,
+      saveSizeProfile,
+      deleteSizeProfile,
     }),
-    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral]
+    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral, sizeProfiles, activeSizeProfile, sizeFilterEnabled, setSizeFilterEnabled, refreshSizeProfiles, switchActiveProfile, saveSizeProfile, deleteSizeProfile]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

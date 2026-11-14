@@ -44,6 +44,7 @@ const API_MODULES = [
   ['/api/product', './api/product.js'],
   ['/api/referrals', './api/referrals.js'],
   ['/api/search', './api/search.js'],
+  ['/api/size-profiles', './api/size-profiles.js'],
   ['/api/wardrobe', './api/wardrobe.js'],
   ['/api/admin/ops', './api/admin/ops.js'],
   ['/api/admin/homepage-carousel', './api/admin/homepage-carousel.js'],
