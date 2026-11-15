@@ -41,6 +41,7 @@ export function ShoppingProfileSwitcher({ isMobile = false }) {
   }, [open]);
 
   const fullProfileName = activeSizeProfile?.name || (user ? 'My Wardrobe' : 'Standard');
+  const profileName = fullProfileName;
   const shortProfileName = fullProfileName.length > 12 ? (fullProfileName.split(' ')[0] || fullProfileName.slice(0, 10)) : fullProfileName;
   const clothingSize = activeSizeProfile?.clothing_size || 'M';
   const dressSize = activeSizeProfile?.category_sizes?.dresses || clothingSize;
