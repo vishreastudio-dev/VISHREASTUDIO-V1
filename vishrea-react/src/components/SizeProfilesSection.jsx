@@ -127,8 +127,9 @@ export function SizeProfilesSection() {
     }
   };
 
-  const primaryProfile = sizeProfiles.find((p) => p.is_primary) || sizeProfiles[0];
-  const additionalProfiles = sizeProfiles.filter((p) => p.id !== primaryProfile?.id);
+  const profilesList = Array.isArray(sizeProfiles) ? sizeProfiles : [];
+  const primaryProfile = profilesList.find((p) => p.is_primary) || profilesList[0] || null;
+  const additionalProfiles = primaryProfile ? profilesList.filter((p) => p.id !== primaryProfile.id) : [];
 
   return (
     <div className="account-panel" id="size-profiles" style={{ marginTop: 24 }}>
@@ -505,6 +506,15 @@ export function SizeProfilesSection() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {!primaryProfile && !editing && (
+          <div style={{ padding: '28px 20px', textAlign: 'center', background: '#faf8f5', border: '1px dashed #dcd4ce' }}>
+            <p style={{ color: 'var(--muted, #666)', fontSize: 13, margin: '0 0 12px' }}>No size profile found yet.</p>
+            <button type="button" className="button button-dark" onClick={startCreate} style={{ fontSize: 11, padding: '8px 16px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Create My Size Profile
+            </button>
           </div>
         )}
 

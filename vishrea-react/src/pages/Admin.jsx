@@ -2064,6 +2064,23 @@ function AdminStudio({ section }) {
                 <label htmlFor="p-hsn">HSN code</label>
                 <input id="p-hsn" maxLength={8} value={activeItem.hsn_code || '6204'} onChange={(e) => setActiveItem({ ...activeItem, hsn_code: e.target.value })} />
               </div>
+              <div className="field">
+                <label htmlFor="p-fit-type">Fit Style / Silhouette</label>
+                <select id="p-fit-type" value={activeItem.fit_type || 'regular'} onChange={(e) => setActiveItem({ ...activeItem, fit_type: e.target.value })}>
+                  <option value="regular">Regular Fit</option>
+                  <option value="relaxed">Relaxed / Fluid</option>
+                  <option value="slim">Slim / Tailored</option>
+                  <option value="oversized">Oversized / Anti-fit</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="p-one-size">One-Size / Free-Size Fit Range (optional)</label>
+                <input id="p-one-size" maxLength={60} placeholder="e.g. Fits XS to L, Fits 28 to 32" value={activeItem.one_size_fit_range || ''} onChange={(e) => setActiveItem({ ...activeItem, one_size_fit_range: e.target.value })} />
+              </div>
+              <div className="field full">
+                <label htmlFor="p-size-notes">Size &amp; Fit Guidance Notes (shown on Product Page)</label>
+                <input id="p-size-notes" maxLength={200} placeholder="e.g. True to size. Designed for a relaxed fit, size down for tailored fit." value={activeItem.size_notes || ''} onChange={(e) => setActiveItem({ ...activeItem, size_notes: e.target.value })} />
+              </div>
               <div className="field full">
                 <label htmlFor="p-desc">Description</label>
                 <textarea id="p-desc" maxLength={5000} style={{ minHeight: 70, padding: 10, border: '1px solid var(--admin-line, #ddd)' }} value={activeItem.description || ''} onChange={(e) => setActiveItem({ ...activeItem, description: e.target.value })} />

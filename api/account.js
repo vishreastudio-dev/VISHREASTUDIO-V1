@@ -42,7 +42,7 @@ export default async function account(req, res) {
   const action = b.action;
 
   if (req.method === 'GET') {
-    const [p, m, w, a, n, l, colour, rewards] = await Promise.all([
+    const [p, m, w, a, n, l, colour, rewards, sizeData] = await Promise.all([
       db.query(
         'SELECT full_name, phone, email, gst_number, age_confirmed, marketing_opt_in, whatsapp_opt_in, COALESCE(profile_completed, false) AS profile_completed, COALESCE(onboarding_completed, false) AS onboarding_completed FROM customer_profiles WHERE auth_user_id = $1',
         [uid]
