@@ -40,7 +40,8 @@ export function ShoppingProfileSwitcher({ isMobile = false }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
-  const profileName = activeSizeProfile?.name || (user ? 'My Wardrobe' : 'Standard (M)');
+  const fullProfileName = activeSizeProfile?.name || (user ? 'My Wardrobe' : 'Standard');
+  const shortProfileName = fullProfileName.length > 12 ? (fullProfileName.split(' ')[0] || fullProfileName.slice(0, 10)) : fullProfileName;
   const clothingSize = activeSizeProfile?.clothing_size || 'M';
   const dressSize = activeSizeProfile?.category_sizes?.dresses || clothingSize;
   const pantSize = activeSizeProfile?.category_sizes?.pants || '30';
@@ -72,11 +73,11 @@ export function ShoppingProfileSwitcher({ isMobile = false }) {
         className="profile-switcher-btn"
         aria-expanded={open}
         aria-haspopup="true"
-        aria-label={`Shopping for ${profileName}. Click to change size profile.`}
+        aria-label={`Shopping for ${fullProfileName}. Click to change size profile.`}
         onClick={() => setOpen((prev) => !prev)}
       >
-        <span className="profile-switcher-kicker">Shopping for:</span>
-        <strong className="profile-switcher-name">{profileName}</strong>
+        <span className="profile-switcher-kicker">For:</span>
+        <strong className="profile-switcher-name" title={fullProfileName}>{shortProfileName}</strong>
         <span className="profile-switcher-size-chip" title="Active clothing size">
           {clothingSize}
         </span>
@@ -110,7 +111,7 @@ export function ShoppingProfileSwitcher({ isMobile = false }) {
             <span className="profile-switcher-eyebrow">ACTIVE SHOPPING PROFILE</span>
             <div className="profile-switcher-active-summary">
               <span className="profile-switcher-dot" />
-              <strong>{profileName}</strong>
+              <strong>{fullProfileName}</strong>
               {activeSizeProfile?.is_primary && <span className="profile-primary-badge">PRIMARY</span>}
             </div>
             <div className="profile-sizes-summary-chips">
