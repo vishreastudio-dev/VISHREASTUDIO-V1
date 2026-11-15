@@ -105,15 +105,15 @@ export function StyleAssistant() {
             zIndex: 999,
             display: 'flex',
             alignItems: 'center',
-            gap: 9,
+            gap: 10,
             background: 'var(--wine, #1a1719)',
             color: '#ffffff',
-            padding: '10px 18px',
-            borderRadius: 24,
+            padding: '7px 18px 7px 9px',
+            borderRadius: 28,
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            border: '1px solid rgba(184, 149, 96, 0.4)',
+            border: '1px solid rgba(184, 149, 96, 0.45)',
             fontFamily: 'inherit',
           }}
           onMouseEnter={(e) => {
@@ -125,20 +125,28 @@ export function StyleAssistant() {
             e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
           }}
         >
-          {/* Refined atelier stylist icon in gold */}
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--gold, #b89560)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+          {/* Custom Vishrea AI Stylist Character Icon */}
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              flexShrink: 0,
+              border: '1.5px solid rgba(184, 149, 96, 0.7)',
+              background: '#0a090a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)',
+            }}
           >
-            <path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2z" />
-          </svg>
+            <img
+              src="/assets/chatbot-icon.jpg"
+              alt="Vishrea Style Concierge"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </div>
           <span
             className="concierge-title"
             style={{
@@ -210,7 +218,7 @@ export function StyleAssistant() {
                 }}
               >
                 <img
-                  src="/brand-avatar.png"
+                  src="/assets/chatbot-icon.jpg"
                   alt="Vishrea Concierge"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -347,7 +355,7 @@ export function StyleAssistant() {
                         }}
                       >
                         <img
-                          src="/brand-avatar.png"
+                          src="/assets/chatbot-icon.jpg"
                           alt="Vishrea Concierge"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -571,7 +579,7 @@ export function StyleAssistant() {
                       }}
                     >
                       <img
-                        src="/brand-avatar.png"
+                        src="/assets/chatbot-icon.jpg"
                         alt="Vishrea Concierge"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />

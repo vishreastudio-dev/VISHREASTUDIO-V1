@@ -95,7 +95,7 @@ export const Home = () => {
           const vid = entry.target;
           if (entry.isIntersecting) {
             vid.muted = true;
-            vid.play().catch(() => {});
+            vid.play().catch(() => { });
           } else {
             vid.pause();
           }
@@ -119,7 +119,7 @@ export const Home = () => {
       vid.muted = false;
       vid.play().catch(() => {
         vid.muted = true;
-        vid.play().catch(() => {});
+        vid.play().catch(() => { });
       });
     } else {
       vid.pause();
@@ -224,7 +224,7 @@ export const Home = () => {
               Chosen properly.
             </h2>
             <p>
-              Vishrea is a small womenswear studio in Bengaluru. Most pieces are one-of-one, so the edit changes from week to week.
+              Vishrea is a womenswear studio in Bengaluru. Most pieces are one-of-one, so the edit changes from week to week.
               Pick up from the studio for free, or have it delivered anywhere in India.
             </p>
             <Link className="text-link" to="/contact">Visiting, delivery and exchanges <span aria-hidden="true">→</span></Link>
@@ -258,7 +258,7 @@ export const Home = () => {
                         if (el) {
                           videoRefs.current[v.id] = el;
                           el.muted = true;
-                          el.play().catch(() => {});
+                          el.play().catch(() => { });
                         }
                       }}
                       src={v.video_url}
