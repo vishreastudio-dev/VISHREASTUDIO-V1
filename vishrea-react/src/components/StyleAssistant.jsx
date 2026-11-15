@@ -100,85 +100,58 @@ export function StyleAssistant() {
           }}
           style={{
             position: 'fixed',
-            right: 'clamp(12px, 3vw, 24px)',
-            bottom: 'clamp(12px, 3vw, 24px)',
+            right: 'clamp(14px, 3vw, 24px)',
+            bottom: 'clamp(14px, 3vw, 24px)',
             zIndex: 999,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
-            background: 'linear-gradient(135deg, #1f1b1d 0%, #2b2428 100%)',
-            color: '#fdfbf7',
-            padding: '10px 18px 10px 12px',
-            borderRadius: 36,
-            boxShadow: '0 8px 24px rgba(26, 23, 25, 0.28), 0 0 0 1px rgba(184, 149, 96, 0.45)',
+            gap: 9,
+            background: 'var(--wine, #1a1719)',
+            color: '#ffffff',
+            padding: '10px 18px',
+            borderRadius: 24,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
             cursor: 'pointer',
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            border: 0,
+            transition: 'all 0.2s ease',
+            border: '1px solid rgba(184, 149, 96, 0.4)',
+            fontFamily: 'inherit',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 12px 30px rgba(26, 23, 25, 0.35), 0 0 0 1px rgba(184, 149, 96, 0.65)';
+            e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.28)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 8px 24px rgba(26, 23, 25, 0.28), 0 0 0 1px rgba(184, 149, 96, 0.45)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
           }}
         >
-          {/* Coat hanger icon matching luxury atelier concierge */}
-          <div
+          {/* Refined atelier stylist icon in gold */}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--gold, #b89560)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2z" />
+          </svg>
+          <span
+            className="concierge-title"
             style={{
-              width: 28,
-              height: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              fontFamily: 'Georgia, serif',
+              fontSize: 13,
+              letterSpacing: '0.04em',
+              fontWeight: 400,
+              color: '#ffffff',
+              lineHeight: 1,
             }}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2a3 3 0 0 0-3 3c0 1.2.7 2.2 1.8 2.7L2 14.5a1.5 1.5 0 0 0 .8 2.7h18.4a1.5 1.5 0 0 0 .8-2.7L13.2 7.7A3 3 0 0 0 15 5a3 3 0 0 0-3-3z" />
-            </svg>
-          </div>
-          <div style={{ textAlign: 'left' }}>
-            <span
-              className="concierge-title"
-              style={{
-                fontFamily: 'Georgia, serif',
-                fontSize: 13,
-                letterSpacing: '0.03em',
-                display: 'block',
-                lineHeight: 1.2,
-                fontWeight: 500,
-              }}
-            >
-              Style Concierge
-            </span>
-            <small className="concierge-subtext" style={{ fontSize: 9.5, color: '#d8c2aa', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              Personal Stylist
-            </small>
-          </div>
-          {/* Live presence indicator */}
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: '#34d399',
-              display: 'inline-block',
-              marginLeft: 4,
-              boxShadow: '0 0 6px rgba(52, 211, 153, 0.7)',
-            }}
-            title="Stylist Online"
-          />
+            Style Concierge
+          </span>
         </button>
       )}
 

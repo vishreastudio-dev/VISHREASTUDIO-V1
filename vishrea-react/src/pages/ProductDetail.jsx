@@ -264,7 +264,7 @@ export const ProductDetail = () => {
                     style={{ fontSize: 11, cursor: 'pointer', background: 'none', border: 0, padding: 0 }}
                     onClick={() => setSizeGuideOpen(true)}
                   >
-                    Size Guide 📏
+                    Size Guide
                   </button>
                 </div>
                 <div className="size-grid-v2" role="radiogroup" aria-label="Size">
