@@ -88,7 +88,7 @@ export function StyleAssistant() {
 
   return (
     <>
-      {/* Floating Launcher Button — Circular AI Stylist Icon */}
+      {/* Floating Launcher Button — Raw AI Stylist Icon */}
       {!isOpen && (
         <button
           type="button"
@@ -101,35 +101,34 @@ export function StyleAssistant() {
           }}
           style={{
             position: 'fixed',
-            right: 'clamp(16px, 3vw, 24px)',
-            bottom: 'clamp(16px, 3vw, 24px)',
+            right: 'clamp(16px, 3vw, 28px)',
+            bottom: 'clamp(16px, 3vw, 28px)',
             zIndex: 999,
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: '#141214',
-            border: '1.5px solid rgba(184, 149, 96, 0.85)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+            width: 'clamp(58px, 6.5vw, 74px)',
+            height: 'clamp(58px, 6.5vw, 74px)',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            boxShadow: 'none',
             padding: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            WebkitTapHighlightColor: 'transparent',
+            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.45)';
+            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+            e.currentTarget.style.transform = 'scale(1) translateY(0)';
           }}
         >
           <img
             src="/assets/chatbot-icon.png"
             alt="Vishrea Style Concierge"
-            style={{ width: '90%', height: '90%', objectFit: 'contain', pointerEvents: 'none' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
           />
         </button>
       )}

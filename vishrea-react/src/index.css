@@ -2703,10 +2703,12 @@ img, video, iframe, embed, object {
 /* 2c. Mobile Concierge Floating Button & Utilities (<= 600px) */
 @media (max-width: 600px) {
   .style-assistant-launcher {
-    width: 48px !important;
-    height: 48px !important;
+    width: 56px !important;
+    height: 56px !important;
     padding: 0 !important;
-    border-radius: 50% !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     bottom: 14px !important;
     right: 14px !important;
   }
