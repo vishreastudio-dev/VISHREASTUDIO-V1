@@ -13,6 +13,9 @@ const QUICK_STARTERS = [
 export function StyleAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [dodgeCount, setDodgeCount] = useState(0);
+  const [dodgeOffset, setDodgeOffset] = useState({ x: 0, y: 0, rotate: 0 });
+  const [isLauncherHovered, setIsLauncherHovered] = useState(false);
   const [messages, setMessages] = useState([
     {
       sender: 'assistant',
@@ -86,26 +89,66 @@ export function StyleAssistant() {
     }
   };
 
+  const triggerDodge = () => {
+    if (dodgeCount >= 2) return;
+    const dodgePresets = [
+      { x: -115, y: -80, rotate: -12 },
+      { x: -65, y: -140, rotate: 10 },
+      { x: -140, y: -30, rotate: -8 },
+    ];
+    const nextOffset = dodgePresets[dodgeCount % dodgePresets.length] || { x: -90, y: -90, rotate: -10 };
+    setDodgeOffset(nextOffset);
+    setDodgeCount((prev) => prev + 1);
+  };
+
+  const handleLauncherClick = () => {
+    if (dodgeCount < 2) {
+      triggerDodge();
+      return;
+    }
+    setDodgeOffset({ x: 0, y: 0, rotate: 0 });
+    setIsOpen(true);
+    setIsMinimized(false);
+  };
+
+  const handleLauncherMouseEnter = () => {
+    setIsLauncherHovered(true);
+    if (dodgeCount < 2) {
+      triggerDodge();
+    }
+  };
+
+  const launcherTransform = (() => {
+    if (dodgeOffset.x !== 0 || dodgeOffset.y !== 0) {
+      if (dodgeCount >= 2 && isLauncherHovered) {
+        return `translate3d(${dodgeOffset.x}px, ${dodgeOffset.y}px, 0) scale(1.1) rotate(0deg)`;
+      }
+      return `translate3d(${dodgeOffset.x}px, ${dodgeOffset.y}px, 0) rotate(${dodgeOffset.rotate}deg)`;
+    }
+    return isLauncherHovered
+      ? 'translate3d(0, -4px, 0) scale(1.08)'
+      : 'translate3d(0, 0, 0) scale(1)';
+  })();
+
   return (
     <>
-      {/* Floating Launcher Button — Raw AI Stylist Icon */}
+      {/* Floating Launcher Button — Larger Raw AI Stylist with Tease & Dodge */}
       {!isOpen && (
         <button
           type="button"
           className="style-assistant-launcher"
           aria-label="Open Vishrea Style Concierge"
-          title="Open Vishrea Style Concierge"
-          onClick={() => {
-            setIsOpen(true);
-            setIsMinimized(false);
-          }}
+          title={dodgeCount < 2 ? 'Catch me if you can!' : 'Open Vishrea Style Concierge'}
+          onClick={handleLauncherClick}
+          onMouseEnter={handleLauncherMouseEnter}
+          onMouseLeave={() => setIsLauncherHovered(false)}
           style={{
             position: 'fixed',
-            right: 'clamp(16px, 3vw, 28px)',
-            bottom: 'clamp(16px, 3vw, 28px)',
+            right: 'clamp(16px, 3.5vw, 32px)',
+            bottom: 'clamp(16px, 3.5vw, 32px)',
             zIndex: 999,
-            width: 'clamp(58px, 6.5vw, 74px)',
-            height: 'clamp(58px, 6.5vw, 74px)',
+            width: 'clamp(82px, 8.5vw, 94px)',
+            height: 'clamp(82px, 8.5vw, 94px)',
             background: 'transparent',
             border: 'none',
             outline: 'none',
@@ -116,13 +159,8 @@ export function StyleAssistant() {
             justifyContent: 'center',
             cursor: 'pointer',
             WebkitTapHighlightColor: 'transparent',
-            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1) translateY(0)';
+            transform: launcherTransform,
+            transition: 'transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
           <img
