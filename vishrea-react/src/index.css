@@ -3438,6 +3438,148 @@ body {
   }
 }
 
+/* ==============================================================================
+   VISHREA STUDIO — RUNWAY TICKER (CONTINUOUS AUTO-SCROLL SHOWCASE)
+   Quiet luxury editorial auto-scroll ticker for New Arrivals.
+   ============================================================================== */
+.product-ticker-wrap {
+  position: relative;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.embla-ticker {
+  overflow: hidden;
+  width: 100%;
+  cursor: grab;
+  user-select: none;
+}
+
+.embla-ticker:active {
+  cursor: grabbing;
+}
+
+.embla-ticker__container {
+  display: flex;
+  touch-action: pan-y pinch-zoom;
+  margin-left: -20px;
+  will-change: transform;
+}
+
+.embla-ticker__slide {
+  flex: 0 0 clamp(260px, 23vw, 330px);
+  min-width: 0;
+  padding-left: 20px;
+}
+
+.embla-ticker__slide .product-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.25s ease;
+}
+
+.embla-ticker__slide .product-card:hover {
+  transform: translateY(-2px);
+}
+
+.embla-ticker__slide .product-image {
+  height: clamp(370px, 32vw, 470px);
+  position: relative;
+  overflow: hidden;
+  background: #f4efe9;
+}
+
+.embla-ticker__slide .product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.45s ease;
+}
+
+.embla-ticker__slide .product-card:hover .product-image img {
+  transform: scale(1.025);
+}
+
+.product-ticker-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 26px;
+  padding-right: 4px;
+}
+
+.ticker-nav-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line, #e2dcd7);
+  background: #ffffff;
+  color: var(--ink, #1a1719);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ticker-nav-btn:hover {
+  border-color: var(--wine, #1a1719);
+  background: var(--soft, #faf9f8);
+  color: var(--wine, #1a1719);
+}
+
+.ticker-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line, #e2dcd7);
+  background: #ffffff;
+  color: var(--muted, #666165);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ticker-toggle-btn:hover {
+  border-color: var(--wine, #1a1719);
+  color: var(--ink, #1a1719);
+  background: var(--soft, #faf9f8);
+}
+
+@media (max-width: 768px) {
+  .embla-ticker__slide {
+    flex: 0 0 clamp(240px, 68vw, 300px);
+    padding-left: 14px;
+  }
+  .embla-ticker__container {
+    margin-left: -14px;
+  }
+  .embla-ticker__slide .product-image {
+    height: 380px;
+  }
+  .product-ticker-controls {
+    justify-content: center;
+    margin-top: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .embla-ticker__container {
+    will-change: auto;
+  }
+}
+
+
 
 
 

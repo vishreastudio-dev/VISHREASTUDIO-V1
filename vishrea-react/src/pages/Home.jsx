@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Header, Footer } from '../components/Layout';
 import { ProductCard } from '../components/ProductCard';
+import { ProductTicker } from '../components/ProductTicker';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { ErrorState, LoadingState } from '../components/Status';
 import { useApi } from '../lib/useApi';
@@ -190,11 +191,7 @@ export const Home = () => {
           ) : featuredReq.error && !featured.length ? (
             <ErrorState error={featuredReq.error} onRetry={featuredReq.reload} title="We couldn’t load new arrivals" />
           ) : featured.length ? (
-            <div className="product-grid" id="productGrid">
-              {featured.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
+            <ProductTicker products={featured} />
           ) : (
             <p className="fine">
               New pieces are being photographed. <Link className="text-link" to="/catalogue">Browse the current edit</Link>
