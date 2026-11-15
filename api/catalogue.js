@@ -45,10 +45,17 @@ function filterWhere({ season, featured, inStock, sizes, colours, occasions, pri
   }
   if (featured) where.push('p.featured = true');
   if (inStock) where.push('vs.in_stock = true');
-  // A size filter means the piece can be bought in that size now.
+  // A size filter means the piece can be bought in that size now (exact size match or Free Size / One Size)
   if (sizes.length) {
     params.push(sizes.map((s) => s.toLowerCase()));
-    where.push(`EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND sv.is_active AND sv.stock_quantity > 0 AND lower(btrim(sv.size_label)) = ANY($${params.length}::text[]))`);
+    where.push(`EXISTS (
+      SELECT 1 FROM product_variants sv
+      WHERE sv.product_id = p.id AND sv.is_active AND sv.stock_quantity > 0
+      AND (
+        lower(btrim(sv.size_label)) = ANY($${params.length}::text[])
+        OR lower(btrim(sv.size_label)) IN ('free size', 'one size', 'os')
+      )
+    )`);
   }
   if (colours.length) {
     params.push(colours.map((s) => s.toLowerCase()));
@@ -205,7 +212,7 @@ export default async function catalogue(req, res) {
       }
     }
 
-    const sizeFilterRequested = filters.size_filter === true || (filters.size_filter !== false && (req.query?.size_filter === 'true' || Boolean(profile && req.query?.size_filter !== 'false' && req.user?.id)));
+    const sizeFilterRequested = filters.size_filter === true || (filters.size_filter !== false && !filters.featured && (req.query?.size_filter === 'true' || Boolean(profile && req.query?.size_filter !== 'false' && req.user?.id)));
     if (sizeFilterRequested && profile && !filters.sizes.length) {
       if (filters.category) {
         const catKey = categoryToSizeKey(filters.category);
