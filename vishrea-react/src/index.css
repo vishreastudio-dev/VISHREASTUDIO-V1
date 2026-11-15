@@ -714,7 +714,7 @@
 }
 
 .social-card-embed .social-media {
-  height: 630px;
+  height: 730px;
   background: #fff;
 }
 
@@ -771,9 +771,12 @@
     max-width: min(100%, 360px);
     margin: 0 auto;
   }
-  .social-card .social-media,
+  .social-card .social-media {
+    height: 575px;
+    overflow: hidden !important;
+  }
   .social-card-embed .social-media {
-    height: 630px;
+    height: 730px;
     overflow: hidden !important;
   }
 }
@@ -786,7 +789,7 @@
     transform-origin: top left;
   }
   .social-card-embed .social-media {
-    height: calc(630px * ((100vw - 32px) / 330));
+    height: calc(730px * ((100vw - 32px) / 330));
   }
 }
 
