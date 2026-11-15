@@ -738,6 +738,11 @@ function AdminStudio({ section }) {
                             <ProductThumb images={imgs} name={p.name} onOpen={() => { setActiveItem({ name: p.name, images: imgs, index: 0 }); setModalType('image'); }} />
                             <div>
                               <strong>{p.name}</strong>
+                              {p.featured && (
+                                <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#b89560', border: '1px solid #e0cdb2', background: '#faf6f0', padding: '1px 5px', borderRadius: 2 }}>
+                                  Featured
+                                </span>
+                              )}
                               <br />
                               <small>{p.is_one_of_one ? 'One-of-one' : 'Multi-unit'} · {p.color || 'Colour not set'}</small>
                             </div>
@@ -760,6 +765,26 @@ function AdminStudio({ section }) {
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                             <button className="btn" style={{ padding: '4px 10px', fontSize: '11px' }} disabled={busy} onClick={() => openProduct(p)}>
                               Edit
+                            </button>
+                            <button
+                              className="btn"
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                color: p.featured ? '#b89560' : 'var(--muted)',
+                                borderColor: p.featured ? '#b89560' : 'var(--line)',
+                                background: p.featured ? '#fcf9f5' : 'transparent',
+                              }}
+                              disabled={busy}
+                              title={p.featured ? 'Pinned in New Arrivals on homepage. Click to unpin.' : 'Click to pin in New Arrivals on homepage.'}
+                              onClick={() =>
+                                mutate(() => post('product_featured', { id: p.id, featured: !p.featured }), {
+                                  success: p.featured ? 'Removed from New Arrivals featured' : 'Pinned to New Arrivals featured',
+                                  reload: 'products',
+                                })
+                              }
+                            >
+                              {p.featured ? '★ Featured' : 'Feature'}
                             </button>
                             <button
                               className="btn"
@@ -2167,7 +2192,7 @@ function AdminStudio({ section }) {
 
               <div className="field full switches" style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', textTransform: 'none', letterSpacing: 0 }}>
-                  <input type="checkbox" checked={Boolean(activeItem.featured)} onChange={(e) => setActiveItem({ ...activeItem, featured: e.target.checked })} /> Featured on homepage
+                  <input type="checkbox" checked={Boolean(activeItem.featured)} onChange={(e) => setActiveItem({ ...activeItem, featured: e.target.checked })} /> Featured in New Arrivals (Homepage Ticker)
                 </label>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', textTransform: 'none', letterSpacing: 0 }}>
                   <input type="checkbox" checked={activeItem.is_active !== false} onChange={(e) => setActiveItem({ ...activeItem, is_active: e.target.checked })} /> Live in catalogue

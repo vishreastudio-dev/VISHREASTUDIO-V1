@@ -690,6 +690,14 @@ async function handleWrite(req, res) {
     return res.json({ ok: true });
   }
 
+  if (section === 'product_featured') {
+    const id = uuid(b.id);
+    const featuredVal = bool(b.featured);
+    await db.query('UPDATE products SET featured = $2, updated_at = now() WHERE id = $1', [id, featuredVal]);
+    await audit(db, { actor: uid, action: 'product_featured_toggle', entityType: 'product', entityId: id, details: { featured: featuredVal } });
+    return res.json({ ok: true, featured: featuredVal });
+  }
+
   if (section === 'order') {
     const result = await db.tx((c) => updateOrder(c, uid, b));
     if (result.dispatched) await notifyDispatched(result.orderId);

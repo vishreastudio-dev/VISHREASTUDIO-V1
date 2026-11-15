@@ -37,14 +37,14 @@ function baseWhere({ q, tokens, category, member, earlyHours }, params) {
   return { where, match };
 }
 
-function filterWhere({ season, featured, inStock, sizes, colours, occasions, priceMin, priceMax }, params) {
+function filterWhere({ season, featured, new_arrivals, inStock, sizes, colours, occasions, priceMin, priceMax }, params) {
   const where = [];
   if (season) {
     params.push(season.toLowerCase());
     where.push(`lower(coalesce(p.colour_season, '')) = $${params.length}`);
   }
-  if (featured) where.push('p.featured = true');
-  if (inStock) where.push('vs.in_stock = true');
+  if (featured && !new_arrivals) where.push('p.featured = true');
+  if (inStock || new_arrivals) where.push('vs.in_stock = true');
   // A size filter means the piece can be bought in that size now (exact size match or Free Size / One Size)
   if (sizes.length) {
     params.push(sizes.map((s) => s.toLowerCase()));
@@ -168,13 +168,16 @@ export function catalogueFilters(query) {
   let priceMin = rupeeParam(query?.price_min);
   let priceMax = rupeeParam(query?.price_max);
   if (priceMin !== null && priceMax !== null && priceMin > priceMax) [priceMin, priceMax] = [priceMax, priceMin];
+  const isNewArrivals = bool(query?.new_arrivals);
+  const isFeatured = bool(query?.featured);
   return {
     q,
     tokens: tokenize(q),
     category: cleanQuery(query?.category),
     season: cleanQuery(query?.colour_season, 40),
-    featured: bool(query?.featured),
-    inStock: bool(query?.in_stock),
+    featured: isFeatured,
+    new_arrivals: isNewArrivals,
+    inStock: bool(query?.in_stock) || isNewArrivals || (isFeatured && !query?.include_sold),
     sizes: listParam(query?.size),
     colours: listParam(query?.colour ?? query?.color),
     occasions: listParam(query?.occasion, { max: 80 }),
@@ -212,7 +215,7 @@ export default async function catalogue(req, res) {
       }
     }
 
-    const sizeFilterRequested = filters.size_filter === true || (filters.size_filter !== false && !filters.featured && (req.query?.size_filter === 'true' || Boolean(profile && req.query?.size_filter !== 'false' && req.user?.id)));
+    const sizeFilterRequested = filters.size_filter === true || (filters.size_filter !== false && !filters.featured && !filters.new_arrivals && (req.query?.size_filter === 'true' || Boolean(profile && req.query?.size_filter !== 'false' && req.user?.id)));
     if (sizeFilterRequested && profile && !filters.sizes.length) {
       if (filters.category) {
         const catKey = categoryToSizeKey(filters.category);

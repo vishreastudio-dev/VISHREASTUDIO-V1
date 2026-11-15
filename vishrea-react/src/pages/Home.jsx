@@ -76,7 +76,7 @@ function HomeHero() {
 }
 
 export const Home = () => {
-  const featuredReq = useApi('/api/catalogue?featured=true&limit=4', { maxAge: 30_000 });
+  const featuredReq = useApi('/api/catalogue?new_arrivals=true&limit=10', { maxAge: 15_000 });
   const contentReq = useApi('/api/content', { maxAge: 60_000 });
   const featured = featuredReq.data?.products || [];
   const videos = contentReq.data?.feedback_videos || [];
