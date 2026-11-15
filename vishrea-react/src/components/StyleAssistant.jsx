@@ -167,7 +167,15 @@ export function StyleAssistant() {
           <img
             src="/assets/chatbot-icon.png"
             alt="Vishrea Style Concierge"
-            style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none',
+              imageRendering: 'high-quality',
+              WebkitBackfaceVisibility: 'hidden',
+              filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.18))',
+            }}
           />
         </button>
       )}
