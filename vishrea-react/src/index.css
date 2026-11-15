@@ -2703,18 +2703,12 @@ img, video, iframe, embed, object {
 /* 2c. Mobile Concierge Floating Button & Utilities (<= 600px) */
 @media (max-width: 600px) {
   .style-assistant-launcher {
-    padding: 8px 12px 8px 10px !important;
-    gap: 7px !important;
-    bottom: 12px !important;
-    right: 12px !important;
-    border-radius: 28px !important;
-  }
-  .style-assistant-launcher .concierge-subtext {
-    display: none !important;
-  }
-  .style-assistant-launcher .concierge-title {
-    font-size: 11.5px !important;
-    white-space: nowrap !important;
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    bottom: 14px !important;
+    right: 14px !important;
   }
 }
 

@@ -88,78 +88,49 @@ export function StyleAssistant() {
 
   return (
     <>
-      {/* Floating Launcher Button — Humanized Luxury Concierge */}
+      {/* Floating Launcher Button — Circular AI Stylist Icon */}
       {!isOpen && (
         <button
           type="button"
           className="style-assistant-launcher"
           aria-label="Open Vishrea Style Concierge"
+          title="Open Vishrea Style Concierge"
           onClick={() => {
             setIsOpen(true);
             setIsMinimized(false);
           }}
           style={{
             position: 'fixed',
-            right: 'clamp(14px, 3vw, 24px)',
-            bottom: 'clamp(14px, 3vw, 24px)',
+            right: 'clamp(16px, 3vw, 24px)',
+            bottom: 'clamp(16px, 3vw, 24px)',
             zIndex: 999,
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: '#141214',
+            border: '1.5px solid rgba(184, 149, 96, 0.85)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+            padding: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
-            background: 'var(--wine, #1a1719)',
-            color: '#ffffff',
-            padding: '7px 22px 7px 8px',
-            borderRadius: 9999,
-            boxShadow: '0 8px 26px rgba(0, 0, 0, 0.28)',
+            justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: '1.5px solid rgba(184, 149, 96, 0.55)',
-            fontFamily: 'inherit',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.35)';
+            e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.45)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 8px 26px rgba(0, 0, 0, 0.28)';
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
           }}
         >
-          {/* Custom Vishrea AI Stylist Character Icon (Transparent PNG) */}
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: '50%',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '1.5px solid rgba(184, 149, 96, 0.85)',
-              background: '#141214',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            <img
-              src="/assets/chatbot-icon.png"
-              alt="Vishrea Style Concierge"
-              style={{ width: '92%', height: '92%', objectFit: 'contain' }}
-            />
-          </div>
-          <span
-            className="concierge-title"
-            style={{
-              fontFamily: 'Georgia, serif',
-              fontSize: 15,
-              letterSpacing: '0.03em',
-              fontWeight: 400,
-              color: '#ffffff',
-              lineHeight: 1,
-            }}
-          >
-            Style Concierge
-          </span>
+          <img
+            src="/assets/chatbot-icon.png"
+            alt="Vishrea Style Concierge"
+            style={{ width: '90%', height: '90%', objectFit: 'contain', pointerEvents: 'none' }}
+          />
         </button>
       )}
 
