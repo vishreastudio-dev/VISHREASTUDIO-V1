@@ -480,10 +480,10 @@ export const ProductDetail = () => {
               <button
                 type="button"
                 onClick={() => setSizeGuideOpen(false)}
-                style={{ background: 'none', border: 0, fontSize: 20, cursor: 'pointer', color: '#666', padding: 4 }}
+                style={{ background: 'none', border: 0, fontSize: 24, lineHeight: 1, cursor: 'pointer', color: 'var(--ink, #1a1719)', padding: '2px 6px' }}
                 aria-label="Close size guide"
               >
-                ✕
+                &times;
               </button>
             </div>
 

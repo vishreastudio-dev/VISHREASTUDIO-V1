@@ -439,8 +439,8 @@ export const Catalogue = () => {
                       Shopping for <strong>{activeSizeProfile.name}</strong> ({category ? (activeSizeProfile.category_sizes?.[category] || activeSizeProfile.clothing_size || 'M') : activeSizeProfile.clothing_size || 'M'})
                     </span>
                     {sizeFilterEnabled ? (
-                      <span style={{ fontSize: 10, color: '#2e7d32', background: '#eef5ec', padding: '2px 7px', fontWeight: 600 }}>
-                        ✓ SIZES FILTERED
+                      <span style={{ fontSize: 10, color: 'var(--wine, #752238)', background: '#fbf5f6', border: '1px solid #e8d7dc', padding: '2px 7px', fontWeight: 600, letterSpacing: '0.04em' }}>
+                        FILTERED BY SIZE
                       </span>
                     ) : (
                       <span style={{ fontSize: 10, color: '#666', background: '#eee', padding: '2px 7px' }}>

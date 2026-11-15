@@ -132,10 +132,10 @@ export function SizeProfilesSection() {
   const additionalProfiles = primaryProfile ? profilesList.filter((p) => p.id !== primaryProfile.id) : [];
 
   return (
-    <div className="account-panel" id="size-profiles" style={{ marginTop: 24 }}>
+    <div className="account-panel" id="size-profiles">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 24, margin: '0 0 4px', fontWeight: 400 }}>
+          <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 22, margin: '0 0 6px', fontWeight: 400 }}>
             My Size Profiles
           </h2>
           <p style={{ color: 'var(--muted, #666)', fontSize: 13, margin: 0 }}>
@@ -146,10 +146,10 @@ export function SizeProfilesSection() {
           <button
             type="button"
             className="button button-outline"
-            style={{ fontSize: 11, padding: '9px 16px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            style={{ fontSize: 11, padding: '8px 16px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
             onClick={startCreate}
           >
-            + Add Person (Shop For Someone Else)
+            + Add Shopping Profile
           </button>
         )}
       </div>
@@ -375,9 +375,9 @@ export function SizeProfilesSection() {
             <button
               type="button"
               onClick={() => setShowMeasurements((v) => !v)}
-              style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--wine, #752238)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              style={{ background: 'transparent', border: 0, padding: 0, color: 'var(--wine, #752238)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              {showMeasurements ? '− Hide body measurements' : '+ Add precise body measurements (Optional)'}
+              {showMeasurements ? 'Hide body measurements' : '+ Add body measurements (Optional)'}
             </button>
             {showMeasurements && (
               <div style={{ background: '#fff', border: '1px solid var(--line, #e2dcd7)', padding: 14, marginTop: 8 }}>
@@ -450,7 +450,7 @@ export function SizeProfilesSection() {
         {primaryProfile && (
           <div
             style={{
-              border: `1.5px solid ${activeSizeProfile?.id === primaryProfile.id ? 'var(--wine, #752238)' : 'var(--line, #e2dcd7)'}`,
+              border: `1px solid ${activeSizeProfile?.id === primaryProfile.id ? 'var(--wine, #752238)' : 'var(--line, #e2dcd7)'}`,
               background: activeSizeProfile?.id === primaryProfile.id ? '#fcf9f8' : '#ffffff',
               padding: '20px 24px',
               borderRadius: 2,
@@ -463,24 +463,24 @@ export function SizeProfilesSection() {
                   <h3 style={{ fontFamily: 'Georgia, serif', fontSize: 19, margin: 0, fontWeight: 400 }}>
                     {primaryProfile.name}
                   </h3>
-                  <span style={{ fontSize: 9, letterSpacing: '0.12em', background: '#eef2eb', color: '#2e7d32', padding: '2px 6px', fontWeight: 600 }}>
+                  <span style={{ fontSize: 9, letterSpacing: '0.12em', background: 'var(--cream, #f7f4f0)', color: 'var(--ink, #1a1719)', border: '1px solid var(--line, #e2dcd7)', padding: '2px 6px', fontWeight: 600 }}>
                     PRIMARY PROFILE
                   </span>
                   {activeSizeProfile?.id === primaryProfile.id && (
-                    <span style={{ fontSize: 9, letterSpacing: '0.12em', background: '#752238', color: '#fff', padding: '2px 6px', fontWeight: 600 }}>
+                    <span style={{ fontSize: 9, letterSpacing: '0.12em', background: 'var(--wine, #752238)', color: '#fff', padding: '2px 6px', fontWeight: 600 }}>
                       ACTIVE FOR SHOPPING
                     </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: '#444', marginTop: 8 }}>
                   <span><b>Standard:</b> {primaryProfile.size_standard}</span>
-                  <span>·</span>
+                  <span style={{ color: 'var(--muted, #999)' }}>·</span>
                   <span><b>Tops:</b> {primaryProfile.clothing_size}</span>
-                  <span>·</span>
+                  <span style={{ color: 'var(--muted, #999)' }}>·</span>
                   <span><b>Dresses:</b> {primaryProfile.category_sizes?.dresses || primaryProfile.clothing_size}</span>
-                  <span>·</span>
+                  <span style={{ color: 'var(--muted, #999)' }}>·</span>
                   <span><b>Pants:</b> {primaryProfile.category_sizes?.pants || '30'}</span>
-                  <span>·</span>
+                  <span style={{ color: 'var(--muted, #999)' }}>·</span>
                   <span><b>Fit:</b> {primaryProfile.fit_preference || 'Regular'}</span>
                 </div>
               </div>
@@ -490,7 +490,7 @@ export function SizeProfilesSection() {
                   <button
                     type="button"
                     className="button button-outline"
-                    style={{ fontSize: 11, padding: '6px 12px' }}
+                    style={{ fontSize: 11, padding: '7px 14px', letterSpacing: '0.06em', textTransform: 'uppercase' }}
                     onClick={() => switchActiveProfile(primaryProfile.id)}
                   >
                     Shop With This Size
@@ -499,7 +499,7 @@ export function SizeProfilesSection() {
                 <button
                   type="button"
                   className="button button-outline"
-                  style={{ fontSize: 11, padding: '6px 12px' }}
+                  style={{ fontSize: 11, padding: '7px 14px', letterSpacing: '0.06em', textTransform: 'uppercase' }}
                   onClick={() => startEdit(primaryProfile)}
                 >
                   Edit Sizes
@@ -531,7 +531,7 @@ export function SizeProfilesSection() {
                   <div
                     key={p.id}
                     style={{
-                      border: `1.5px solid ${isActive ? 'var(--wine, #752238)' : 'var(--line, #e2dcd7)'}`,
+                      border: `1px solid ${isActive ? 'var(--wine, #752238)' : 'var(--line, #e2dcd7)'}`,
                       background: isActive ? '#fcf9f8' : '#ffffff',
                       padding: '16px 18px',
                       display: 'flex',
@@ -544,7 +544,7 @@ export function SizeProfilesSection() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                         <strong style={{ fontSize: 15, fontFamily: 'Georgia, serif' }}>{p.name}</strong>
                         {isActive ? (
-                          <span style={{ fontSize: 8.5, background: '#752238', color: '#fff', padding: '2px 6px', fontWeight: 600 }}>ACTIVE</span>
+                          <span style={{ fontSize: 8.5, background: 'var(--wine, #752238)', color: '#fff', padding: '2px 6px', fontWeight: 600 }}>ACTIVE</span>
                         ) : (
                           <span style={{ fontSize: 9, background: '#f0ebe6', color: '#666', padding: '1px 6px', textTransform: 'capitalize' }}>{p.relationship}</span>
                         )}
@@ -577,7 +577,7 @@ export function SizeProfilesSection() {
                       <button
                         type="button"
                         className="button button-outline"
-                        style={{ fontSize: 10, padding: '5px 10px', color: '#c00' }}
+                        style={{ fontSize: 10, padding: '5px 10px', color: '#9a2d2d' }}
                         onClick={() => handleDelete(p)}
                       >
                         Delete
