@@ -26,6 +26,7 @@ export function StyleAssistant() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -178,28 +179,30 @@ export function StyleAssistant() {
           aria-label="Vishrea Style Concierge"
           style={{
             position: 'fixed',
-            right: 'clamp(10px, 3vw, 20px)',
-            bottom: 'clamp(10px, 3vw, 20px)',
-            width: isMinimized ? 'min(280px, calc(100vw - 20px))' : 'min(440px, calc(100vw - 20px))',
-            height: isMinimized ? 56 : 'clamp(420px, 80dvh, 640px)',
+            right: 'clamp(10px, 3vw, 22px)',
+            bottom: 'clamp(10px, 3vw, 22px)',
+            width: isMinimized ? 'min(290px, calc(100vw - 20px))' : 'min(450px, calc(100vw - 20px))',
+            height: isMinimized ? 58 : 'clamp(460px, 82dvh, 670px)',
             maxHeight: 'calc(100dvh - 24px)',
-            background: '#faf8f5',
-            borderRadius: 16,
-            boxShadow: '0 20px 48px rgba(21, 19, 21, 0.28), 0 0 0 1px rgba(184, 149, 96, 0.3)',
+            background: '#FAF8F5',
+            borderRadius: 20,
+            boxShadow: '0 24px 60px rgba(18, 14, 16, 0.32), 0 0 0 1px rgba(184, 149, 96, 0.38)',
             zIndex: 1000,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            fontFamily: 'Inter, system-ui, sans-serif',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
             transition: 'height 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
-          {/* Header */}
+          {/* Header with Frosted Glass Blur & Espresso Gradient */}
           <div
             style={{
-              background: '#1a1719',
+              background: 'linear-gradient(135deg, rgba(26, 23, 25, 0.97) 0%, rgba(18, 16, 18, 0.99) 100%)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
               color: '#fdfbf7',
-              padding: '12px 18px',
+              padding: '13px 18px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -212,17 +215,17 @@ export function StyleAssistant() {
               {/* Concierge Avatar */}
               <div
                 style={{
-                  width: 38,
-                  height: 38,
+                  width: 40,
+                  height: 40,
                   borderRadius: '50%',
                   overflow: 'hidden',
                   flexShrink: 0,
-                  border: '1.5px solid rgba(184, 149, 96, 0.75)',
-                  background: '#141214',
+                  border: '1.5px solid rgba(184, 149, 96, 0.85)',
+                  background: '#121012',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
                 }}
               >
                 <img
@@ -232,30 +235,49 @@ export function StyleAssistant() {
                 />
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <strong style={{ fontFamily: 'Georgia, serif', fontSize: 14.5, letterSpacing: '0.03em' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <strong
+                    style={{
+                      fontFamily: '"Playfair Display", Georgia, "Times New Roman", serif',
+                      fontSize: 15,
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                      color: '#ffffff',
+                    }}
+                  >
                     Vishrea Style Concierge
                   </strong>
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 7,
+                      height: 7,
                       borderRadius: '50%',
-                      background: '#34d399',
+                      background: '#dfb87c',
+                      boxShadow: '0 0 8px rgba(223, 184, 124, 0.75)',
                       display: 'inline-block',
                     }}
-                    title="Active Concierge"
+                    title="Stylist Online"
                   />
                 </div>
                 {!isMinimized && (
-                  <small style={{ color: '#d1b8c0', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  <small
+                    style={{
+                      color: '#bbaea5',
+                      fontSize: 9.5,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      fontWeight: 500,
+                      display: 'block',
+                      marginTop: 2,
+                    }}
+                  >
                     Personal Fashion & Wardrobe Advisor
                   </small>
                 )}
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {/* Minimize Button */}
               <button
                 type="button"
@@ -268,11 +290,20 @@ export function StyleAssistant() {
                   background: 'none',
                   border: 0,
                   color: '#e5d7cc',
-                  fontSize: 15,
+                  fontSize: 16,
                   cursor: 'pointer',
                   padding: '4px 8px',
-                  opacity: 0.85,
+                  opacity: 0.8,
                   borderRadius: 4,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#b89560';
+                  e.currentTarget.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#e5d7cc';
+                  e.currentTarget.style.opacity = '0.8';
                 }}
                 title={isMinimized ? 'Expand window' : 'Minimize window'}
               >
@@ -294,8 +325,17 @@ export function StyleAssistant() {
                   fontSize: 16,
                   cursor: 'pointer',
                   padding: '4px 8px',
-                  opacity: 0.85,
+                  opacity: 0.8,
                   borderRadius: 4,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#b89560';
+                  e.currentTarget.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#e5d7cc';
+                  e.currentTarget.style.opacity = '0.8';
                 }}
                 title="Close Concierge"
               >
@@ -315,18 +355,19 @@ export function StyleAssistant() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 16,
-                  background: 'linear-gradient(180deg, #faf8f5 0%, #f4eee7 100%)',
+                  background: 'linear-gradient(180deg, #FAF8F5 0%, #F5F0E8 100%)',
                 }}
               >
                 {/* Refined Atelier Kicker */}
-                <div style={{ textAlign: 'center', margin: '2px 0 6px' }}>
+                <div style={{ textAlign: 'center', margin: '4px 0 8px' }}>
                   <span
                     style={{
-                      fontSize: 8.5,
+                      fontSize: 9,
                       textTransform: 'uppercase',
-                      letterSpacing: '0.18em',
-                      color: '#9e7b47',
+                      letterSpacing: '0.2em',
+                      color: '#b89560',
                       fontWeight: 600,
+                      fontFamily: 'Inter, sans-serif',
                     }}
                   >
                     Bespoke Atelier Advisory
@@ -348,15 +389,15 @@ export function StyleAssistant() {
                     {m.sender === 'assistant' && (
                       <div
                         style={{
-                          width: 30,
-                          height: 30,
+                          width: 32,
+                          height: 32,
                           borderRadius: '50%',
                           overflow: 'hidden',
-                          border: '1.5px solid rgba(184, 149, 96, 0.65)',
-                          background: '#141214',
+                          border: '1.5px solid rgba(184, 149, 96, 0.75)',
+                          background: '#121012',
                           flexShrink: 0,
-                          marginTop: 3,
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                          marginTop: 2,
+                          boxShadow: '0 2px 6px rgba(26,23,25,0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -374,17 +415,19 @@ export function StyleAssistant() {
                       {/* Message Bubble */}
                       <div
                         style={{
-                          padding: '13px 16px',
-                          borderRadius: m.sender === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                          fontSize: 13,
-                          lineHeight: 1.62,
-                          background: m.sender === 'user' ? '#1a1719' : '#ffffff',
-                          color: m.sender === 'user' ? '#fdfbf7' : '#1a1719',
+                          padding: m.sender === 'user' ? '13px 18px' : '14px 18px',
+                          borderRadius: m.sender === 'user' ? '16px 16px 3px 16px' : '16px 16px 16px 3px',
+                          fontSize: 13.5,
+                          lineHeight: 1.65,
+                          background: m.sender === 'user' ? 'linear-gradient(135deg, #242022 0%, #1a1719 100%)' : '#FDFBF7',
+                          color: m.sender === 'user' ? '#fdfbf7' : '#242022',
+                          border: m.sender === 'user' ? '1px solid rgba(184, 149, 96, 0.3)' : '1px solid #E5DEC9',
                           boxShadow:
                             m.sender === 'user'
-                              ? '0 3px 8px rgba(26,23,25,0.18)'
-                              : '0 2px 8px rgba(26,23,25,0.05), 0 0 0 1px rgba(220,210,198,0.5)',
+                              ? '0 4px 12px rgba(26,23,25,0.18)'
+                              : '0 2px 8px rgba(70, 50, 40, 0.04)',
                           whiteSpace: 'pre-wrap',
+                          letterSpacing: '0.01em',
                         }}
                       >
                         {m.content}
@@ -574,17 +617,17 @@ export function StyleAssistant() {
                   >
                     <div
                       style={{
-                        width: 28,
-                        height: 28,
+                        width: 30,
+                        height: 30,
                         borderRadius: '50%',
                         overflow: 'hidden',
-                        border: '1.5px solid rgba(184, 149, 96, 0.65)',
-                        background: '#141214',
+                        border: '1.5px solid rgba(184, 149, 96, 0.75)',
+                        background: '#121012',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                        boxShadow: '0 2px 6px rgba(26,23,25,0.25)',
                       }}
                     >
                       <img
@@ -595,12 +638,13 @@ export function StyleAssistant() {
                     </div>
                     <div
                       style={{
-                        padding: '10px 14px',
-                        background: '#fff',
+                        padding: '10px 16px',
+                        background: '#FDFBF7',
                         borderRadius: '14px 14px 14px 2px',
-                        border: '1px solid #e5dcd3',
-                        fontSize: 11.5,
-                        color: '#6e5d53',
+                        border: '1px solid #E5DEC9',
+                        boxShadow: '0 2px 6px rgba(70,50,40,0.03)',
+                        fontSize: 12,
+                        color: '#7a6c62',
                         fontStyle: 'italic',
                         display: 'flex',
                         alignItems: 'center',
@@ -614,17 +658,19 @@ export function StyleAssistant() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Starter Quick Actions — Humanized Concierge Queries */}
+              {/* Starter Quick Actions — Interactive Boutique Tags */}
               {messages.length <= 2 && (
                 <div
+                  className="concierge-pills-row"
                   style={{
-                    padding: '9px 14px',
-                    background: '#f4eee7',
+                    padding: '11px 16px',
+                    background: '#f8f4ec',
                     borderTop: '1px solid #ebdcd0',
                     display: 'flex',
-                    gap: 6,
+                    gap: 8,
                     overflowX: 'auto',
                     scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
                   }}
                 >
                   {QUICK_STARTERS.map((qs, i) => (
@@ -634,23 +680,34 @@ export function StyleAssistant() {
                       onClick={() => handleSendMessage(qs)}
                       style={{
                         whiteSpace: 'nowrap',
-                        fontSize: 11,
-                        padding: '5px 12px',
-                        background: '#fff',
-                        border: '1px solid #dacbbd',
-                        borderRadius: 16,
-                        color: '#2d2729',
+                        fontSize: 11.5,
+                        fontWeight: 450,
+                        letterSpacing: '0.02em',
+                        padding: '7px 15px',
+                        background: '#ffffff',
+                        border: '1px solid #e0d7c7',
+                        borderRadius: 9999,
+                        color: '#38312e',
                         cursor: 'pointer',
-                        transition: 'all 0.15s ease',
+                        boxShadow: '0 2px 5px rgba(60, 40, 30, 0.03)',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                         fontFamily: 'inherit',
+                        display: 'inline-flex',
+                        alignItems: 'center',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = '#b89560';
-                        e.currentTarget.style.background = '#fcfaf7';
+                        e.currentTarget.style.background = '#fdfbf8';
+                        e.currentTarget.style.color = '#1a1719';
+                        e.currentTarget.style.transform = 'translateY(-1.5px)';
+                        e.currentTarget.style.boxShadow = '0 4px 10px rgba(184, 149, 96, 0.18)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#dacbbd';
-                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.borderColor = '#e0d7c7';
+                        e.currentTarget.style.background = '#ffffff';
+                        e.currentTarget.style.color = '#38312e';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 5px rgba(60, 40, 30, 0.03)';
                       }}
                     >
                       {qs}
@@ -659,56 +716,97 @@ export function StyleAssistant() {
                 </div>
               )}
 
-              {/* Input Bar */}
+              {/* Input Bar — Refined Capsule Bar with Circular Send Action */}
               <div
                 style={{
-                  padding: '12px 14px',
+                  padding: '12px 16px 14px',
                   background: '#ffffff',
-                  borderTop: '1px solid #ebdcd0',
+                  borderTop: '1px solid #ece4d8',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
+                  gap: 10,
                 }}
               >
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Ask for an outfit, event styling, or order..."
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={isLoading}
+                <div
                   style={{
                     flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: 22,
-                    border: '1px solid #dcd3c8',
-                    fontSize: 12.5,
-                    outline: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
                     background: '#faf8f5',
-                    color: '#1a1719',
-                    fontFamily: 'inherit',
+                    borderRadius: 9999,
+                    border: isInputFocused ? '1.5px solid #b89560' : '1.5px solid #dfd6c7',
+                    boxShadow: isInputFocused
+                      ? '0 0 0 3px rgba(184, 149, 96, 0.14)'
+                      : '0 1px 4px rgba(0, 0, 0, 0.02)',
+                    padding: '3px 6px 3px 18px',
+                    transition: 'all 0.2s ease',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = '#b89560')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = '#dcd3c8')}
-                />
+                >
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className="concierge-capsule-input"
+                    placeholder="Ask for an outfit, event styling, or order..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
+                    disabled={isLoading}
+                    style={{
+                      flex: 1,
+                      border: 'none',
+                      outline: 'none',
+                      background: 'transparent',
+                      fontSize: 13,
+                      color: '#1a1719',
+                      fontFamily: 'inherit',
+                      padding: '8px 0',
+                    }}
+                  />
+                </div>
+
                 <button
                   type="button"
                   aria-label="Send message"
                   onClick={() => handleSendMessage()}
                   disabled={isLoading || !inputValue.trim()}
                   style={{
-                    width: 36,
-                    height: 36,
+                    width: 40,
+                    height: 40,
                     borderRadius: '50%',
-                    background: inputValue.trim() && !isLoading ? '#1a1719' : '#e0d8cf',
-                    color: '#ffffff',
-                    border: 0,
+                    background:
+                      inputValue.trim() && !isLoading
+                        ? 'linear-gradient(135deg, #242022 0%, #141214 100%)'
+                        : '#eae3d8',
+                    color: inputValue.trim() && !isLoading ? '#ffffff' : '#b2a597',
+                    border:
+                      inputValue.trim() && !isLoading
+                        ? '1px solid rgba(184, 149, 96, 0.6)'
+                        : '1px solid #dcd3c5',
                     display: 'grid',
                     placeItems: 'center',
                     cursor: inputValue.trim() && !isLoading ? 'pointer' : 'default',
-                    fontSize: 14,
-                    transition: 'all 0.2s ease',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                    boxShadow:
+                      inputValue.trim() && !isLoading
+                        ? '0 4px 12px rgba(26,23,25,0.22)'
+                        : 'none',
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (inputValue.trim() && !isLoading) {
+                      e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(184, 149, 96, 0.35)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                    if (inputValue.trim() && !isLoading) {
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(26,23,25,0.22)';
+                    }
                   }}
                 >
                   ↑

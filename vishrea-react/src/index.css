@@ -2714,6 +2714,17 @@ img, video, iframe, embed, object {
   }
 }
 
+/* Style Concierge Luxury Drawer Details */
+.concierge-capsule-input::placeholder {
+  color: #9e9289 !important;
+  opacity: 0.95 !important;
+  font-size: 12.5px !important;
+  font-family: inherit !important;
+}
+.concierge-pills-row::-webkit-scrollbar {
+  display: none !important;
+}
+
 /* 3. Small Mobile Devices (<= 380px: 320px, 360px, 375px) */
 @media (max-width: 380px) {
   .site-header {
