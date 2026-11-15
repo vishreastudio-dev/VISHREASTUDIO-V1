@@ -105,54 +105,54 @@ export function StyleAssistant() {
             zIndex: 999,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 12,
             background: 'var(--wine, #1a1719)',
             color: '#ffffff',
-            padding: '7px 18px 7px 9px',
-            borderRadius: 28,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+            padding: '7px 22px 7px 8px',
+            borderRadius: 9999,
+            boxShadow: '0 8px 26px rgba(0, 0, 0, 0.28)',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            border: '1px solid rgba(184, 149, 96, 0.45)',
+            border: '1.5px solid rgba(184, 149, 96, 0.55)',
             fontFamily: 'inherit',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.28)';
+            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.35)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
+            e.currentTarget.style.boxShadow = '0 8px 26px rgba(0, 0, 0, 0.28)';
           }}
         >
-          {/* Custom Vishrea AI Stylist Character Icon */}
+          {/* Custom Vishrea AI Stylist Character Icon (Transparent PNG) */}
           <div
             style={{
-              width: 30,
-              height: 30,
+              width: 38,
+              height: 38,
               borderRadius: '50%',
               overflow: 'hidden',
               flexShrink: 0,
-              border: '1.5px solid rgba(184, 149, 96, 0.7)',
-              background: '#0a090a',
+              border: '1.5px solid rgba(184, 149, 96, 0.85)',
+              background: '#141214',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
             }}
           >
             <img
-              src="/assets/chatbot-icon.jpg"
+              src="/assets/chatbot-icon.png"
               alt="Vishrea Style Concierge"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ width: '92%', height: '92%', objectFit: 'contain' }}
             />
           </div>
           <span
             className="concierge-title"
             style={{
               fontFamily: 'Georgia, serif',
-              fontSize: 13,
-              letterSpacing: '0.04em',
+              fontSize: 15,
+              letterSpacing: '0.03em',
               fontWeight: 400,
               color: '#ffffff',
               lineHeight: 1,
@@ -209,18 +209,18 @@ export function StyleAssistant() {
                   borderRadius: '50%',
                   overflow: 'hidden',
                   flexShrink: 0,
-                  border: '1.5px solid rgba(216, 194, 170, 0.45)',
-                  background: '#fff',
+                  border: '1.5px solid rgba(184, 149, 96, 0.75)',
+                  background: '#141214',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                 }}
               >
                 <img
-                  src="/assets/chatbot-icon.jpg"
+                  src="/assets/chatbot-icon.png"
                   alt="Vishrea Concierge"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: '92%', height: '92%', objectFit: 'contain' }}
                 />
               </div>
               <div>
@@ -340,24 +340,24 @@ export function StyleAssistant() {
                     {m.sender === 'assistant' && (
                       <div
                         style={{
-                          width: 28,
-                          height: 28,
+                          width: 30,
+                          height: 30,
                           borderRadius: '50%',
                           overflow: 'hidden',
-                          border: '1px solid rgba(184, 149, 96, 0.45)',
-                          background: '#fff',
+                          border: '1.5px solid rgba(184, 149, 96, 0.65)',
+                          background: '#141214',
                           flexShrink: 0,
                           marginTop: 3,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
                         <img
-                          src="/assets/chatbot-icon.jpg"
+                          src="/assets/chatbot-icon.png"
                           alt="Vishrea Concierge"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          style={{ width: '92%', height: '92%', objectFit: 'contain' }}
                         />
                       </div>
                     )}
@@ -566,22 +566,23 @@ export function StyleAssistant() {
                   >
                     <div
                       style={{
-                        width: 26,
-                        height: 26,
+                        width: 28,
+                        height: 28,
                         borderRadius: '50%',
                         overflow: 'hidden',
-                        border: '1px solid rgba(184, 149, 96, 0.45)',
-                        background: '#fff',
+                        border: '1.5px solid rgba(184, 149, 96, 0.65)',
+                        background: '#141214',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
                       }}
                     >
                       <img
-                        src="/assets/chatbot-icon.jpg"
+                        src="/assets/chatbot-icon.png"
                         alt="Vishrea Concierge"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ width: '92%', height: '92%', objectFit: 'contain' }}
                       />
                     </div>
                     <div
