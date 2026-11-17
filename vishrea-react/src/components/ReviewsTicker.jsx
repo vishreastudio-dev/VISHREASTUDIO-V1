@@ -256,15 +256,6 @@ export function ReviewsTicker() {
                   <p className="google-review-body">
                     “{rev.text}”
                   </p>
-
-                  <div className="google-review-footer">
-                    <span className="google-verified-tag">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34A853" strokeWidth="2.5" aria-hidden="true">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      Verified Google Review
-                    </span>
-                  </div>
                 </article>
               </div>
             ))}
