@@ -364,7 +364,7 @@ export const Home = () => {
                           src={embedSrc}
                           loading="eager"
                           title={v.title || 'Instagram reel'}
-                          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; unload"
                           scrolling="no"
                         />
                       ) : v.image_url ? (
