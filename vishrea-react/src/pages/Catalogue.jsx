@@ -47,7 +47,9 @@ export const Catalogue = () => {
   const defaultSort = q ? 'relevance' : 'featured';
   const sortParam = searchParams.get('sort');
   const sort = sortParam && SORT_LABELS[sortParam] && !(sortParam === 'relevance' && !q) ? sortParam : defaultSort;
-  const inStock = searchParams.get('in_stock') === 'true';
+  const availability = searchParams.get('availability') || (searchParams.get('in_stock') === 'true' ? 'in_stock' : searchParams.get('sold_only') === 'true' ? 'sold' : 'all');
+  const inStock = availability === 'in_stock';
+  const isSoldOnly = availability === 'sold';
   const season = searchParams.get('colour_season') || '';
   const priceMin = isRupees(searchParams.get('price_min') || '') ? searchParams.get('price_min') : '';
   const priceMax = isRupees(searchParams.get('price_max') || '') ? searchParams.get('price_max') : '';
@@ -84,10 +86,20 @@ export const Catalogue = () => {
   }, [params.category, searchParams, category, navigate]);
 
   const current = useMemo(() => state.categories.find((c) => c.slug === category), [state.categories, category]);
-  const heading = current?.name ? (q ? `${current.name}: “${q}”` : current.name) : q ? `Results for “${q}”` : 'Shop all pieces';
-  const intro = current ? categoryIntro(current.slug, current.name) : 'Everything currently in the studio. Most pieces are one-of-one — once a size sells, it’s gone.';
+  const heading = isSoldOnly
+    ? 'Gone to a new home'
+    : current?.name
+    ? (q ? `${current.name}: “${q}”` : current.name)
+    : q
+    ? `Results for “${q}”`
+    : 'Shop all pieces';
+  const intro = isSoldOnly
+    ? 'An archive gallery of beloved one-of-one pieces that have found their homes. Every piece at Vishrea is unique.'
+    : current
+    ? categoryIntro(current.slug, current.name)
+    : 'Everything currently in the studio. Most pieces are one-of-one — once a size sells, it’s gone.';
   const path = category ? `/catalogue/${category}` : '/catalogue';
-  const filterCount = LIST_FILTERS.reduce((n, [key]) => n + selected[key].length, 0) + (priceMin || priceMax ? 1 : 0) + (inStock ? 1 : 0) + (season ? 1 : 0);
+  const filterCount = LIST_FILTERS.reduce((n, [key]) => n + selected[key].length, 0) + (priceMin || priceMax ? 1 : 0) + (availability !== 'all' ? 1 : 0) + (season ? 1 : 0);
 
   usePageSeo({
     title: current ? `${current.name} | Vishrea Studio` : undefined,
@@ -103,7 +115,8 @@ export const Catalogue = () => {
     const p = new URLSearchParams({ limit: String(PAGE_SIZE), sort });
     if (category) p.set('category', category);
     if (q) p.set('q', q);
-    if (inStock) p.set('in_stock', 'true');
+    if (availability === 'sold') p.set('availability', 'sold');
+    else if (inStock) p.set('in_stock', 'true');
     if (season) p.set('colour_season', season);
     for (const [key] of LIST_FILTERS) for (const v of selected[key]) p.append(key, v);
     if (priceMin) p.set('price_min', priceMin);
@@ -113,7 +126,7 @@ export const Catalogue = () => {
       p.set('size_filter', sizeFilterEnabled ? 'true' : 'false');
     }
     return p.toString();
-  }, [sort, category, q, inStock, season, selected, priceMin, priceMax, activeSizeProfile, sizeFilterEnabled]);
+  }, [sort, category, q, availability, inStock, season, selected, priceMin, priceMax, activeSizeProfile, sizeFilterEnabled]);
   const activeQuery = useRef(apiQuery);
   activeQuery.current = apiQuery;
 
@@ -177,7 +190,7 @@ export const Catalogue = () => {
     });
   const clearFilters = () =>
     update((next) => {
-      for (const key of ['size', 'colour', 'occasion', 'price_min', 'price_max', 'in_stock', 'colour_season']) next.delete(key);
+      for (const key of ['size', 'colour', 'occasion', 'price_min', 'price_max', 'in_stock', 'availability', 'sold_only', 'colour_season']) next.delete(key);
     });
   const applyPrice = (min, max) =>
     update((next) => {
@@ -237,13 +250,30 @@ export const Catalogue = () => {
           },
         ]
       : []),
-    ...(inStock
+    ...(isSoldOnly
+      ? [
+          {
+            id: 'availability_sold',
+            type: 'availability',
+            label: 'Gone to a new home',
+            remove: () =>
+              update((n) => {
+                n.delete('availability');
+                n.delete('sold_only');
+              }),
+          },
+        ]
+      : inStock
       ? [
           {
             id: 'in_stock',
             type: 'in_stock',
             label: 'In stock only',
-            remove: () => setParam('in_stock', ''),
+            remove: () =>
+              update((n) => {
+                n.delete('in_stock');
+                n.delete('availability');
+              }),
           },
         ]
       : []),
@@ -299,8 +329,22 @@ export const Catalogue = () => {
         />
       )}
       <AvailabilityFilter
+        availability={availability}
         inStock={inStock}
-        onToggle={(val) => setParam('in_stock', val ? 'true' : '')}
+        onSelect={(val) => {
+          update((n) => {
+            if (val === 'sold') {
+              n.set('availability', 'sold');
+              n.delete('in_stock');
+            } else if (val === 'in_stock') {
+              n.set('in_stock', 'true');
+              n.delete('availability');
+            } else {
+              n.delete('in_stock');
+              n.delete('availability');
+            }
+          });
+        }}
       />
       {filterCount > 0 && (
         <button type="button" className="filter-clear" onClick={clearFilters}>

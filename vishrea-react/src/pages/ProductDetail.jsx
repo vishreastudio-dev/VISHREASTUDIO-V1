@@ -17,7 +17,8 @@ const STOCK_COPY = {
   one_of_one: 'In stock — this is the only one',
   low: 'In stock — only a few left',
   in_stock: 'In stock',
-  sold_out: 'This size is sold out',
+  sold_out: 'This piece just found a new home',
+  checking_out: 'Someone is checking out this piece right now',
 };
 
 export const ProductDetail = () => {
@@ -208,7 +209,13 @@ export const ProductDetail = () => {
           <section className="pdp-info-v2">
             <div className="pdp-kicker-row">
               <p className="eyebrow">{product.category || 'Vishrea Studio'}</p>
-              {soldOut ? <span className="pdp-badge-v2 is-sold-out">Sold out</span> : product.badge && <span className="pdp-badge-v2">{product.badge}</span>}
+              {soldOut ? (
+                <span className="pdp-badge-v2 is-sold-out">Gone to a new home</span>
+              ) : product.badge ? (
+                <span className="pdp-badge-v2">{product.badge}</span>
+              ) : product.is_one_of_one ? (
+                <span className="pdp-badge-v2 one-of-one-badge">1 of 1</span>
+              ) : null}
             </div>
             <h1>{product.name}</h1>
             <div className="pdp-price-v2" aria-live="polite">
@@ -421,8 +428,8 @@ export const ProductDetail = () => {
         <section className="section recommendation-section">
           <div className="section-head">
             <div>
-              <p className="eyebrow">You may also like</p>
-              <h2>{product.category ? `More ${product.category.toLowerCase()} and pieces to pair` : 'More from the studio'}</h2>
+              <p className="eyebrow">{soldOut ? 'Similar pieces' : 'You may also like'}</p>
+              <h2>{soldOut ? 'This piece just found a new home. Similar pieces in your colours and size' : product.category ? `More ${product.category.toLowerCase()} and pieces to pair` : 'More from the studio'}</h2>
             </div>
             <Link className="text-link" to={product.category_slug ? `/catalogue/${product.category_slug}` : '/catalogue'}>
               {product.category ? `All ${product.category.toLowerCase()}` : 'Shop all'} <span aria-hidden="true">→</span>

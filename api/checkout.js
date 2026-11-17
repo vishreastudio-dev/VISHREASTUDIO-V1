@@ -178,8 +178,11 @@ async function startCheckout(req, res) {
     if (method === 'bag' && lines.some((l) => !l.use_credit && !l.reward_entitlement_id)) {
       throw badRequest('bag_credit_picks_only', 'Only pieces picked with a credit or a free-piece reward can wait in your Wardrobe Bag. Check out paid pieces separately.');
     }
+    const orderCount = Number(
+      (await c.query("SELECT count(*)::int AS count FROM orders WHERE auth_user_id = $1 AND payment_status = 'paid'", [user.id])).rows[0]?.count || 0
+    );
     // Server prices only. Client total, amount, and unit-price fields are ignored.
-    const price = calculateCartPrice({ lines, method, gift, placeOfSupply, membership, settings });
+    const price = calculateCartPrice({ lines, method, gift, placeOfSupply, membership, settings, orderCount });
     if (price.credits_used && !creditsUsable(membership)) {
       throw badRequest('membership_not_active', creditsBlockedMessage(membership));
     }
@@ -192,6 +195,7 @@ async function startCheckout(req, res) {
     }
 
     const reservationMinutes = Math.min(60, Math.max(5, Number(settings.reservation_minutes) || 15));
+    const discountAmount = Math.round(((price.reward_discount || 0) + (price.loyalty_discount || 0)) * 100) / 100;
     const ins = await c.query(
       `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, shipping_address, gst_invoice_requested,
                            gift, gift_message, gift_packing_fee, channel, shipping_method, idempotency_key, checkout_fingerprint, amount_paise,
@@ -201,7 +205,7 @@ async function startCheckout(req, res) {
        RETURNING *`,
       [user.id, price.subtotal, price.shipping, price.total, JSON.stringify(address), Boolean(buyerGstin), gift, giftMessage, price.gift_fee, method,
        idemKey, fingerprint, price.amount_paise, reservationMinutes, price.taxable_amount, price.cgst, price.sgst, price.igst, price.tax_amount,
-       price.place_of_supply, price.credits_used, buyerGstin, price.rewards_used, price.reward_discount]
+       price.place_of_supply, price.credits_used, buyerGstin, price.rewards_used, discountAmount]
     );
     const order = ins.rows[0];
 

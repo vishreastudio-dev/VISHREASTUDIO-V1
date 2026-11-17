@@ -37,20 +37,25 @@ function baseWhere({ q, tokens, category, member, earlyHours }, params) {
   return { where, match };
 }
 
-function filterWhere({ season, featured, new_arrivals, inStock, sizes, colours, occasions, priceMin, priceMax }, params) {
+function filterWhere({ season, featured, new_arrivals, inStock, soldOnly, sizes, colours, occasions, priceMin, priceMax }, params) {
   const where = [];
   if (season) {
     params.push(season.toLowerCase());
     where.push(`lower(coalesce(p.colour_season, '')) = $${params.length}`);
   }
   if (featured && !new_arrivals) where.push('p.featured = true');
-  if (inStock || new_arrivals) where.push('vs.in_stock = true');
-  // A size filter means the piece can be bought in that size now (exact size match or Free Size / One Size)
+  if (soldOnly) {
+    where.push('vs.in_stock = false');
+  } else if (inStock || new_arrivals) {
+    where.push('vs.in_stock = true');
+  }
+  // A size filter means the piece can be bought in that size now (or was made in that size if viewing sold pieces)
   if (sizes.length) {
     params.push(sizes.map((s) => s.toLowerCase()));
+    const stockCondition = soldOnly ? '' : 'AND sv.stock_quantity > 0';
     where.push(`EXISTS (
       SELECT 1 FROM product_variants sv
-      WHERE sv.product_id = p.id AND sv.is_active AND sv.stock_quantity > 0
+      WHERE sv.product_id = p.id AND sv.is_active ${stockCondition}
       AND (
         lower(btrim(sv.size_label)) = ANY($${params.length}::text[])
         OR lower(btrim(sv.size_label)) IN ('free size', 'one size', 'os')
@@ -170,6 +175,8 @@ export function catalogueFilters(query) {
   if (priceMin !== null && priceMax !== null && priceMin > priceMax) [priceMin, priceMax] = [priceMax, priceMin];
   const isNewArrivals = bool(query?.new_arrivals);
   const isFeatured = bool(query?.featured);
+  const availability = cleanQuery(query?.availability, 20);
+  const isSoldOnly = availability === 'sold' || bool(query?.sold_only);
   return {
     q,
     tokens: tokenize(q),
@@ -177,7 +184,9 @@ export function catalogueFilters(query) {
     season: cleanQuery(query?.colour_season, 40),
     featured: isFeatured,
     new_arrivals: isNewArrivals,
-    inStock: bool(query?.in_stock) || isNewArrivals || (isFeatured && !query?.include_sold),
+    inStock: isSoldOnly ? false : (availability === 'in_stock' || bool(query?.in_stock) || isNewArrivals || (isFeatured && !query?.include_sold)),
+    soldOnly: isSoldOnly,
+    availability: isSoldOnly ? 'sold' : bool(query?.in_stock) || availability === 'in_stock' ? 'in_stock' : 'all',
     sizes: listParam(query?.size),
     colours: listParam(query?.colour ?? query?.color),
     occasions: listParam(query?.occasion, { max: 80 }),

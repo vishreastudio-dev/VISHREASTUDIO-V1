@@ -366,9 +366,19 @@ export const CategoryFilter = ({ categories = [], activeCategory = '', q = '' })
 };
 
 /**
- * Availability Filter (All pieces vs In Stock).
+ * Availability Filter (All pieces vs In Stock vs "Gone to a new home" archive gallery).
  */
-export const AvailabilityFilter = ({ inStock = false, onToggle }) => {
+export const AvailabilityFilter = ({ availability = 'all', inStock = false, onSelect, onToggle }) => {
+  const current = availability !== 'all' ? availability : inStock ? 'in_stock' : 'all';
+
+  const handleClick = (mode) => {
+    if (onSelect) {
+      onSelect(mode);
+    } else if (onToggle) {
+      onToggle(mode === 'in_stock');
+    }
+  };
+
   return (
     <fieldset className="filter-group availability-group">
       <div className="filter-group-header">
@@ -377,19 +387,28 @@ export const AvailabilityFilter = ({ inStock = false, onToggle }) => {
       <div className="filter-chips availability-chips">
         <button
           type="button"
-          className={`filter-chip${!inStock ? ' is-on' : ''}`}
-          aria-pressed={!inStock}
-          onClick={() => inStock && onToggle(false)}
+          className={`filter-chip${current === 'all' ? ' is-on' : ''}`}
+          aria-pressed={current === 'all'}
+          onClick={() => handleClick('all')}
         >
           All pieces
         </button>
         <button
           type="button"
-          className={`filter-chip${inStock ? ' is-on' : ''}`}
-          aria-pressed={inStock}
-          onClick={() => !inStock && onToggle(true)}
+          className={`filter-chip${current === 'in_stock' ? ' is-on' : ''}`}
+          aria-pressed={current === 'in_stock'}
+          onClick={() => handleClick('in_stock')}
         >
           In stock only
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${current === 'sold' ? ' is-on' : ''}`}
+          aria-pressed={current === 'sold'}
+          onClick={() => handleClick('sold')}
+          title="Archive gallery of pieces that have found a new home"
+        >
+          Gone to a new home
         </button>
       </div>
     </fieldset>

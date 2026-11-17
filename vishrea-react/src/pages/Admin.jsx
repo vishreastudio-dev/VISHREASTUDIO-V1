@@ -48,6 +48,92 @@ const productImages = (p) => {
   return list;
 };
 
+function PricingHelper({ costPrice, badge, onApplyPrice }) {
+  const isPremium = String(badge || '').trim().toUpperCase().includes('PREMIUM');
+  const [markupMultiplier, setMarkupMultiplier] = useState(isPremium ? 3.0 : 2.4);
+  const cost = Number(costPrice) || 0;
+
+  if (!cost || cost <= 0) {
+    return (
+      <div style={{ background: '#faf8f5', border: '1px dashed #d5ccbe', borderRadius: 4, padding: '10px 14px', fontSize: 12, color: '#7a7062', margin: '10px 0 14px' }}>
+        <strong>Pricing Helper (CAT-04):</strong> Enter a cost price above to view suggested retail price based on owner markup rules, margin %, and GST slab.
+      </div>
+    );
+  }
+
+  const rawSuggested = cost * markupMultiplier;
+  const suggestedPrice = Math.round(rawSuggested);
+  const marginPercent = suggestedPrice > 0 ? Math.round(((suggestedPrice - cost) / suggestedPrice) * 100) : 0;
+  const grossProfit = suggestedPrice - cost;
+  const gstRate = suggestedPrice <= 2500 ? 5 : 18;
+  const inSharedPoolRange = suggestedPrice >= 599 && suggestedPrice <= 1499;
+
+  return (
+    <div style={{ background: '#fdfbf7', border: '1px solid #d4c1a5', borderRadius: 6, padding: '12px 14px', margin: '10px 0 14px', fontSize: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        <strong style={{ textTransform: 'uppercase', letterSpacing: '.06em', color: '#543b18' }}>
+          Pricing Helper · Owner Markup &amp; GST Slab
+        </strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: '#666', fontSize: 11 }}>Markup multiplier:</span>
+          {[2.0, 2.4, 2.8, 3.0].map((m) => (
+            <button
+              key={m}
+              type="button"
+              className="btn"
+              style={{
+                padding: '2px 8px',
+                fontSize: 11,
+                background: markupMultiplier === m ? '#543b18' : '#fff',
+                color: markupMultiplier === m ? '#fff' : '#333',
+                borderColor: markupMultiplier === m ? '#543b18' : '#ccc',
+                fontWeight: markupMultiplier === m ? 600 : 400,
+              }}
+              onClick={() => setMarkupMultiplier(m)}
+            >
+              {m.toFixed(1)}x
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, background: '#fff', padding: '10px 12px', borderRadius: 4, border: '1px solid #ebd9c0' }}>
+        <div>
+          <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase' }}>Suggested Price</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>₹{suggestedPrice}</div>
+          <div style={{ fontSize: 10, color: '#777' }}>Displayed price incl. GST</div>
+        </div>
+        <div>
+          <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase' }}>Gross Margin</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: marginPercent >= 50 ? '#1b7340' : '#8a5a00' }}>{marginPercent}%</div>
+          <div style={{ fontSize: 10, color: '#777' }}>₹{grossProfit} margin</div>
+        </div>
+        <div>
+          <div style={{ color: '#888', fontSize: 10, textTransform: 'uppercase' }}>GST Slab (CAT-05)</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#333' }}>{gstRate}% GST</div>
+          <div style={{ fontSize: 10, color: gstRate === 5 ? '#1b7340' : '#b25e00' }}>{suggestedPrice <= 2500 ? '≤ ₹2,500 threshold (5%)' : '> ₹2,500 threshold (18%)'}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn"
+            style={{ width: '100%', padding: '6px 10px', fontSize: 11, background: '#684523', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}
+            onClick={() => onApplyPrice(suggestedPrice)}
+          >
+            Apply ₹{suggestedPrice} to sizes
+          </button>
+        </div>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 11, color: '#6d6152', lineHeight: 1.4 }}>
+        {!isPremium ? (
+          <span>Shared pool target: <strong>₹599–₹1,499</strong> (4 pieces look worth well over ₹1,799). {inSharedPoolRange ? 'Suggested price fits within range.' : 'Adjust markup if desired.'} The owner makes the final pricing decision.</span>
+        ) : (
+          <span>Premium piece: priced per piece with no fixed range. The owner makes the final pricing decision.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductThumb({ images, name, size = 48, onOpen }) {
   const box = { position: 'relative', flex: '0 0 auto', width: size, height: Math.round(size * 1.25) };
   if (!images.length) {
@@ -2123,6 +2209,18 @@ function AdminStudio({ section }) {
               <div className="field full" style={{ border: '1px solid var(--admin-line, #ddd)', padding: 14 }}>
                 <strong style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.08em' }}>Sizes, SKU, pricing &amp; stock</strong>
                 <p style={{ fontSize: 11, color: '#666', margin: '4px 0 10px' }}>Each size is a purchasable variant with its own price. Leave SKU blank to generate one. Stock changes are applied safely even while customers are checking out.</p>
+                <PricingHelper
+                  costPrice={activeItem.cost_price_inr}
+                  badge={activeItem.badge}
+                  onApplyPrice={(suggestedPrice) => {
+                    setActiveItem((prev) => ({
+                      ...prev,
+                      variants: (prev.variants && prev.variants.length > 0)
+                        ? prev.variants.map((v) => ({ ...v, price_inr: suggestedPrice }))
+                        : [{ ...newVariant(0), price_inr: suggestedPrice }],
+                    }));
+                  }}
+                />
                 <div className="table-wrap">
                   <table className="variant-table">
                     <thead><tr><th>Size</th><th>SKU</th><th>Price ₹</th><th>Sale ₹</th><th>Stock</th><th>Held</th><th>Active</th><th></th></tr></thead>

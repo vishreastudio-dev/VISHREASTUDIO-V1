@@ -57,14 +57,15 @@ export async function addLine(client, cartId, input) {
 }
 
 export async function cartView(uid) {
-  const [lines, settings, membership, rewards] = await Promise.all([
+  const [lines, settings, membership, rewards, orderCount] = await Promise.all([
     loadCartLines(db, uid),
     getSettings(),
     db.query('SELECT status, credits_balance FROM memberships WHERE auth_user_id = $1', [uid]).then((r) => r.rows[0] || null),
     db.query("SELECT id, kind FROM reward_entitlements WHERE auth_user_id = $1 AND status = 'available' ORDER BY created_at", [uid]).then((r) => r.rows),
+    db.query("SELECT count(*)::int AS count FROM orders WHERE auth_user_id = $1 AND payment_status = 'paid'", [uid]).then((r) => Number(r.rows[0]?.count || 0)),
   ]);
   const priceable = lines.filter((l) => !l.issue);
-  const estimate = calculateCartPrice({ lines: priceable, method: 'delivery', membership, settings });
+  const estimate = calculateCartPrice({ lines: priceable, method: 'delivery', membership, settings, orderCount });
   return {
     items: lines.map((l) => ({
       id: l.id,
@@ -92,6 +93,8 @@ export async function cartView(uid) {
       subtotal: estimate.subtotal,
       credit_discount: estimate.credit_discount,
       reward_discount: estimate.reward_discount,
+      loyalty_discount: estimate.loyalty_discount || 0,
+      is_sixth_order: estimate.is_sixth_order || false,
       shipping: estimate.shipping,
       tax_included: estimate.tax_amount,
       total: estimate.total,

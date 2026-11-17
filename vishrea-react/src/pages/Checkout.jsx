@@ -48,7 +48,12 @@ export const Checkout = () => {
   const busy = ['creating', 'paying', 'verifying'].includes(phase);
   // Label only: the server prices the order. Credits/rewards covering every piece, plus pickup
   // (or free delivery) and no gift packing, means nothing is charged.
-  const goodsDue = cartEstimate ? Number(cartEstimate.subtotal) - Number(cartEstimate.credit_discount || 0) - Number(cartEstimate.reward_discount || 0) : null;
+  const goodsDue = cartEstimate
+    ? Number(cartEstimate.subtotal) -
+      Number(cartEstimate.credit_discount || 0) -
+      Number(cartEstimate.reward_discount || 0) -
+      Number(cartEstimate.loyalty_discount || 0)
+    : null;
   // Credit and free-piece picks can wait in the Wardrobe Bag and ship later together (MEM-06).
   const allPicks = cart.length > 0 && cart.every((c) => c.use_credit || c.reward_entitlement_id);
   // The bag option disappears when the cart stops being all picks; delivery then applies.
@@ -277,6 +282,7 @@ export const Checkout = () => {
             <>
               <Row label="Subtotal" value={formatINR(totals.subtotal)} />
               {Number(totals.credit_discount) > 0 && <Row label="Credits & rewards" value={`−${formatINR(totals.credit_discount)}`} />}
+              {Number(totals.loyalty_discount) > 0 && <Row label="6th Order Reward (50% off)" value={`−${formatINR(totals.loyalty_discount)}`} />}
               <Row label="Shipping" value={formatINR(totals.shipping)} />
               {Number(totals.gift_fee) > 0 && <Row label="Gift packing" value={formatINR(totals.gift_fee)} />}
               <Row label={Number(totals.igst) > 0 ? 'Includes IGST' : 'Includes CGST + SGST'} value={formatINR(totals.tax_amount)} muted />
@@ -285,6 +291,7 @@ export const Checkout = () => {
           ) : (
             <>
               <Row label="Subtotal" value={formatINR(cartEstimate?.subtotal)} />
+              {Number(cartEstimate?.loyalty_discount) > 0 && <Row label="6th Order Reward (50% off)" value={`−${formatINR(cartEstimate.loyalty_discount)}`} />}
               <Row label="Shipping" value={formatINR(method === 'pickup' ? 0 : cartEstimate?.shipping ?? 99)} />
               <Row label="Estimated total" value={formatINR((cartEstimate?.total ?? 0) - (method === 'pickup' ? cartEstimate?.shipping ?? 0 : 0))} strong />
               <p style={{ fontSize: 11, color: 'var(--muted)' }}>Prices include GST. The exact amount is calculated securely before payment.</p>

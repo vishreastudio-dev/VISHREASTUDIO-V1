@@ -8,8 +8,9 @@ import { formatINR } from '../lib/api';
 import { usePageSeo } from '../lib/usePageSeo';
 
 const ISSUE_COPY = {
-  sold_out: 'Sold out — remove to continue',
-  unavailable: 'No longer available — remove to continue',
+  checking_out: 'Someone is checking out this piece right now',
+  sold_out: 'This piece just found a new home',
+  unavailable: 'This piece just found a new home',
   insufficient_stock: 'Only fewer units left — reduce quantity',
   one_of_one_quantity: 'One-of-one: quantity must be 1',
   reward_unavailable: 'This reward is no longer available — untick it to continue',
@@ -66,7 +67,20 @@ export const Cart = () => {
                       {item.compare_at_price ? <span className="price-compare">{formatINR(item.compare_at_price)}</span> : null}
                       {item.is_one_of_one ? ' · 1 of 1' : ` · Qty ${item.quantity}`}
                     </p>
-                    {item.issue && <p className="inline-message error" style={{ marginTop: 6 }}>{ISSUE_COPY[item.issue]}</p>}
+                    {item.issue && (
+                      <div style={{ marginTop: 6 }}>
+                        <p className="inline-message error" style={{ margin: 0 }}>{ISSUE_COPY[item.issue] || 'Unavailable'}</p>
+                        {(item.issue === 'sold_out' || item.issue === 'unavailable' || item.issue === 'checking_out') && (
+                          <Link
+                            to={`/catalogue?category=${encodeURIComponent(item.category_id || '')}&size=${encodeURIComponent(item.size_label || '')}`}
+                            className="text-link"
+                            style={{ fontSize: '11px', marginTop: '6px', display: 'inline-block' }}
+                          >
+                            Explore similar pieces in your size →
+                          </Link>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
                       {!item.is_one_of_one && !item.guest && (
                         <div className="qty-stepper" role="group" aria-label={`Quantity for ${item.name}`}>
@@ -116,6 +130,12 @@ export const Cart = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0', fontSize: '14px' }}>
                 <span>Free-piece reward</span>
                 <strong>−{formatINR(cartEstimate.reward_discount)}</strong>
+              </div>
+            )}
+            {cartEstimate?.loyalty_discount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0', fontSize: '14px', color: '#684523' }}>
+                <span>6th Order Reward (50% off)</span>
+                <strong>−{formatINR(cartEstimate.loyalty_discount)}</strong>
               </div>
             )}
             {cartEstimate?.credit_discount > 0 && (

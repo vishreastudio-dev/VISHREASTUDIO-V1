@@ -37,7 +37,13 @@ export const ProductCard = ({ product: p, className = 'product-card', showAvaila
           width="400"
           height="500"
         />
-        {p.available === false ? <span className="product-badge is-sold-out">Sold out</span> : p.badge ? <span className="product-badge">{p.badge}</span> : null}
+        {p.available === false ? (
+          <span className="product-badge is-sold-out">Gone to a new home</span>
+        ) : p.badge ? (
+          <span className="product-badge">{p.badge}</span>
+        ) : p.is_one_of_one ? (
+          <span className="product-badge one-of-one-badge">1 of 1</span>
+        ) : null}
       </div>
       <div className="product-meta">
         <small>{p.category || 'Vishrea Studio'}</small>
