@@ -725,7 +725,7 @@ function AdminStudio({ section }) {
 
       <main className="admin-main">
         <div className="topbar">
-          <div className="topbar-title-group" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className="topbar-title-group">
             <button
               type="button"
               className="btn admin-menu-toggle"
