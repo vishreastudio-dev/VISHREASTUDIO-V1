@@ -41,6 +41,16 @@ export function organizationSchema() {
       addressCountry: SITE.address.country,
     },
     openingHours: SITE.openingHours,
+    priceRange: SITE.priceRange,
+    aggregateRating: SITE.rating
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: SITE.rating.ratingValue,
+          reviewCount: SITE.rating.reviewCount,
+          bestRating: '5',
+          worstRating: '1',
+        }
+      : undefined,
     currenciesAccepted: 'INR',
     paymentAccepted: 'UPI, Credit Card, Debit Card, Net Banking',
     areaServed: 'IN',

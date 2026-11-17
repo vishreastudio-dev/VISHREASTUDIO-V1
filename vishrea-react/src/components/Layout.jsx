@@ -2,6 +2,8 @@ import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { ShoppingProfileSwitcher } from './ShoppingProfileSwitcher';
+import { WhatsAppFloatingButton } from './WhatsAppFloatingButton';
+import { SITE } from '../site.config.js';
 
 // The search panel loads on first use; hovering or focusing the button fetches it early. If it
 // cannot load (offline, or a tab left open across a deploy), the full catalogue page opens instead.
@@ -131,6 +133,34 @@ export const Header = () => {
             <div style={{ padding: '0 0 16px 0', borderBottom: '1px solid var(--line, #e2dcd7)', marginBottom: 12 }}>
               <ShoppingProfileSwitcher isMobile />
             </div>
+            <button
+              type="button"
+              className="mobile-search-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                width: '100%',
+                padding: '10px 0',
+                background: 'none',
+                border: 'none',
+                borderBottom: '1px solid var(--line, #e2dcd7)',
+                color: 'inherit',
+                font: 'inherit',
+                fontSize: 15,
+                fontWeight: 500,
+                cursor: 'pointer',
+                textAlign: 'left',
+                marginBottom: 8,
+              }}
+              onClick={() => {
+                setMenuOpen(false);
+                setSearchOpen(true);
+              }}
+            >
+              <SearchIcon />
+              <span>Search collection…</span>
+            </button>
             {NAV.map(([to, label]) => (
               <Link key={to} to={to}>{label}</Link>
             ))}
@@ -151,42 +181,59 @@ export const Header = () => {
 };
 
 export const Footer = () => (
-  <footer className="footer">
-    <div>
-      <Link className="wordmark" to="/">
-        VISHREA <span>STUDIO</span>
-      </Link>
-      <p>A small womenswear studio in Bengaluru, mostly one-of-one pieces. Free studio pickup, ₹99 delivery across India.</p>
-    </div>
-    <nav className="footer-links" aria-label="Footer">
+  <>
+    <footer className="footer">
       <div>
-        <h2 className="footer-title">Shop</h2>
-        <Link to="/catalogue">All pieces</Link>
-        {FOOTER_CATEGORIES.map(([slug, name]) => (
-          <Link key={slug} to={`/catalogue/${slug}`}>{name}</Link>
-        ))}
+        <Link className="wordmark" to="/">
+          VISHREA <span>STUDIO</span>
+        </Link>
+        <p>Vishrea Studio is an independent womenswear studio in Bengaluru creating one-of-one pieces and timeless designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.</p>
+        <div style={{ marginTop: 14, fontSize: 13, color: 'var(--muted, #666)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--ink, #1a1a1a)', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
+          <span>16, 4th Cross, Kammasandra Rd, Hebbagodi,</span><br />
+          <span>Electronic City Phase 2, Bengaluru, KA 560100</span><br />
+          <span>Hours: Mon – Sun, 10:30 AM – 8:30 PM</span><br />
+          <a
+            href="https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--wine, #681d31)', fontWeight: 500, display: 'inline-block', marginTop: 4 }}
+          >
+            5.0 ★ (47 Google Reviews) · Open in Google Maps ↗
+          </a>
+        </div>
       </div>
-      <div>
-        <h2 className="footer-title">Studio</h2>
-        <Link to="/membership">Walkin Wardrobe membership</Link>
-        <Link to="/skin-tone">Find your colours</Link>
-        <Link to="/gifting">Gifting</Link>
-        <Link to="/contact">Help &amp; contact</Link>
+      <nav className="footer-links" aria-label="Footer">
+        <div>
+          <h2 className="footer-title">Shop</h2>
+          <Link to="/catalogue">All pieces</Link>
+          {FOOTER_CATEGORIES.map(([slug, name]) => (
+            <Link key={slug} to={`/catalogue/${slug}`}>{name}</Link>
+          ))}
+        </div>
+        <div>
+          <h2 className="footer-title">Studio</h2>
+          <Link to="/membership">Walkin Wardrobe membership</Link>
+          <Link to="/skin-tone">Find your colours</Link>
+          <Link to="/gifting">Gifting</Link>
+          <Link to="/contact">Help &amp; contact</Link>
+        </div>
+        <div>
+          <h2 className="footer-title">Your account</h2>
+          <Link to="/orders">Orders &amp; exchanges</Link>
+          <Link to="/account">Account</Link>
+          <Link to="/legal/returns">Refunds &amp; exchanges</Link>
+          <Link to="/legal/shipping">Shipping &amp; delivery</Link>
+          <Link to="/legal/exchange-damage">Damage window</Link>
+          <Link to="/legal/privacy">Privacy</Link>
+          <Link to="/legal/terms">Terms</Link>
+        </div>
+      </nav>
+      <div className="footer-bottom">
+        <span>© {new Date().getFullYear()} Vishrea Studio · Hebbagodi, Bengaluru</span>
+        <span>Prices in INR, including GST</span>
       </div>
-      <div>
-        <h2 className="footer-title">Your account</h2>
-        <Link to="/orders">Orders &amp; exchanges</Link>
-        <Link to="/account">Account</Link>
-        <Link to="/legal/returns">Refunds &amp; exchanges</Link>
-        <Link to="/legal/shipping">Shipping &amp; delivery</Link>
-        <Link to="/legal/exchange-damage">Damage window</Link>
-        <Link to="/legal/privacy">Privacy</Link>
-        <Link to="/legal/terms">Terms</Link>
-      </div>
-    </nav>
-    <div className="footer-bottom">
-      <span>© {new Date().getFullYear()} Vishrea Studio</span>
-      <span>Prices in INR, including GST</span>
-    </div>
-  </footer>
+    </footer>
+    <WhatsAppFloatingButton />
+  </>
 );

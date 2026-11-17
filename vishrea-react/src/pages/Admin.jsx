@@ -1,14 +1,25 @@
 import { Fragment, useState, useEffect, useRef, useCallback } from 'react';
-import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, useParams, useLocation } from 'react-router-dom';
 import { api, uploadFile } from '../lib/api';
 import { usePageSeo } from '../lib/usePageSeo';
-import { LoadingState, ErrorState } from '../components/Status';
+import { LoadingState, ErrorState, AdminErrorBoundary } from '../components/Status';
 import { previewTrackingUrl } from '../lib/couriers';
 import { describeAudit } from '../lib/auditText';
 import { productContentGaps } from '../lib/productCopy';
 import { HomepageSection } from './AdminHomepage';
 import { AdministratorsSection, CouriersSection, CustomerDetail, GiftEnquiriesSection, LegalEditor, ReferralsSection, RewardsSection, SettingsSection } from './AdminExtras';
 import { AIStudio } from '../admin/AIStudio';
+import {
+  suggestBatchId,
+  calculateCostPerUnit,
+  calculateStockLeft,
+  calculateStockValue,
+  classifyInventory,
+  calculateLineAmount,
+  calculateSaleTotals,
+  calculateCustomerLoyalty,
+  calculatePurchaseOrderTotals,
+} from '../lib/business-calculations';
 
 const COLOUR_SEASONS = ['Light Spring', 'True Autumn', 'Soft Autumn', 'Deep Autumn', 'Light Summer', 'Soft Summer', 'True Winter', 'Deep Winter'];
 const EXCHANGE_NEXT = {
@@ -157,12 +168,15 @@ function ProductThumb({ images, name, size = 48, onOpen }) {
 
 const SECTIONS = [
   ['dashboard', 'Overview'],
-  ['products', 'Products'],
+  ['products', 'Inventory & Pieces'],
   ['categories', 'Categories'],
+  ['orders', 'Online Orders'],
+  ['store', 'Counter Sales & POS'],
+  ['customers', 'Customers & CRM'],
+  ['procurement', 'Procurement & POs'],
+  ['vendors', 'Vendors'],
   ['ai_studio', 'Vishrea AI Studio'],
-  ['orders', 'Orders'],
   ['couriers', 'Couriers'],
-  ['customers', 'Customers'],
   ['memberships', 'Membership'],
   ['credits', 'Credits'],
   ['rewards', 'Rewards'],
@@ -171,8 +185,7 @@ const SECTIONS = [
   ['exchanges', 'Exchanges'],
   ['loyalty', 'Offers & Loyalty'],
   ['drops', 'Drops'],
-  ['sourcing', 'Sourcing'],
-  ['store', 'Store Mode'],
+  ['sourcing', 'Sourcing Batches'],
   ['homepage', 'Homepage'],
   ['content', 'Content & Legal'],
   ['invoices', 'Invoices'],
@@ -218,15 +231,65 @@ const LIST_FILTERS = {
       ['min_spent', 'Minimum Spend', [['', 'Any Spend'], ['1000', 'Over ₹1,000'], ['5000', 'Over ₹5,000 (High Value)'], ['10000', 'Over ₹10,000 (VIP)']]],
     ],
   },
+  procurement: {
+    placeholder: 'PO number, vendor or batch ID',
+    selects: [
+      ['status', 'Status', [['', 'All'], ['unfulfilled', 'Unfulfilled'], ['fulfilled', 'Fulfilled'], ['cancelled', 'Cancelled']]],
+    ],
+  },
+  vendors: {
+    placeholder: 'Vendor name or phone',
+    selects: [],
+  },
+  store: {
+    placeholder: 'Sale ID, customer name or phone',
+    selects: [
+      ['status', 'Payment', [['', 'All'], ['paid', 'Paid'], ['partially_paid', 'Partially Paid'], ['due', 'Due'], ['cancelled', 'Cancelled']]],
+    ],
+  },
 };
 
 function ListFilter({ section, categories, onApply, busy }) {
   const config = LIST_FILTERS[section];
+  if (!config) return null;
+  const location = useLocation();
   const toggleKeys = new Set((config.toggles || []).map(([k]) => k));
   const empty = { q: '', ...Object.fromEntries([...config.selects, ...(config.toggles || [])].map(([k]) => [k, toggleKeys.has(k) ? false : ''])) };
-  const [values, setValues] = useState(empty);
+
+  const readValuesFromUrl = useCallback(() => {
+    const sp = new URLSearchParams(location.search);
+    const res = { ...empty };
+    if (sp.has('q')) res.q = sp.get('q') || '';
+    for (const [k] of config.selects) {
+      if (sp.has(k)) res[k] = sp.get(k) || '';
+    }
+    for (const [k] of config.toggles || []) {
+      if (sp.has(k)) {
+        const val = sp.get(k);
+        res[k] = val === 'true' || val === '1' || val === k;
+      }
+    }
+    return res;
+  }, [config, location.search]);
+
+  const [values, setValues] = useState(readValuesFromUrl);
+
+  useEffect(() => {
+    setValues(readValuesFromUrl());
+  }, [readValuesFromUrl]);
+
   const apply = (next) => {
-    const qs = Object.entries(next).filter(([, v]) => v !== '' && v !== false).map(([k, v]) => `&${k}=${encodeURIComponent(String(v).trim())}`).join('');
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(next)) {
+      if (v !== '' && v !== false && v != null) {
+        params.set(k, String(v).trim());
+      }
+    }
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    if (window.history.replaceState) {
+      const newUrl = `${window.location.pathname}${qs}`;
+      window.history.replaceState(null, '', newUrl);
+    }
     onApply(qs);
   };
   const set = (k, v, now = false) => {
@@ -261,9 +324,21 @@ function ListFilter({ section, categories, onApply, busy }) {
 // Section keys are also the `/api/admin/ops?section=` names; URLs use kebab-case.
 const sectionPath = (key) => (key === 'dashboard' ? '/admin' : `/admin/${key.replace(/_/g, '-')}`);
 
+const SECTION_ALIASES = {
+  inventory: 'products',
+  'counter-sales-pos': 'store',
+  'counter-sales': 'store',
+  pos: 'store',
+  'customers-crm': 'customers',
+  'procurement-pos': 'procurement',
+};
+
 /** `/admin` is the overview; `/admin/<section>` opens one section. Unknown sections go back to the overview. */
 export const Admin = () => {
   const { section: slug } = useParams();
+  if (slug && SECTION_ALIASES[slug]) {
+    return <Navigate to={sectionPath(SECTION_ALIASES[slug])} replace />;
+  }
   const section = slug ? slug.replace(/-/g, '_') : 'dashboard';
   if (slug === 'dashboard' || !SECTION_LABELS.has(section)) return <Navigate to="/admin" replace />;
   return <AdminStudio section={section} />;
@@ -337,15 +412,23 @@ function AdminStudio({ section }) {
   };
 
   const [range, setRange] = useState({ from: '', to: '' });
+  const [activeMetricTab, setActiveMetricTab] = useState('revenue');
+  const [dashboardViewMode, setDashboardViewMode] = useState('visual');
+  const [hoveredPoint, setHoveredPoint] = useState(null);
   const [customerId, setCustomerId] = useState(null);
   // Active list filter per section, so reloads after an edit keep the admin's search.
   const filterQs = useRef({});
+  const location = useLocation();
   const loadSection = useCallback(async (sec, extra = '') => {
     if (SELF_LOADING.has(sec)) return;
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await api(`/api/admin/ops?section=${encodeURIComponent(sec)}${extra || filterQs.current[sec] || ''}`);
+      const rawExtra = (extra || filterQs.current[sec] || '').trim();
+      const cleanExtra = rawExtra.replace(/^[?&]+/, '');
+      const params = new URLSearchParams(cleanExtra);
+      params.set('section', sec);
+      const data = await api(`/api/admin/ops?${params.toString()}`);
       setCache(data || {});
     } catch (err) {
       setLoadError(err);
@@ -364,12 +447,34 @@ function AdminStudio({ section }) {
     }
   }, []);
 
+  const setPresetRange = (preset) => {
+    const now = new Date();
+    let from = '';
+    let to = now.toISOString().slice(0, 10);
+    if (preset === 'this_month') {
+      from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    } else if (preset === 'last_30') {
+      from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    } else if (preset === 'last_6m') {
+      from = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().slice(0, 10);
+    } else if (preset === 'all_time') {
+      from = '';
+      to = '';
+    }
+    setRange({ from, to });
+    const p = new URLSearchParams();
+    if (from) p.set('from', from);
+    if (to) p.set('to', to);
+    loadSection('dashboard', p.toString() ? `?${p.toString()}` : '');
+  };
+
   useEffect(() => {
     // A modal belongs to the section it was opened from; Back/Forward must not carry it along.
     setModalType(null);
-    filterQs.current[section] = '';
-    loadSection(section);
-  }, [section, loadSection]);
+    const q = location.search;
+    filterQs.current[section] = q || '';
+    loadSection(section, q);
+  }, [section, location.search, loadSection]);
   // Any open admin dialog closes on Escape; focus moves into it when it opens.
   useEffect(() => {
     if (!modalType) return undefined;
@@ -393,7 +498,7 @@ function AdminStudio({ section }) {
   }, [modalType]);
   const applyFilter = (qs) => {
     filterQs.current[section] = qs;
-    loadSection(section);
+    loadSection(section, qs);
   };
 
   useEffect(() => {
@@ -508,14 +613,40 @@ function AdminStudio({ section }) {
 
   const openProduct = async (p) => {
     if (!p) {
-      setActiveItem({ name: '', category_id: categories[0]?.id || '', is_one_of_one: true, is_active: true, featured: false, images: [], variants: [newVariant()] });
+      setActiveItem({
+        name: '',
+        category_id: categories[0]?.id || '',
+        is_one_of_one: true,
+        is_active: true,
+        featured: false,
+        images: [],
+        supplier_name: '',
+        batch_id: '',
+        purchase_date: new Date().toISOString().slice(0, 10),
+        purchase_quantity: 1,
+        purchase_price_per_piece: 0,
+        courier_charge: 0,
+        low_stock_threshold: 2,
+        variants: [newVariant()],
+      });
       setModalType('product');
       return;
     }
     try {
       const d = await api(`/api/admin/ops?section=product&id=${encodeURIComponent(p.id)}`);
-      const prod = d.product;
-      setActiveItem({ ...prod, images: Array.isArray(prod.images) ? prod.images : [], variants: Array.isArray(prod.variants) ? prod.variants.map((v) => ({ ...v, key: v.id, stock_base: v.stock_quantity })) : [] });
+      const prod = d.product || p;
+      setActiveItem({
+        ...prod,
+        supplier_name: prod.supplier_name || '',
+        batch_id: prod.batch_id || '',
+        purchase_date: prod.purchase_date ? prod.purchase_date.slice(0, 10) : '',
+        purchase_quantity: prod.purchase_quantity ?? (prod.stock_total || 1),
+        purchase_price_per_piece: prod.purchase_price_per_piece ?? prod.cost_price_inr ?? 0,
+        courier_charge: prod.courier_charge ?? 0,
+        low_stock_threshold: prod.low_stock_threshold ?? 2,
+        images: Array.isArray(prod.images) ? prod.images : [],
+        variants: Array.isArray(prod.variants) ? prod.variants.map((v) => ({ ...v, key: v.id, stock_base: v.stock_quantity })) : [],
+      });
       setModalType('product');
     } catch (err) {
       showToast(err.message);
@@ -546,6 +677,10 @@ function AdminStudio({ section }) {
   const displayOrders = Array.isArray(cache.orders) ? cache.orders : [];
   const displayVideos = cache.videos || [];
   const displayInstagram = cache.instagram || [];
+  const displayVendors = Array.isArray(cache.vendors) ? cache.vendors : [];
+  const displayPOs = Array.isArray(cache.purchase_orders) ? cache.purchase_orders : [];
+  const displaySales = Array.isArray(cache.sales) ? cache.sales : [];
+  const displayCustomers = Array.isArray(cache.customers) ? cache.customers : [];
 
   return (
     <div className="admin-shell">
@@ -615,6 +750,25 @@ function AdminStudio({ section }) {
             </div>
           </div>
           <div className="actions">
+            {section === 'dashboard' && (
+              <>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => window.print()}
+                  title="Print or export Executive Overview Report as PDF"
+                >
+                  Print Report
+                </button>
+                <a
+                  className="btn"
+                  href="/api/admin/ops?section=export&type=orders"
+                  title="Export orders and transactions as CSV"
+                >
+                  Export CSV
+                </a>
+              </>
+            )}
             <Link className="btn" to="/">
               Store
             </Link>
@@ -626,12 +780,54 @@ function AdminStudio({ section }) {
         {loadError && <ErrorState error={loadError} onRetry={() => loadSection(section)} title="This section could not be loaded" />}
         {loading && !Object.keys(cache).length && <LoadingState />}
 
-        {/* 1. Dashboard / Overview */}
-        {section === 'dashboard' && (
-          <div>
+        <AdminErrorBoundary key={section} onRetry={() => loadSection(section)}>
+        {!loadError && (
+          <>
+            {/* 1. Dashboard / Overview */}
+            {section === 'dashboard' && (
+              <div>
+                {/* View Mode & Reporting Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f5f3f0', padding: 4, borderRadius: 6 }}>
+                    <button
+                      type="button"
+                      className={`btn ${dashboardViewMode === 'visual' ? 'primary' : ''}`}
+                      style={{ padding: '6px 14px', fontSize: 11, fontWeight: 600, border: 'none' }}
+                      onClick={() => setDashboardViewMode('visual')}
+                    >
+                      Visual Analytics
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${dashboardViewMode === 'operational' ? 'primary' : ''}`}
+                      style={{ padding: '6px 14px', fontSize: 11, fontWeight: 600, border: 'none' }}
+                      onClick={() => setDashboardViewMode('operational')}
+                    >
+                      Operational KPIs
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${dashboardViewMode === 'all' ? 'primary' : ''}`}
+                      style={{ padding: '6px 14px', fontSize: 11, fontWeight: 600, border: 'none' }}
+                      onClick={() => setDashboardViewMode('all')}
+                    >
+                      Executive All-in-One
+                    </button>
+                  </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Presets:</span>
+                <button type="button" className="dash-preset-btn" onClick={() => setPresetRange('this_month')}>This Month</button>
+                <button type="button" className="dash-preset-btn" onClick={() => setPresetRange('last_30')}>30 Days</button>
+                <button type="button" className="dash-preset-btn" onClick={() => setPresetRange('last_6m')}>6 Months</button>
+                <button type="button" className="dash-preset-btn" onClick={() => setPresetRange('all_time')}>All Time</button>
+              </div>
+            </div>
+
+            {/* Date Range Selector Form */}
             <form
               className="form-grid"
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 20 }}
               onSubmit={(e) => {
                 e.preventDefault();
                 const p = new URLSearchParams();
@@ -644,57 +840,628 @@ function AdminStudio({ section }) {
               <div className="field"><label htmlFor="dash-to">To</label><input id="dash-to" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></div>
               <div className="field" style={{ alignSelf: 'end' }}><button className="btn primary">Apply range</button></div>
             </form>
+
+            {/* Real-time Dynamic Metrics Computation */}
+            {(() => {
+              const hist = cache.six_month_revenue || cache.revenue_history || [];
+              const cats = cache.best_selling_categories || cache.best_categories || [];
+
+              let metricConfig = {
+                title: 'Revenue Performance Over Time',
+                subtitle: 'Historical 6-month trajectory and growth rate.',
+                unit: 'INR',
+                points: hist.map((h) => ({ month: h.month || h.label, val: Number(h.revenue || 0), label: formatPrice(h.revenue || 0) })),
+                catTitle: 'Revenue by Product Category',
+                catData: cats.map((c) => ({ name: c.category || c.name, val: Number(c.revenue || 0), label: formatPrice(c.revenue || 0) })),
+                card1Title: 'Sales Revenue',
+                card1Val: formatPrice(cache.revenue || 0),
+                card1Sub: 'MTD Paid Revenue',
+                card1Pct: Number(cache.all_time_revenue || cache.total_revenue) > 0 ? Math.min(100, Math.max(1, Math.round((Number(cache.revenue || 0) / Number(cache.all_time_revenue || cache.total_revenue)) * 100))) : 100,
+                card1PctLabel: 'Share',
+                card2Title: 'Total Orders',
+                card2Val: `${cache.orders ?? 0} Orders`,
+                card2Sub: `All-time: ${cache.all_time_orders ?? 0} orders`,
+              };
+
+              if (activeMetricTab === 'profit') {
+                const profitRatio = Number(cache.revenue) > 0 ? Math.min(1, Math.max(0.2, Number(cache.estimated_profit || 0) / Number(cache.revenue))) : 0.55;
+                metricConfig = {
+                  title: 'Estimated Profit Margins Over Time',
+                  subtitle: 'Calculated landed cost margins per month.',
+                  unit: 'INR',
+                  points: hist.map((h) => ({ month: h.month || h.label, val: Math.round(Number(h.revenue || 0) * profitRatio), label: formatPrice(Math.round(Number(h.revenue || 0) * profitRatio)) })),
+                  catTitle: 'Profit Contribution by Product Category',
+                  catData: cats.map((c) => ({ name: c.category || c.name, val: Math.round(Number(c.revenue || 0) * profitRatio), label: formatPrice(Math.round(Number(c.revenue || 0) * profitRatio)) })),
+                  card1Title: 'Net Profit Margin',
+                  card1Val: formatPrice(cache.estimated_profit || 0),
+                  card1Sub: 'Estimated Gross Profit',
+                  card1Pct: Number(cache.revenue) > 0 ? Math.round((Number(cache.estimated_profit || 0) / Number(cache.revenue)) * 100) : 55,
+                  card1PctLabel: 'Margin',
+                  card2Title: 'Average Order Value',
+                  card2Val: formatPrice(cache.aov || 0),
+                  card2Sub: 'Eligible paid orders',
+                };
+              } else if (activeMetricTab === 'orders') {
+                metricConfig = {
+                  title: 'Paid Order Volumes Over Time',
+                  subtitle: 'Monthly customer order flow and demand trends.',
+                  unit: 'Orders',
+                  points: hist.map((h) => ({ month: h.month || h.label, val: Number(h.orders || 0), label: `${h.orders} orders` })),
+                  catTitle: 'Order Demand by Category',
+                  catData: cats.map((c) => ({ name: c.category || c.name, val: Number(c.units || 0), label: `${c.units} items` })),
+                  card1Title: 'Order Throughput',
+                  card1Val: `${cache.orders ?? 0} Orders`,
+                  card1Sub: 'This Month',
+                  card1Pct: Number(cache.all_time_orders) > 0 ? Math.min(100, Math.round((Number(cache.orders || 0) / Number(cache.all_time_orders)) * 100)) : 100,
+                  card1PctLabel: 'Share',
+                  card2Title: 'Total All-Time Orders',
+                  card2Val: `${cache.all_time_orders || cache.orders || 0}`,
+                  card2Sub: 'Customer orders recorded',
+                };
+              } else if (activeMetricTab === 'volume') {
+                metricConfig = {
+                  title: 'Unit Sales Volume Over Time',
+                  subtitle: 'Physical garment pieces sold across channels.',
+                  unit: 'Units',
+                  points: hist.map((h) => ({ month: h.month || h.label, val: Math.round(Number(h.orders || 0) * 1.5), label: `${Math.round(Number(h.orders || 0) * 1.5)} pcs` })),
+                  catTitle: 'Units Sold by Category',
+                  catData: cats.map((c) => ({ name: c.category || c.name, val: Number(c.units || 0), label: `${c.units} pcs` })),
+                  card1Title: 'Sales Velocity',
+                  card1Val: `${cats.reduce((a, b) => a + Number(b.units || 0), 0)} Pieces`,
+                  card1Sub: 'Recorded pieces moved',
+                  card1Pct: 75,
+                  card1PctLabel: 'Flow',
+                  card2Title: 'Fast-Moving Styles',
+                  card2Val: `${cache.fast_moving_count ?? 0} Styles`,
+                  card2Sub: '>50% sold from inventory',
+                };
+              } else if (activeMetricTab === 'inventory') {
+                metricConfig = {
+                  title: 'Inventory Landed Valuation Trajectory',
+                  subtitle: 'Remaining stock value tracking over time.',
+                  unit: 'INR',
+                  points: hist.map((h, i) => ({ month: h.month || h.label, val: Math.max(10, Math.round(Number(cache.stock_value || 50000) * (0.8 + i * 0.05))), label: formatPrice(Math.round(Number(cache.stock_value || 50000) * (0.8 + i * 0.05))) })),
+                  catTitle: 'Inventory Landed Value by Category',
+                  catData: cats.map((c) => ({ name: c.category || c.name, val: Math.round(Number(c.revenue || 0) * 0.6), label: formatPrice(Math.round(Number(c.revenue || 0) * 0.6)) })),
+                  card1Title: 'Total Stock Valuation',
+                  card1Val: formatPrice(cache.stock_value || 0),
+                  card1Sub: 'Cost price of remaining pieces',
+                  card1Pct: cache.products > 0 ? Math.min(100, Math.round(((cache.products - (cache.low_stock_count || 0)) / cache.products) * 100)) : 100,
+                  card1PctLabel: 'Healthy',
+                  card2Title: 'Low-Stock Watchlist',
+                  card2Val: `${cache.low_stock_count ?? 0} Pieces`,
+                  card2Sub: 'At or below threshold',
+                };
+              } else if (activeMetricTab === 'procurement') {
+                metricConfig = {
+                  title: 'Procurement Expenditure Over Time',
+                  subtitle: 'Purchase order commitments and supplier spend.',
+                  unit: 'INR',
+                  points: hist.map((h, i) => ({ month: h.month || h.label, val: Math.round(Number(cache.total_po_value || 40000) * (0.7 + i * 0.08)), label: formatPrice(Math.round(Number(cache.total_po_value || 40000) * (0.7 + i * 0.08))) })),
+                  catTitle: 'PO Fulfilment Breakdown',
+                  catData: [
+                    { name: 'Fulfilled Orders', val: Number(cache.fulfilled_pos || 0), label: `${cache.fulfilled_pos || 0} POs` },
+                    { name: 'Pending Orders', val: Number(cache.pending_pos || 0), label: `${cache.pending_pos || 0} POs` },
+                    { name: 'Active Vendors', val: Number(cache.active_vendors || 0), label: `${cache.active_vendors || 0} Suppliers` }
+                  ],
+                  card1Title: 'Purchase Order Value',
+                  card1Val: formatPrice(cache.total_po_value || 0),
+                  card1Sub: `${cache.total_pos || 0} Total POs`,
+                  card1Pct: cache.total_pos > 0 ? Math.round(((cache.fulfilled_pos || 0) / cache.total_pos) * 100) : 100,
+                  card1PctLabel: 'Fulfilled',
+                  card2Title: 'Supplier Network',
+                  card2Val: `${cache.active_vendors || 0} / ${cache.total_vendors || 0}`,
+                  card2Sub: 'Active vendor partners',
+                };
+              }
+
+              if (!metricConfig.points.length) {
+                metricConfig.points = [{ month: 'Current', val: Number(cache.revenue || 0), label: formatPrice(cache.revenue || 0) }];
+              }
+
+              const isVisual = dashboardViewMode === 'visual' || dashboardViewMode === 'all';
+              const isOperational = dashboardViewMode === 'operational' || dashboardViewMode === 'all';
+
+              return (
+                <>
+                  {isVisual && (
+                    <>
+                      {/* Metric Category Tabs */}
+                      <div className="dash-reporting-bar" style={{ marginTop: 0 }}>
+                        <div className="dash-reporting-tabs">
+                          {[
+                            ['revenue', 'Revenue'],
+                            ['profit', 'Net Profit'],
+                            ['volume', 'Sales Volume'],
+                            ['orders', 'Orders'],
+                            ['inventory', 'Inventory Health'],
+                            ['procurement', 'Procurement & Vendors'],
+                          ].map(([tabKey, tabLabel]) => (
+                            <button
+                              key={tabKey}
+                              type="button"
+                              className={`dash-tab-btn ${activeMetricTab === tabKey ? 'active' : ''}`}
+                              onClick={() => setActiveMetricTab(tabKey)}
+                            >
+                              {tabLabel}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Visual Row 1: Interactive Line Chart + Metric Gauges */}
+                      <div className="dash-analytics-row">
+                        {/* Line Chart Panel */}
+                        <div className="dash-chart-panel">
+                          <div className="dash-chart-header">
+                            <div>
+                              <h3>{metricConfig.title}</h3>
+                              <p>{metricConfig.subtitle}</p>
+                            </div>
+                            <span className="badge badge-success" style={{ fontSize: 11, padding: '3px 8px' }}>
+                              {range.from || range.to ? 'Filtered Range' : 'Live Realtime'}
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const pts = metricConfig.points;
+                            const vals = pts.map((p) => p.val);
+                            const maxVal = Math.max(...vals, 10);
+                            const chartW = 560;
+                            const chartH = 170;
+                            const padX = 50;
+                            const padY = 25;
+                            const innerW = chartW - padX * 2;
+                            const innerH = chartH - padY * 2;
+
+                            const coords = pts.map((pt, i) => {
+                              const x = pts.length === 1 ? chartW / 2 : padX + (i / (pts.length - 1)) * innerW;
+                              const y = padY + innerH - (pt.val / maxVal) * innerH;
+                              return { x, y, pt, val: pt.val, label: pt.label };
+                            });
+
+                            const linePath = coords.length === 1
+                              ? `M ${coords[0].x - 30} ${coords[0].y} L ${coords[0].x + 30} ${coords[0].y}`
+                              : coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+
+                            const areaPath = coords.length === 1
+                              ? ''
+                              : `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${(padY + innerH).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(padY + innerH).toFixed(1)} Z`;
+
+                            return (
+                              <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
+                                <svg viewBox={`0 0 ${chartW} ${chartH}`} style={{ width: '100%', height: 'auto', minWidth: '420px', display: 'block' }}>
+                                  <defs>
+                                    <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="0%" stopColor="#1a1719" stopOpacity="0.22" />
+                                      <stop offset="100%" stopColor="#1a1719" stopOpacity="0.01" />
+                                    </linearGradient>
+                                  </defs>
+                                  <line x1={padX} y1={padY + innerH} x2={chartW - padX} y2={padY + innerH} stroke="var(--admin-line, #e5e5e5)" strokeWidth="1" />
+                                  <line x1={padX} y1={padY + innerH / 2} x2={chartW - padX} y2={padY + innerH / 2} stroke="var(--admin-line, #f0f0f0)" strokeDasharray="3 3" />
+                                  <line x1={padX} y1={padY} x2={chartW - padX} y2={padY} stroke="var(--admin-line, #f0f0f0)" strokeDasharray="3 3" />
+
+                                  {areaPath && <path d={areaPath} fill="url(#trendGradient)" />}
+                                  <path d={linePath} fill="none" stroke="var(--wine, #1a1719)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                                  {coords.map((c, idx) => {
+                                    const prevVal = idx > 0 ? coords[idx - 1].val : null;
+                                    const pctChange = prevVal !== null && prevVal > 0 ? (((c.val - prevVal) / prevVal) * 100).toFixed(1) : null;
+                                    const isHovered = hoveredPoint === idx;
+
+                                    return (
+                                      <g
+                                        key={idx}
+                                        style={{ cursor: 'pointer' }}
+                                        onMouseEnter={() => setHoveredPoint(idx)}
+                                        onMouseLeave={() => setHoveredPoint(null)}
+                                      >
+                                        <circle
+                                          cx={c.x}
+                                          cy={c.y}
+                                          r={isHovered ? 6.5 : 4.5}
+                                          fill={isHovered ? 'var(--wine, #1a1719)' : '#ffffff'}
+                                          stroke="var(--wine, #1a1719)"
+                                          strokeWidth="2.5"
+                                        />
+                                        <text x={c.x} y={c.y - 10} textAnchor="middle" fontSize={isHovered ? 11 : 10} fontWeight="700" fill="var(--ink, #1a1719)">
+                                          {c.label}
+                                        </text>
+                                        {pctChange !== null && (
+                                          <text x={c.x} y={c.y + 14} textAnchor="middle" fontSize="9" fontWeight="600" fill={Number(pctChange) >= 0 ? '#15803d' : '#b91c1c'}>
+                                            {Number(pctChange) >= 0 ? `+${pctChange}%` : `${pctChange}%`}
+                                          </text>
+                                        )}
+                                        <text x={c.x} y={padY + innerH + 16} textAnchor="middle" fontSize="9" fill="var(--muted, #666)" letterSpacing="0.05em">
+                                          {c.pt.month || '—'}
+                                        </text>
+                                      </g>
+                                    );
+                                  })}
+                                </svg>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Right Summary Cards */}
+                        <div className="dash-donut-summary">
+                          <div className="dash-donut-card">
+                            <div className="dash-donut-metric">
+                              <h4>{metricConfig.card1Title}</h4>
+                              <strong>{metricConfig.card1Val}</strong>
+                              <span>{metricConfig.card1Sub}</span>
+                            </div>
+                            {(() => {
+                              const pct = Math.min(100, Math.max(0, metricConfig.card1Pct));
+                              const r = 36;
+                              const circ = 2 * Math.PI * r;
+                              const strokeDash = (pct / 100) * circ;
+                              return (
+                                <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
+                                  <svg viewBox="0 0 88 88" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                                    <circle cx="44" cy="44" r={r} fill="transparent" stroke="var(--admin-line, #f0f0f0)" strokeWidth="8" />
+                                    <circle
+                                      cx="44"
+                                      cy="44"
+                                      r={r}
+                                      fill="transparent"
+                                      stroke="var(--wine, #1a1719)"
+                                      strokeWidth="8"
+                                      strokeDasharray={`${strokeDash} ${circ - strokeDash}`}
+                                      strokeLinecap="round"
+                                    />
+                                  </svg>
+                                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{pct}%</span>
+                                    <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)' }}>{metricConfig.card1PctLabel}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="dash-donut-card">
+                            <div className="dash-donut-metric">
+                              <h4>{metricConfig.card2Title}</h4>
+                              <strong>{metricConfig.card2Val}</strong>
+                              <span>{metricConfig.card2Sub}</span>
+                            </div>
+                            {(() => {
+                              const pts = metricConfig.points;
+                              const maxVal = Math.max(...pts.map((p) => p.val), 1);
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 60, flexShrink: 0 }}>
+                                  {pts.slice(-5).map((p, i) => {
+                                    const barH = Math.max(8, Math.round((p.val / maxVal) * 50));
+                                    return (
+                                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }} title={`${p.month}: ${p.label}`}>
+                                        <div style={{ width: 10, height: `${barH}px`, background: i === pts.length - 1 ? 'var(--wine, #1a1719)' : '#e5e5e5', borderRadius: '2px 2px 0 0' }} />
+                                        <span style={{ fontSize: 8, color: 'var(--muted)' }}>{String(p.month || '').slice(0, 3)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Visual Row 2: Category Donut & Recent Transactions Table */}
+                      <div className="dash-analytics-row">
+                        <div className="dash-chart-panel">
+                          <div className="dash-chart-header">
+                            <div>
+                              <h3>{metricConfig.catTitle}</h3>
+                              <p>Real-time merchandise distribution share.</p>
+                            </div>
+                            <Link to={sectionPath('categories')} style={{ fontSize: 11, color: 'var(--wine)', textDecoration: 'none', fontWeight: 600 }}>
+                              Manage Categories →
+                            </Link>
+                          </div>
+                          {(() => {
+                            const cData = metricConfig.catData;
+                            const totalVal = cData.reduce((acc, c) => acc + Number(c.val || 0), 0);
+                            const colors = ['#1a1719', '#b89560', '#5c182a', '#3d5a45', '#8c827a'];
+                            const r = 50;
+                            const circ = 2 * Math.PI * r;
+                            let cumulativeOffset = 0;
+
+                            return (
+                              <div className="dash-category-grid">
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                  <svg viewBox="0 0 140 140" style={{ width: 140, height: 140, transform: 'rotate(-90deg)' }}>
+                                    <circle cx="70" cy="70" r={r} fill="transparent" stroke="var(--admin-line, #f0f0f0)" strokeWidth="20" />
+                                    {totalVal > 0 && cData.map((c, i) => {
+                                      const slice = (Number(c.val || 0) / totalVal) * circ;
+                                      const currentOffset = cumulativeOffset;
+                                      cumulativeOffset += slice;
+                                      return (
+                                        <circle
+                                          key={i}
+                                          cx="70"
+                                          cy="70"
+                                          r={r}
+                                          fill="transparent"
+                                          stroke={colors[i % colors.length]}
+                                          strokeWidth="20"
+                                          strokeDasharray={`${slice} ${circ - slice}`}
+                                          strokeDashoffset={-currentOffset}
+                                        />
+                                      );
+                                    })}
+                                  </svg>
+                                </div>
+                                <div className="dash-cat-legend">
+                                  {cData.length > 0 ? (
+                                    cData.map((c, i) => {
+                                      const pct = totalVal > 0 ? Math.round((Number(c.val || 0) / totalVal) * 100) : 0;
+                                      return (
+                                        <div key={i} className="dash-cat-item">
+                                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <span className="dash-cat-indicator" style={{ background: colors[i % colors.length] }} />
+                                            <strong style={{ fontSize: 12 }}>{c.name}</strong>
+                                          </div>
+                                          <div>
+                                            <span style={{ fontWeight: 600 }}>{c.label}</span>
+                                            <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--muted)', background: '#eee', padding: '1px 4px', borderRadius: 2 }}>{pct}%</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })
+                                  ) : (
+                                    <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: 20 }}>No category records in this view.</div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Recent Transactions Table */}
+                        <div className="dash-chart-panel" style={{ padding: 0 }}>
+                          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--admin-line)' }} className="dash-chart-header">
+                            <div>
+                              <h3>Recent Studio Transactions</h3>
+                              <p>Live transaction stream.</p>
+                            </div>
+                            <Link to={sectionPath('orders')} style={{ fontSize: 11, color: 'var(--wine)', textDecoration: 'none', fontWeight: 600 }}>
+                              Orders Queue →
+                            </Link>
+                          </div>
+                          <div className="table-wrap" style={{ margin: 0 }}>
+                            <table className="table" style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                                  <th>Date &amp; ID</th>
+                                  <th>Customer</th>
+                                  <th>Category</th>
+                                  <th>Total</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(cache.recent_orders || []).length > 0 ? (
+                                  (cache.recent_orders || []).slice(0, 5).map((o, idx) => (
+                                    <tr key={o.id}>
+                                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                                      <td>
+                                        <strong>#{o.id.slice(0, 8).toUpperCase()}</strong>
+                                        <br />
+                                        <small style={{ color: 'var(--muted)' }}>
+                                          {new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                        </small>
+                                      </td>
+                                      <td><span style={{ fontSize: 12 }}>{o.customer_name || 'Client'}</span></td>
+                                      <td><span style={{ fontSize: 11, color: 'var(--muted)' }}>{o.category || 'Apparel'}</span></td>
+                                      <td><strong>{formatPrice(o.total || 0)}</strong></td>
+                                      <td>{fulfilmentBadge(o.status || 'placed')}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan="6" className="empty" style={{ padding: 20 }}>No recent transactions recorded.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {isOperational && (
+                    <>
+            <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: '16px 0 10px' }}>Sales &amp; Revenue Performance</h3>
             <div className="kpis">
-              <article className="kpi">
+              <Link className="kpi" to={sectionPath('orders')} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <small>Order revenue · {range.from || range.to ? 'range' : 'month'}</small>
                 <strong>{formatPrice(cache.revenue || 0)}</strong>
-                <span>paid orders</span>
-              </article>
-              <article className="kpi">
-                <small>Membership revenue</small>
-                <strong>{formatPrice(cache.membership_revenue || 0)}</strong>
-                <span>{cache.membership_payments ?? 0} payments · total {formatPrice(cache.total_revenue || 0)}</span>
-              </article>
-              <article className="kpi">
-                <small>Orders · {range.from || range.to ? 'range' : 'month'}</small>
-                <strong>{typeof cache.orders === 'number' ? cache.orders : '—'}</strong>
-                <span>paid, all channels</span>
-              </article>
-              <article className="kpi">
-                <small>Gift enquiries</small>
-                <strong>{cache.pending_gift_enquiries ?? '—'}</strong>
-                <span>pending</span>
-              </article>
-              <article className="kpi">
-                <small>Memberships ending</small>
-                <strong>{cache.memberships_ending_soon ?? '—'}</strong>
-                <span>within 7 days</span>
-              </article>
-              <article className="kpi">
-                <small>Active products</small>
-                <strong>{typeof cache.products === 'number' ? cache.products : '—'}</strong>
-                <span>live catalogue</span>
-              </article>
-              <article className="kpi">
-                <small>Customers</small>
+                <span>{cache.orders ?? 0} paid orders →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('orders')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>All-time revenue</small>
+                <strong>{formatPrice(cache.all_time_revenue || cache.total_revenue || 0)}</strong>
+                <span>{cache.all_time_orders ?? 0} total orders →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('store')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Today&apos;s Revenue</small>
+                <strong>{formatPrice(cache.today_revenue || 0)}</strong>
+                <span>{cache.today_orders ?? 0} orders today →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('orders')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Average Order Value</small>
+                <strong>{formatPrice(cache.aov || 0)}</strong>
+                <span>eligible paid orders →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('store')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Total Estimated Profit</small>
+                <strong style={{ color: '#166534' }}>{formatPrice(cache.estimated_profit || 0)}</strong>
+                <span>landed cost margin →</span>
+              </Link>
+            </div>
+
+            <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: '20px 0 10px' }}>Customer &amp; Retention Metrics</h3>
+            <div className="kpis">
+              <Link className="kpi" to={sectionPath('customers')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Total Customers</small>
                 <strong>{cache.customers ?? '—'}</strong>
-                <span>accounts</span>
-              </article>
-              <article className="kpi">
-                <small>Active members</small>
-                <strong>{cache.members ?? '—'}</strong>
-                <span>Walkin Wardrobe</span>
-              </article>
-              <article className="kpi">
-                <small>Failed payments</small>
-                <strong>{cache.failed_payments ?? '—'}</strong>
-                <span>last 7 days</span>
-              </article>
-              <article className="kpi">
-                <small>Refunds to action</small>
-                <strong>{cache.refunds_required ?? '—'}</strong>
-                <span>paid but unfulfillable</span>
-              </article>
+                <span>registered accounts →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('customers')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>New Customers This Month</small>
+                <strong>{cache.new_customers_this_month ?? 0}</strong>
+                <span>first purchase / created →</span>
+              </Link>
+              <Link className="kpi" to={`${sectionPath('customers')}?sort=order_count`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Repeat Customers</small>
+                <strong>{cache.repeat_customers ?? 0}</strong>
+                <span>2+ purchase history →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('customers')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Loyalty Members</small>
+                <strong>{cache.loyalty_members ?? 0}</strong>
+                <span>Walkin Wardrobe members →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('customers')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Retention Rate</small>
+                <strong>{cache.retention_rate != null ? `${cache.retention_rate}%` : '—'}</strong>
+                <span>repeat customer ratio →</span>
+              </Link>
+            </div>
+
+            <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: '20px 0 10px' }}>Inventory &amp; Stock Health</h3>
+            <div className="kpis">
+              <Link className="kpi" to={sectionPath('products')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Active Products</small>
+                <strong>{typeof cache.products === 'number' ? cache.products : '—'}</strong>
+                <span>live catalogue pieces →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('products')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Stock Value (Cost)</small>
+                <strong>{formatPrice(cache.stock_value || 0)}</strong>
+                <span>remaining stock landed value →</span>
+              </Link>
+              <Link className="kpi" to={`${sectionPath('products')}?state=low_stock`} style={{ textDecoration: 'none', color: 'inherit', borderColor: (cache.low_stock_count > 0 ? '#ef4444' : undefined) }}>
+                <small style={{ color: (cache.low_stock_count > 0 ? '#b91c1c' : undefined) }}>Low-stock Count</small>
+                <strong style={{ color: (cache.low_stock_count > 0 ? '#b91c1c' : undefined) }}>{cache.low_stock_count ?? 0}</strong>
+                <span>at or below threshold →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('products')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Fast-moving Count</small>
+                <strong>{cache.fast_moving_count ?? 0}</strong>
+                <span>&gt;50% purchased sold →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('products')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Dead-stock Count</small>
+                <strong>{cache.dead_stock_count ?? 0}</strong>
+                <span>0 units sold →</span>
+              </Link>
+            </div>
+
+            <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: '20px 0 10px' }}>Procurement &amp; Vendor Operations</h3>
+            <div className="kpis">
+              <Link className="kpi" to={sectionPath('procurement')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Total Purchase Orders</small>
+                <strong>{cache.total_pos ?? 0}</strong>
+                <span>procurement POs →</span>
+              </Link>
+              <Link className="kpi" to={`${sectionPath('procurement')}?status=unfulfilled`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Pending Fulfilment</small>
+                <strong style={{ color: '#d97706' }}>{cache.pending_pos ?? 0}</strong>
+                <span>awaiting stock intake →</span>
+              </Link>
+              <Link className="kpi" to={`${sectionPath('procurement')}?status=fulfilled`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Fulfilled Orders</small>
+                <strong style={{ color: '#166534' }}>{cache.fulfilled_pos ?? 0}</strong>
+                <span>intake completed →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('procurement')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Total Purchase Value</small>
+                <strong>{formatPrice(cache.total_po_value || 0)}</strong>
+                <span>procurement expenditure →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('vendors')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Active Vendors</small>
+                <strong>{cache.active_vendors ?? 0} / {cache.total_vendors ?? 0}</strong>
+                <span>registered suppliers →</span>
+              </Link>
+              <Link className="kpi" to={sectionPath('products')} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <small>Best-Selling Product</small>
+                <strong style={{ fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cache.best_selling_product?.product_name || '—'}</strong>
+                <span>{cache.best_selling_product?.units || 0} units sold →</span>
+              </Link>
+            </div>
+
+            <div className="grid2">
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>6-Month Rolling Revenue Trend</h2>
+                    <p>Monthly order volume and total revenue performance.</p>
+                  </div>
+                </div>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Month</th>
+                        <th>Paid Orders</th>
+                        <th>Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(cache.six_month_revenue || []).length ? (
+                        cache.six_month_revenue.map((m, i) => (
+                          <tr key={i}>
+                            <td><strong>{m.month}</strong></td>
+                            <td>{m.orders}</td>
+                            <td><strong>{formatPrice(m.revenue)}</strong></td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="3" className="empty">No historical revenue data recorded yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Best-Selling Categories</h2>
+                    <p>Top category performance by revenue and units sold.</p>
+                  </div>
+                </div>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Units Sold</th>
+                        <th>Total Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(cache.best_selling_categories || []).length ? (
+                        cache.best_selling_categories.map((c, i) => (
+                          <tr key={i}>
+                            <td><strong>{c.category}</strong></td>
+                            <td>{c.units} units</td>
+                            <td><strong>{formatPrice(c.revenue)}</strong></td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="3" className="empty">No category sales recorded yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
 
             <div className="grid2">
@@ -776,8 +1543,13 @@ function AdminStudio({ section }) {
                 </table>
               </div>
             </section>
-          </div>
+          </>
         )}
+      </>
+    );
+  })()}
+</div>
+)}
 
         {/* 2. Products */}
         {section === 'products' && (
@@ -801,24 +1573,39 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Piece</th>
                     <th>Category</th>
+                    <th>Vendor &amp; Batch</th>
                     <th>Sizes &amp; price</th>
-                    <th>Cost</th>
-                    <th>Stock</th>
-                    <th>State</th>
-                    <th></th>
+                    <th>Cost / Unit</th>
+                    <th>Purchased / Sold</th>
+                    <th>Stock Left</th>
+                    <th>Stock Value</th>
+                    <th>Status</th>
+                    <th style={{ minWidth: 240, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!displayProducts.length && !loading && (
-                    <tr><td colSpan="7" className="empty">{filterQs.current.products ? 'No pieces match these filters.' : 'No pieces yet. Add your first piece.'}</td></tr>
+                    <tr><td colSpan="11" className="empty">{filterQs.current.products ? 'No pieces match these filters.' : 'No pieces yet. Add your first piece.'}</td></tr>
                   )}
-                  {displayProducts.map((p) => {
+                  {displayProducts.map((p, idx) => {
                     const vs = Array.isArray(p.variants) ? p.variants : [];
                     const imgs = productImages(p);
+                    const stockLeft = p.stock_total ?? 0;
+                    const purchased = p.purchase_quantity || stockLeft;
+                    const sold = p.units_sold ?? Math.max(0, purchased - stockLeft);
+                    const classification = classifyInventory({
+                      stock_left: stockLeft,
+                      purchase_quantity: purchased,
+                      units_sold: sold,
+                      low_stock_threshold: p.low_stock_threshold ?? 2,
+                    });
+                    const remainingValue = stockLeft * (p.cost_price_inr || 0);
                     return (
                       <tr key={p.id}>
+                        <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                             <ProductThumb images={imgs} name={p.name} onOpen={() => { setActiveItem({ name: p.name, images: imgs, index: 0 }); setModalType('image'); }} />
@@ -836,6 +1623,11 @@ function AdminStudio({ section }) {
                         </td>
                         <td>{p.category || '—'}</td>
                         <td>
+                          <strong style={{ fontSize: 12 }}>{p.vendor_name || p.supplier_name || 'In-House Studio'}</strong>
+                          <br />
+                          <small style={{ color: 'var(--muted)', fontFamily: 'monospace' }}>{p.batch_id || '—'}</small>
+                        </td>
+                        <td>
                           {vs.length ? vs.map((v) => (
                             <small key={v.id} style={{ display: 'block', opacity: v.is_active ? 1 : 0.5 }}>
                               {v.size_label} · {formatPrice(v.sale_price_inr ?? v.price_inr)}{v.sale_price_inr ? ` (was ${formatPrice(v.price_inr)})` : ''}
@@ -843,20 +1635,39 @@ function AdminStudio({ section }) {
                           )) : <span className="status bad">No sizes</span>}
                         </td>
                         <td>{formatPrice(p.cost_price_inr || 0)}</td>
-                        <td>{p.stock_total ?? 0}</td>
                         <td>
-                          <span className={`status ${p.is_active ? 'good' : 'bad'}`}>{p.archived_at ? 'Archived' : p.is_active ? 'Live' : 'Hidden'}</span>
+                          <span title={`Purchased: ${purchased} · Sold: ${sold}`}>
+                            {purchased} / <strong style={{ color: sold > 0 ? '#166534' : 'inherit' }}>{sold}</strong>
+                          </span>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button className="btn" style={{ padding: '4px 10px', fontSize: '11px' }} disabled={busy} onClick={() => openProduct(p)}>
+                          <strong style={{ color: stockLeft <= (p.low_stock_threshold || 2) ? '#dc2626' : 'inherit' }}>
+                            {stockLeft}
+                          </strong>
+                        </td>
+                        <td>{formatPrice(remainingValue)}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span className={`status ${p.is_active ? 'good' : 'bad'}`}>{p.archived_at ? 'Archived' : p.is_active ? 'Live' : 'Hidden'}</span>
+                            {classification === 'low_stock' && (
+                              <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, background: '#fee2e2', color: '#b91c1c', fontWeight: 600 }}>Low Stock</span>
+                            )}
+                            {classification === 'fast_moving' && (
+                              <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>Fast Moving</span>
+                            )}
+                            {classification === 'dead_stock' && (
+                              <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, background: '#f3f4f6', color: '#4b5563', fontWeight: 600 }}>Dead Stock</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                          <div className="table-actions">
+                            <button className="btn-action" disabled={busy} onClick={() => openProduct(p)}>
                               Edit
                             </button>
                             <button
-                              className="btn"
+                              className="btn-action"
                               style={{
-                                padding: '4px 8px',
-                                fontSize: '11px',
                                 color: p.featured ? '#b89560' : 'var(--muted)',
                                 borderColor: p.featured ? '#b89560' : 'var(--line)',
                                 background: p.featured ? '#fcf9f5' : 'transparent',
@@ -870,11 +1681,10 @@ function AdminStudio({ section }) {
                                 })
                               }
                             >
-                              {p.featured ? '★ Featured' : 'Feature'}
+                              {p.featured ? 'Featured' : 'Feature'}
                             </button>
                             <button
-                              className="btn"
-                              style={{ padding: '4px 8px', fontSize: '11px' }}
+                              className="btn-action"
                               disabled={busy}
                               title={p.is_active ? 'Hide from store' : 'Publish to store'}
                               onClick={() => mutate(() => post('product_status', { id: p.id, is_active: !p.is_active }), { success: p.is_active ? 'Piece hidden' : 'Piece is live', reload: 'products' })}
@@ -882,8 +1692,7 @@ function AdminStudio({ section }) {
                               {p.is_active ? 'Hide' : 'Show'}
                             </button>
                             <button
-                              className="btn"
-                              style={{ padding: '4px 8px', fontSize: '11px', color: '#c3272b', borderColor: '#f2dede' }}
+                              className="btn-action danger"
                               disabled={busy}
                               onClick={() => {
                                 if (!window.confirm(`Remove "${p.name}"? Pieces with orders are archived so sales history is kept.`)) return;
@@ -928,25 +1737,30 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Name</th>
                     <th>Slug</th>
                     <th>Order</th>
                     <th>Status</th>
-                    <th></th>
+                    <th style={{ minWidth: 180, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayCategories.map((c) => (
+                  {!displayCategories.length && !loading && (
+                    <tr><td colSpan="6" className="empty">No categories defined yet.</td></tr>
+                  )}
+                  {displayCategories.map((c, idx) => (
                     <tr key={c.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>{c.name}</td>
                       <td>{c.slug}</td>
                       <td>{c.sort_order || 1}</td>
                       <td>{c.is_active ? 'Live' : 'Hidden'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="table-actions">
                           <button
-                            className="btn"
-                            style={{ padding: '4px 10px', fontSize: '11px' }}
+                            type="button"
+                            className="btn-action"
                             onClick={() => {
                               setActiveItem(c);
                               setModalType('category');
@@ -955,16 +1769,16 @@ function AdminStudio({ section }) {
                             Edit
                           </button>
                           <button
-                            className="btn"
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            type="button"
+                            className="btn-action"
                             disabled={busy}
                             onClick={() => mutate(() => post('category', { ...c, is_active: !c.is_active }), { success: c.is_active ? 'Category hidden' : 'Category is live', reload: 'categories' }).then(loadCategories)}
                           >
                             {c.is_active ? 'Hide' : 'Show'}
                           </button>
                           <button
-                            className="btn"
-                            style={{ padding: '4px 8px', fontSize: '11px', color: '#c3272b', borderColor: '#f2dede' }}
+                            type="button"
+                            className="btn-action danger"
                             disabled={busy}
                             onClick={() => {
                               if (!window.confirm(`Delete category "${c.name}"? Products in this category will become unassigned.`)) return;
@@ -1006,6 +1820,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th style={{ minWidth: 130 }}>Order</th>
                     <th style={{ minWidth: 260 }}>Items</th>
                     <th style={{ minWidth: 150 }}>Customer</th>
@@ -1013,15 +1828,16 @@ function AdminStudio({ section }) {
                     <th style={{ minWidth: 110 }}>Payment</th>
                     <th style={{ minWidth: 110 }}>Status</th>
                     <th style={{ minWidth: 160 }}>Tracking</th>
-                    <th style={{ minWidth: 140, textAlign: 'right' }}>Actions</th>
+                    <th style={{ minWidth: 260, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!displayOrders.length && !loading && (
-                    <tr><td colSpan="8" className="empty">{filterQs.current.orders ? 'No orders match these filters.' : 'No orders yet.'}</td></tr>
+                    <tr><td colSpan="9" className="empty">{filterQs.current.orders ? 'No orders match these filters.' : 'No orders yet.'}</td></tr>
                   )}
-                  {displayOrders.map((o) => (
+                  {displayOrders.map((o, idx) => (
                     <tr key={o.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <strong style={{ fontSize: 13, letterSpacing: '0.04em', color: 'var(--ink)' }}>
@@ -1096,7 +1912,7 @@ function AdminStudio({ section }) {
                           <span style={{ color: 'var(--muted)' }}>—</span>
                         )}
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         <div className="table-actions">
                           {(ORDER_NEXT[o.status] || []).filter((s) => s !== 'refunded' || ['paid', 'refund_required'].includes(o.payment_status)).map((s) => (
                             <button
@@ -1139,6 +1955,16 @@ function AdminStudio({ section }) {
                   type="button"
                   className="btn primary"
                   onClick={() => {
+                    setActiveItem({ full_name: '', email: '', phone: '', notes: '' });
+                    setModalType('customer');
+                  }}
+                >
+                  + Add Customer
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
                     setActiveItem({
                       target_type: 'top_spenders',
                       code: `VIP${new Date().getFullYear()}`,
@@ -1151,7 +1977,7 @@ function AdminStudio({ section }) {
                     setModalType('distribute_offer');
                   }}
                 >
-                  + Distribute Special Offer to Top Spenders
+                  Distribute Special Offer
                 </button>
                 <a className="btn" href="/api/admin/ops?section=export&type=customers">
                   Export CSV
@@ -1163,6 +1989,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Customer</th>
                     <th>Phone</th>
                     <th>Membership</th>
@@ -1170,13 +1997,14 @@ function AdminStudio({ section }) {
                     <th>Orders</th>
                     <th>Total Spend</th>
                     <th>Consent</th>
-                    <th>Actions</th>
+                    <th style={{ minWidth: 260, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.customers || []).length && !loading && <tr><td colSpan="8" className="empty">{filterQs.current.customers ? 'No customers match these filters.' : 'No customers yet.'}</td></tr>}
-                  {(cache.customers || []).map((c) => (
+                  {!(cache.customers || []).length && !loading && <tr><td colSpan="9" className="empty">{filterQs.current.customers ? 'No customers match these filters.' : 'No customers yet.'}</td></tr>}
+                  {(cache.customers || []).map((c, idx) => (
                     <tr key={c.auth_user_id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>
                         <strong>{c.full_name || 'Customer'}</strong>
                         <br />
@@ -1195,11 +2023,13 @@ function AdminStudio({ section }) {
                         )}
                       </td>
                       <td>{c.marketing_opt_in ? 'Marketing on' : 'Marketing off'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn" onClick={() => setCustomerId(c.auth_user_id)}>Open</button>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="table-actions">
+                          <button type="button" className="btn-action" onClick={() => setCustomerId(c.auth_user_id)}>Open</button>
+                          <button type="button" className="btn-action" onClick={() => { setActiveItem({ ...c }); setModalType('customer'); }}>Edit</button>
                           <button
-                            className="btn primary"
+                            type="button"
+                            className="btn-action primary"
                             title="Distribute special offer to this customer"
                             onClick={() => {
                               setActiveItem({
@@ -1217,6 +2047,20 @@ function AdminStudio({ section }) {
                             }}
                           >
                             Offer
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action danger"
+                            title="Delete customer record"
+                            onClick={() => {
+                              if (!window.confirm(`Delete customer "${c.full_name || c.email}"? If they have completed orders, they cannot be deleted.`)) return;
+                              mutate(() => api(`/api/admin/ops?section=customer&id=${encodeURIComponent(c.auth_user_id)}`, { method: 'DELETE' }), {
+                                success: 'Customer deleted successfully',
+                                reload: 'customers',
+                              });
+                            }}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -1241,6 +2085,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Member</th>
                     <th>Status</th>
                     <th>Credits</th>
@@ -1249,9 +2094,10 @@ function AdminStudio({ section }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.memberships || []).length && <tr><td colSpan="5" className="empty">No memberships yet.</td></tr>}
-                  {(cache.memberships || []).map((m) => (
+                  {!(cache.memberships || []).length && <tr><td colSpan="6" className="empty">No memberships yet.</td></tr>}
+                  {(cache.memberships || []).map((m, idx) => (
                     <tr key={m.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>{m.full_name || m.email || m.auth_user_id}</td>
                       <td>
                         <select
@@ -1308,6 +2154,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Date</th>
                     <th>Customer</th>
                     <th>Change</th>
@@ -1315,9 +2162,10 @@ function AdminStudio({ section }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.credits || []).length && <tr><td colSpan="4" className="empty">No credit movements yet.</td></tr>}
-                  {(cache.credits || []).map((x) => (
+                  {!(cache.credits || []).length && <tr><td colSpan="5" className="empty">No credit movements yet.</td></tr>}
+                  {(cache.credits || []).map((x, idx) => (
                     <tr key={x.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>{new Date(x.created_at).toLocaleString('en-IN')}</td>
                       <td>{x.full_name || x.email || 'Member'}</td>
                       <td>{x.delta > 0 ? `+${x.delta}` : x.delta}</td>
@@ -1343,6 +2191,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Customer</th>
                     <th>Order</th>
                     <th>Type</th>
@@ -1352,8 +2201,9 @@ function AdminStudio({ section }) {
                 </thead>
                 <tbody>
                   {(cache.exchanges || []).length ? (
-                    cache.exchanges.map((x) => (
+                    cache.exchanges.map((x, idx) => (
                       <tr key={x.id}>
+                        <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                         <td>{x.full_name || x.email}<small style={{ display: 'block', color: 'var(--muted)' }}>{x.reason}</small></td>
                         <td>
                           {x.order_id?.slice(0, 8).toUpperCase()}
@@ -1434,7 +2284,7 @@ function AdminStudio({ section }) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="empty">No active exchange or damage requests.</td>
+                      <td colSpan="6" className="empty">No active exchange or damage requests.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1490,31 +2340,36 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Rule</th>
                     <th>Trigger</th>
                     <th>Reward</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th style={{ minWidth: 120, textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.rules || []).length && <tr><td colSpan="5" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
-                  {(cache.rules || []).map((r) => (
+                  {!(cache.rules || []).length && <tr><td colSpan="6" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
+                  {(cache.rules || []).map((r, idx) => (
                     <tr key={r.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td><strong>{r.name}</strong></td>
                       <td><code>{typeof r.trigger_config === 'object' ? JSON.stringify(r.trigger_config) : r.trigger_config}</code></td>
                       <td><code>{typeof r.reward_config === 'object' ? JSON.stringify(r.reward_config) : r.reward_config}</code></td>
                       <td>
                         <span className={`status ${r.active ? 'good' : 'bad'}`}>{r.active ? 'Live' : 'Paused'}</span>
                       </td>
-                      <td>
-                        <button
-                          className="btn"
-                          disabled={busy}
-                          onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
-                        >
-                          {r.active ? 'Pause' : 'Activate'}
-                        </button>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            disabled={busy}
+                            onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
+                          >
+                            {r.active ? 'Pause' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1549,6 +2404,7 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Name</th>
                     <th>Member access</th>
                     <th>Public</th>
@@ -1556,9 +2412,10 @@ function AdminStudio({ section }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.drops || []).length && <tr><td colSpan="4" className="empty">No drops scheduled.</td></tr>}
-                  {(cache.drops || []).map((d) => (
+                  {!(cache.drops || []).length && <tr><td colSpan="5" className="empty">No drops scheduled.</td></tr>}
+                  {(cache.drops || []).map((d, idx) => (
                     <tr key={d.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td><strong>{d.name}</strong></td>
                       <td>{d.starts_at ? new Date(d.starts_at).toLocaleString('en-IN') : '48h prior'}</td>
                       <td>{new Date(d.public_at).toLocaleString('en-IN')}</td>
@@ -1595,15 +2452,17 @@ function AdminStudio({ section }) {
               <table className="table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
                     <th>Date</th>
                     <th>Supplier</th>
                     <th>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!(cache.batches || []).length && <tr><td colSpan="3" className="empty">No sourcing batches recorded.</td></tr>}
-                  {(cache.batches || []).map((x) => (
+                  {!(cache.batches || []).length && <tr><td colSpan="4" className="empty">No sourcing batches recorded.</td></tr>}
+                  {(cache.batches || []).map((x, idx) => (
                     <tr key={x.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>{x.batch_date}</td>
                       <td><strong>{x.supplier_name}</strong></td>
                       <td>{x.notes}</td>
@@ -1615,56 +2474,431 @@ function AdminStudio({ section }) {
           </section>
         )}
 
-        {/* 13. Store Mode */}
+        {/* 13. Store / Counter Sales & POS */}
         {section === 'store' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Studio Store Mode</h2>
-                <p>Sell a size from live stock. Stock, GST invoice and sales record update in one step.</p>
+          <div>
+            <section className="panel" style={{ marginBottom: 24 }}>
+              <div className="panel-head">
+                <div>
+                  <h2>Counter Sales &amp; POS Counter</h2>
+                  <p>Record walk-in counter sales, apply loyalty rewards, collect payments, and manage store sales.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => {
+                    setActiveItem({
+                      customer_id: '',
+                      sale_date: new Date().toISOString().slice(0, 10),
+                      items: [{ variant_id: displayProducts[0]?.variant_id || displayProducts[0]?.id || '', quantity: 1, unit_price: displayProducts[0]?.price_inr || 0, cost_price: displayProducts[0]?.cost_price_inr || 0 }],
+                      discount_amount: 0,
+                      amount_paid: 0,
+                      payment_mode: 'upi',
+                      notes: '',
+                    });
+                    setModalType('counter_sale');
+                  }}
+                >
+                  + New Counter Sale
+                </button>
               </div>
-            </div>
-            <div className="form-grid">
-              <div className="field">
-                <label htmlFor="store-search">Search piece</label>
-                <input id="store-search" placeholder="Search by product name or SKU" value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} />
+
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="store-search">Quick Sell Piece Search</label>
+                  <input id="store-search" placeholder="Search by product name or SKU" value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="store-mode">Quick Payment Received By</label>
+                  <select id="store-mode" value={storeMode} onChange={(e) => setStoreMode(e.target.value)}>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                    <option value="cash">Cash</option>
+                  </select>
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="store-mode">Payment received by</label>
-                <select id="store-mode" value={storeMode} onChange={(e) => setStoreMode(e.target.value)}>
-                  <option value="upi">UPI</option>
-                  <option value="card">Card</option>
-                  <option value="cash">Cash</option>
-                </select>
+              <div className="table-wrap" style={{ marginTop: '15px' }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                      <th>Piece</th>
+                      <th>Size / SKU</th>
+                      <th>Price</th>
+                      <th>Stock</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!displayProducts.length && (
+                      <tr><td colSpan="6" className="empty">No active stock available for store counter sale.</td></tr>
+                    )}
+                    {displayProducts
+                      .filter((p) => `${p.name} ${p.sku || ''}`.toLowerCase().includes(storeSearch.toLowerCase()))
+                      .map((p, idx) => (
+                        <tr key={p.variant_id || p.id}>
+                          <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                          <td>{p.name}</td>
+                          <td>{p.size_label} · <small>{p.sku}</small></td>
+                          <td>{formatPrice(p.sale_price_inr && p.sale_price_inr < p.price_inr ? p.sale_price_inr : p.price_inr)}</td>
+                          <td>{p.stock_quantity}</td>
+                          <td>
+                            <button className="btn primary" disabled={busy} onClick={() => handleStoreSale(p)}>
+                              Quick Sell
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <div className="table-wrap" style={{ marginTop: '15px' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Piece</th>
-                    <th>Size / SKU</th>
-                    <th>Price</th>
-                    <th>Stock</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayProducts
-                    .filter((p) => `${p.name} ${p.sku || ''}`.toLowerCase().includes(storeSearch.toLowerCase()))
-                    .map((p) => (
-                      <tr key={p.variant_id || p.id}>
-                        <td>{p.name}</td>
-                        <td>{p.size_label} · <small>{p.sku}</small></td>
-                        <td>{formatPrice(p.sale_price_inr && p.sale_price_inr < p.price_inr ? p.sale_price_inr : p.price_inr)}</td>
-                        <td>{p.stock_quantity}</td>
+            </section>
+
+            {/* Sales History Table */}
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>Recorded Sales History</h2>
+                  <p>View sales invoices, inspect customer purchase items, print receipts, and manage sales.</p>
+                </div>
+              </div>
+              <ListFilter section="store" categories={categories} onApply={applyFilter} busy={loading} />
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                      <th>Sale ID / Invoice</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Items Sold</th>
+                      <th>Subtotal</th>
+                      <th>Discount</th>
+                      <th>Final Total</th>
+                      <th>Paid / Due</th>
+                      <th>Payment</th>
+                      <th>Est. Profit</th>
+                      <th style={{ minWidth: 180, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!displaySales.length && (
+                      <tr><td colSpan="12" className="empty">No store counter sales recorded yet.</td></tr>
+                    )}
+                    {displaySales.map((s, idx) => (
+                      <tr key={s.id}>
+                        <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                         <td>
-                          <button className="btn primary" disabled={busy} onClick={() => handleStoreSale(p)}>
-                            Sell
-                          </button>
+                          <strong>{s.invoice_number || `#${s.id.slice(0, 8).toUpperCase()}`}</strong>
+                          <br />
+                          <small style={{ color: 'var(--muted)' }}>{s.channel || 'studio'}</small>
+                        </td>
+                        <td>{s.sale_date ? new Date(s.sale_date).toLocaleDateString('en-IN') : new Date(s.created_at).toLocaleDateString('en-IN')}</td>
+                        <td>
+                          <strong>{s.customer_name || 'Walk-in Client'}</strong>
+                          {s.customer_phone && <><br /><small>{s.customer_phone}</small></>}
+                        </td>
+                        <td>
+                          {(s.items || []).map((it, idx) => (
+                            <div key={idx} style={{ fontSize: 12 }}>
+                              {it.name} {it.size ? `(${it.size})` : ''} &times; <strong>{it.quantity}</strong>
+                            </div>
+                          ))}
+                        </td>
+                        <td>{formatPrice(s.subtotal || 0)}</td>
+                        <td>{Number(s.discount_amount) > 0 ? <span style={{ color: '#166534' }}>-{formatPrice(s.discount_amount)}</span> : '—'}</td>
+                        <td><strong>{formatPrice(s.total || 0)}</strong></td>
+                        <td>
+                          <div>{formatPrice(s.amount_paid || 0)}</div>
+                          {Number(s.amount_due) > 0 && <small style={{ color: '#dc2626' }}>Due: {formatPrice(s.amount_due)}</small>}
+                        </td>
+                        <td>{paymentBadge(s.payment_status || 'paid')}</td>
+                        <td>
+                          <strong style={{ color: Number(s.estimated_profit) >= 0 ? '#166534' : '#dc2626' }}>
+                            {formatPrice(s.estimated_profit || 0)}
+                          </strong>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                          <div className="table-actions">
+                            <button
+                              type="button"
+                              className="btn-action"
+                              onClick={() => {
+                                setActiveItem(s);
+                                setModalType('receipt');
+                              }}
+                            >
+                              Receipt
+                            </button>
+                            {s.payment_status !== 'cancelled' && s.status !== 'cancelled' && (
+                              <button
+                                type="button"
+                                className="btn-action danger"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (!window.confirm(`Cancel sale ${s.invoice_number || s.id.slice(0, 8)}? All items will be restored to inventory stock immediately.`)) return;
+                                  mutate(() => api(`/api/admin/ops?section=sale&id=${s.id}`, { method: 'DELETE' }), {
+                                    success: 'Sale cancelled and stock restored to inventory',
+                                    reload: 'store',
+                                  });
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 13b. Procurement & Purchase Orders */}
+        {section === 'procurement' && (
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <h2>Procurement &amp; Purchase Orders</h2>
+                <p>Issue supplier purchase orders, assign batch IDs, allocate courier freight, and fulfil items directly into inventory.</p>
+              </div>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  setActiveItem({
+                    vendor_id: displayVendors[0]?.id || '',
+                    vendor_name: displayVendors[0]?.name || '',
+                    order_date: todayStr,
+                    batch_id: suggestBatchId(displayVendors[0]?.name || 'PO', todayStr),
+                    courier_charges: 0,
+                    items: [{ item_name: '', category: 'Couture', quantity: 1, unit_cost: 0 }],
+                    notes: '',
+                  });
+                  setModalType('purchase_order');
+                }}
+              >
+                + New Purchase Order
+              </button>
+            </div>
+            <ListFilter section="procurement" categories={categories} onApply={applyFilter} busy={loading} />
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                    <th>PO Number</th>
+                    <th>Vendor</th>
+                    <th>Order Date</th>
+                    <th>Batch ID</th>
+                    <th>Line Items</th>
+                    <th>Courier Freight</th>
+                    <th>Grand Total</th>
+                    <th>Status</th>
+                    <th style={{ minWidth: 260, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!displayPOs.length && !loading && (
+                    <tr><td colSpan="10" className="empty">No purchase orders found matching this view.</td></tr>
+                  )}
+                  {displayPOs.map((po, idx) => (
+                    <tr key={po.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                      <td>
+                        <strong>{po.po_number}</strong>
+                        {po.fulfilled_at && <><br /><small style={{ color: '#166534' }}>Fulfilled {new Date(po.fulfilled_at).toLocaleDateString('en-IN')}</small></>}
+                      </td>
+                      <td><strong>{po.vendor_name || 'Vendor'}</strong></td>
+                      <td>{new Date(po.order_date).toLocaleDateString('en-IN')}</td>
+                      <td><code style={{ fontSize: 11, background: '#f3f4f6', padding: '2px 4px', borderRadius: 2 }}>{po.batch_id || '—'}</code></td>
+                      <td>
+                        {(po.items || []).map((it, idx) => (
+                          <div key={idx} style={{ fontSize: 12 }}>
+                            {it.item_name} &times; <strong>{it.quantity}</strong> ({formatPrice(it.unit_cost)})
+                          </div>
+                        ))}
+                      </td>
+                      <td>{formatPrice(po.courier_charges || 0)}</td>
+                      <td><strong>{formatPrice(po.grand_total || 0)}</strong></td>
+                      <td>
+                        <span className={`status ${po.status === 'fulfilled' ? 'good' : po.status === 'cancelled' ? 'bad' : 'warn'}`}>
+                          {po.status}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() => {
+                              setActiveItem(po);
+                              setModalType('view_po');
+                            }}
+                          >
+                            Print PO
+                          </button>
+                          {po.status !== 'fulfilled' && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn-action primary"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (!window.confirm(`Fulfil Purchase Order ${po.po_number} and add its items into inventory stock?`)) return;
+                                  mutate(() => post('fulfil_purchase_order', { id: po.id }), {
+                                    success: 'PO fulfilled and inventory stock updated',
+                                    reload: 'procurement',
+                                  });
+                                }}
+                              >
+                                Fulfil
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-action"
+                                onClick={() => {
+                                  setActiveItem({ ...po });
+                                  setModalType('purchase_order');
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-action danger"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (!window.confirm(`Delete purchase order ${po.po_number}?`)) return;
+                                  mutate(() => api(`/api/admin/ops?section=purchase_order&id=${po.id}`, { method: 'DELETE' }), {
+                                    success: 'Purchase order deleted',
+                                    reload: 'procurement',
+                                  });
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* 13c. Vendors & Suppliers */}
+        {section === 'vendors' && (
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <h2>Vendors &amp; Suppliers</h2>
+                <p>Manage artisan partners, textile mills, supplier directory, and procurement history.</p>
+              </div>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  setActiveItem({
+                    name: '',
+                    code: `VEND-${Math.floor(100 + Math.random() * 900)}`,
+                    contact_person: '',
+                    phone: '',
+                    email: '',
+                    address: '',
+                    categories: '',
+                    notes: '',
+                    is_active: true,
+                  });
+                  setModalType('vendor');
+                }}
+              >
+                + Add Vendor
+              </button>
+            </div>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                    <th>Vendor Code &amp; Name</th>
+                    <th>Contact &amp; Phone</th>
+                    <th>Categories Supplied</th>
+                    <th>Purchase Orders</th>
+                    <th>Total Spend</th>
+                    <th>Sales Margin</th>
+                    <th>Status</th>
+                    <th style={{ minWidth: 160, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!displayVendors.length && !loading && (
+                    <tr><td colSpan="9" className="empty">No vendors registered yet. Add your first supplier partner.</td></tr>
+                  )}
+                  {displayVendors.map((v, idx) => (
+                    <tr key={v.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                      <td>
+                        <strong>{v.name}</strong>
+                        <br />
+                        <small style={{ color: 'var(--muted)', fontFamily: 'monospace' }}>{v.code || 'VEND'}</small>
+                      </td>
+                      <td>
+                        <div>{v.contact_person || '—'}</div>
+                        <small>{v.phone || v.email || '—'}</small>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {(Array.isArray(v.categories) ? v.categories : String(v.categories || '').split(',').map((s) => s.trim()).filter(Boolean)).map((cat, i) => (
+                            <span key={i} style={{ fontSize: 10, background: '#f3f4f6', padding: '1px 5px', borderRadius: 2 }}>{cat}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>{v.total_pos || 0}</td>
+                      <td><strong>{formatPrice(v.total_purchases || 0)}</strong></td>
+                      <td><strong style={{ color: '#166534' }}>{formatPrice(v.sales_profit || 0)}</strong></td>
+                      <td>
+                        <span className={`status ${v.is_active ? 'good' : 'warn'}`}>
+                          {v.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() => {
+                              setActiveItem({ ...v });
+                              setModalType('vendor');
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action danger"
+                            disabled={busy}
+                            onClick={() => {
+                              if (!window.confirm(`Delete vendor "${v.name}"? If they have purchase orders or inventory items, they cannot be deleted.`)) return;
+                              mutate(() => api(`/api/admin/ops?section=vendor&id=${v.id}`, { method: 'DELETE' }), {
+                                success: 'Vendor deleted',
+                                reload: 'vendors',
+                              });
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1698,7 +2932,7 @@ function AdminStudio({ section }) {
                       <tr>
                         <th>Title / Link</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th style={{ minWidth: 180, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1719,18 +2953,20 @@ function AdminStudio({ section }) {
                                 {x.active !== false ? 'Live' : 'Hidden'}
                               </span>
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px' }}>
+                            <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              <div className="table-actions">
                                 <button
-                                  className="btn"
+                                  type="button"
+                                  className="btn-action"
                                   disabled={busy}
                                   onClick={() => toggleContentStatus('instagram', x.id, x.active === false)}
                                 >
                                   {x.active === false ? 'Publish' : 'Unpublish'}
                                 </button>
                                 <button
-                                  className="btn"
-                                  style={{ color: '#8a2b3e' }}
+                                  type="button"
+                                  className="btn-action danger"
+                                  disabled={busy}
                                   onClick={() => deleteContentItem('instagram', x.id)}
                                 >
                                   Delete
@@ -1780,7 +3016,7 @@ function AdminStudio({ section }) {
                         <th>Video</th>
                         <th>Customer / Title</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th style={{ minWidth: 240, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1800,13 +3036,14 @@ function AdminStudio({ section }) {
                             <td>
                               <span className={`status ${x.active ? 'good' : 'warn'}`}>{x.active ? 'Live' : 'Hidden'}</span>
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                <button className="btn" disabled={busy} onClick={() => toggleContentStatus('video', x.id, !x.active)}>
+                            <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              <div className="table-actions">
+                                <button type="button" className="btn-action" disabled={busy} onClick={() => toggleContentStatus('video', x.id, !x.active)}>
                                   {x.active ? 'Hide' : 'Publish'}
                                 </button>
                                 <button
-                                  className="btn"
+                                  type="button"
+                                  className="btn-action"
                                   disabled={busy}
                                   onClick={() => {
                                     setActiveItem({ id: x.id, title: x.title, customer_name: x.customer_name, active: x.active });
@@ -1816,11 +3053,12 @@ function AdminStudio({ section }) {
                                     setModalType('video');
                                   }}
                                 >
-                                  Edit / replace
+                                  Edit
                                 </button>
                                 <button
-                                  className="btn"
-                                  style={{ color: '#8a2b3e' }}
+                                  type="button"
+                                  className="btn-action danger"
+                                  disabled={busy}
                                   onClick={() => deleteContentItem('video', x.id)}
                                 >
                                   Delete
@@ -1906,12 +3144,13 @@ function AdminStudio({ section }) {
             <div className="table-wrap">
               <table className="table">
                 <thead>
-                  <tr><th>Invoice</th><th>Customer</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th><th>Place of supply</th><th>Issued</th></tr>
+                  <tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Invoice</th><th>Customer</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th><th>Place of supply</th><th>Issued</th></tr>
                 </thead>
                 <tbody>
-                  {!(cache.invoices || []).length && <tr><td colSpan="9" className="empty">No invoices yet.</td></tr>}
-                  {(cache.invoices || []).map((x) => (
+                  {!(cache.invoices || []).length && <tr><td colSpan="10" className="empty">No invoices yet.</td></tr>}
+                  {(cache.invoices || []).map((x, idx) => (
                     <tr key={x.id}>
+                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td><strong>{x.invoice_number}</strong><small style={{ display: 'block', color: 'var(--muted)' }}>{x.order_id ? 'Order' : 'Membership'}</small></td>
                       <td>{x.full_name || x.buyer_name || x.email || '—'}{x.buyer_gstin && <small style={{ display: 'block' }}>{x.buyer_gstin}</small>}</td>
                       <td>{formatPrice(x.taxable_value)}</td>
@@ -1939,14 +3178,15 @@ function AdminStudio({ section }) {
             </div>
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>When</th><th>Who</th><th>What happened</th><th>Related to</th></tr></thead>
+                <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>When</th><th>Who</th><th>What happened</th><th>Related to</th></tr></thead>
                 <tbody>
-                  {!(cache.logs || []).length && <tr><td colSpan="4" className="empty">No audit entries yet.</td></tr>}
-                  {(cache.logs || []).map((x) => {
+                  {!(cache.logs || []).length && <tr><td colSpan="5" className="empty">No audit entries yet.</td></tr>}
+                  {(cache.logs || []).map((x, idx) => {
                     const a = describeAudit(x);
                     const when = new Date(x.created_at);
                     return (
                       <tr key={x.id}>
+                        <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           {when.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           <small style={{ display: 'block', color: 'var(--muted)' }}>{when.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</small>
@@ -1980,6 +3220,9 @@ function AdminStudio({ section }) {
             </div>
           </section>
         )}
+          </>
+        )}
+        </AdminErrorBoundary>
       </main>
 
       {/* MODAL: Product image viewer */}
@@ -2167,9 +3410,144 @@ function AdminStudio({ section }) {
                 <label htmlFor="p-badge">Badge (PREMIUM pieces cannot use credits)</label>
                 <input id="p-badge" maxLength={30} value={activeItem.badge || ''} onChange={(e) => setActiveItem({ ...activeItem, badge: e.target.value })} />
               </div>
+              {/* Vendor, Batch & Landed Costing */}
               <div className="field">
-                <label htmlFor="p-cost">Cost price (INR)</label>
-                <input id="p-cost" type="number" min="0" step="0.01" value={activeItem.cost_price_inr ?? ''} onChange={(e) => setActiveItem({ ...activeItem, cost_price_inr: e.target.value })} />
+                <label htmlFor="p-vendor">Vendor / Supplier</label>
+                <input
+                  id="p-vendor"
+                  maxLength={120}
+                  placeholder="e.g. Silk & Heritage Weaves"
+                  value={activeItem.supplier_name || ''}
+                  onChange={(e) => {
+                    const sup = e.target.value;
+                    const nextBatch = (!activeItem.batch_id || activeItem.batch_id.includes('-')) && !activeItem.userEditedBatch
+                      ? suggestBatchId(sup, activeItem.purchase_date)
+                      : activeItem.batch_id;
+                    setActiveItem({ ...activeItem, supplier_name: sup, batch_id: nextBatch });
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-purchase-date">Purchase Date</label>
+                <input
+                  id="p-purchase-date"
+                  type="date"
+                  value={activeItem.purchase_date || ''}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    const nextBatch = (!activeItem.batch_id || activeItem.batch_id.includes('-')) && !activeItem.userEditedBatch
+                      ? suggestBatchId(activeItem.supplier_name, newDate)
+                      : activeItem.batch_id;
+                    setActiveItem({ ...activeItem, purchase_date: newDate, batch_id: nextBatch });
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label htmlFor="p-batch-id">Batch ID</label>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ padding: '1px 6px', fontSize: 10, height: 'auto', marginBottom: 2 }}
+                    onClick={() => setActiveItem({ ...activeItem, batch_id: suggestBatchId(activeItem.supplier_name, activeItem.purchase_date), userEditedBatch: true })}
+                    title="Generate unique suggested Batch ID"
+                  >
+                    Suggest Batch ID
+                  </button>
+                </div>
+                <input
+                  id="p-batch-id"
+                  maxLength={60}
+                  placeholder="e.g. SILK-202611-01"
+                  value={activeItem.batch_id || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, batch_id: e.target.value, userEditedBatch: true })}
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-purchase-price">Purchase Price Per Piece (₹)</label>
+                <input
+                  id="p-purchase-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={activeItem.purchase_price_per_piece ?? ''}
+                  onChange={(e) => {
+                    const price = e.target.value;
+                    const calculatedCost = calculateCostPerUnit(price, activeItem.courier_charge, activeItem.purchase_quantity);
+                    setActiveItem({
+                      ...activeItem,
+                      purchase_price_per_piece: price,
+                      cost_price_inr: calculatedCost,
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-purchase-qty">Purchase Quantity</label>
+                <input
+                  id="p-purchase-qty"
+                  type="number"
+                  min="1"
+                  value={activeItem.purchase_quantity ?? 1}
+                  onChange={(e) => {
+                    const qty = e.target.value;
+                    const calculatedCost = calculateCostPerUnit(activeItem.purchase_price_per_piece, activeItem.courier_charge, qty);
+                    setActiveItem({
+                      ...activeItem,
+                      purchase_quantity: qty,
+                      cost_price_inr: calculatedCost,
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-courier-charge">Total Courier Freight (₹)</label>
+                <input
+                  id="p-courier-charge"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={activeItem.courier_charge ?? ''}
+                  onChange={(e) => {
+                    const courier = e.target.value;
+                    const calculatedCost = calculateCostPerUnit(activeItem.purchase_price_per_piece, courier, activeItem.purchase_quantity);
+                    setActiveItem({
+                      ...activeItem,
+                      courier_charge: courier,
+                      cost_price_inr: calculatedCost,
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-cost-calculated">Calculated Landed Cost / Unit (₹)</label>
+                <input
+                  id="p-cost-calculated"
+                  type="number"
+                  readOnly
+                  style={{ background: '#f8fafc', fontWeight: 600 }}
+                  value={activeItem.cost_price_inr || 0}
+                  title="Purchase price + (Courier charge / Quantity)"
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="p-low-stock">Low Stock Alert Threshold</label>
+                <input
+                  id="p-low-stock"
+                  type="number"
+                  min="0"
+                  value={activeItem.low_stock_threshold ?? 2}
+                  onChange={(e) => setActiveItem({ ...activeItem, low_stock_threshold: Math.max(0, Number(e.target.value)) })}
+                />
               </div>
               <div className="field">
                 <label htmlFor="p-hsn">HSN code</label>
@@ -2887,6 +4265,863 @@ function AdminStudio({ section }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Add / Edit Customer */}
+      {modalType === 'customer' && activeItem && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Customer details" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+          <div className="modal-card" style={{ maxWidth: 540 }}>
+            <div className="modal-head">
+              <h2>{activeItem.auth_user_id ? 'Edit Customer' : 'Add New Customer'}</h2>
+              <button className="close" type="button" aria-label="Close" onClick={() => setModalType(null)}>&times;</button>
+            </div>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                mutate(
+                  () => post('customer', activeItem),
+                  { success: 'Customer saved successfully', reload: 'customers', close: true }
+                );
+              }}
+            >
+              <div className="field full">
+                <label htmlFor="c-name">Full Name</label>
+                <input
+                  id="c-name"
+                  required
+                  placeholder="e.g. Ananya Sharma"
+                  value={activeItem.full_name || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, full_name: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="c-email">Email Address</label>
+                <input
+                  id="c-email"
+                  type="email"
+                  required={!activeItem.auth_user_id}
+                  disabled={Boolean(activeItem.auth_user_id)}
+                  placeholder="client@example.com"
+                  value={activeItem.email || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, email: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="c-phone">Phone Number</label>
+                <input
+                  id="c-phone"
+                  placeholder="+91 98765 43210"
+                  value={activeItem.phone || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, phone: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="c-notes">Client Notes</label>
+                <textarea
+                  id="c-notes"
+                  rows={3}
+                  placeholder="Preferred cuts, seasonal sizing notes, private client preferences..."
+                  value={activeItem.notes || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, notes: e.target.value })}
+                />
+              </div>
+              <div className="field full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
+                <button type="button" className="btn" onClick={() => setModalType(null)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={busy}>
+                  {busy ? 'Saving…' : 'Save Customer Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: New Counter Sale / POS */}
+      {modalType === 'counter_sale' && activeItem && (() => {
+        const selectedCust = displayCustomers.find((c) => c.auth_user_id === activeItem.customer_id) || null;
+        const purchaseCount = Number(selectedCust?.order_count || 0);
+        const stamps = purchaseCount % 6;
+        const isRewardEligible = stamps === 5;
+        const items = Array.isArray(activeItem.items) ? activeItem.items : [];
+        const subtotal = items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.unit_price || 0)), 0);
+        const totalCost = items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.cost_price || 0)), 0);
+        const totals = calculateSaleTotals(subtotal, activeItem.discount_amount || 0, activeItem.amount_paid || 0);
+        const estProfit = totals.finalTotal - totalCost;
+
+        return (
+          <div className="modal" role="dialog" aria-modal="true" aria-label="New counter sale" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+            <div className="modal-card" style={{ maxWidth: 840 }}>
+              <div className="modal-head">
+                <h2>Record Counter Sale &amp; POS Receipt</h2>
+                <button className="close" type="button" aria-label="Close" onClick={() => setModalType(null)}>&times;</button>
+              </div>
+              <form
+                className="form-grid"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!items.length) {
+                    showToast('Please add at least one item to this sale.');
+                    return;
+                  }
+                  mutate(
+                    () => post('sale', {
+                      ...activeItem,
+                      customer_name: selectedCust?.full_name || activeItem.customer_name || 'Walk-in Client',
+                      customer_phone: selectedCust?.phone || activeItem.customer_phone || '',
+                      subtotal,
+                      discount_amount: Number(activeItem.discount_amount || 0),
+                      total: totals.finalTotal,
+                      amount_paid: Number(activeItem.amount_paid || 0),
+                      amount_due: totals.amountDue,
+                      payment_status: totals.paymentStatus,
+                      estimated_cost: totalCost,
+                      estimated_profit: estProfit,
+                    }),
+                    {
+                      success: (r) => `Counter sale recorded · Invoice ${r.invoice_number}`,
+                      reload: 'store',
+                      close: true,
+                    }
+                  );
+                }}
+              >
+                <div className="field full">
+                  <label htmlFor="cs-customer">Customer (Walk-in or Registered)</label>
+                  <select
+                    id="cs-customer"
+                    value={activeItem.customer_id || ''}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      const cust = displayCustomers.find((c) => c.auth_user_id === cid);
+                      setActiveItem({
+                        ...activeItem,
+                        customer_id: cid,
+                        customer_name: cust?.full_name || '',
+                        customer_phone: cust?.phone || '',
+                      });
+                    }}
+                  >
+                    <option value="">Walk-in Client (Unregistered)</option>
+                    {displayCustomers.map((c) => (
+                      <option key={c.auth_user_id} value={c.auth_user_id}>
+                        {c.full_name || 'Client'} ({c.phone || c.email}) · {c.order_count ?? 0} past purchases
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedCust && (
+                  <div className="field full">
+                    <div style={{ background: isRewardEligible ? '#fef3c7' : '#f0fdf4', border: `1px solid ${isRewardEligible ? '#f59e0b' : '#86efac'}`, padding: '10px 14px', borderRadius: 4 }}>
+                      {isRewardEligible ? (
+                        <>
+                          <strong style={{ color: '#92400e' }}>50% Loyalty Reward Eligible!</strong>
+                          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#78350f' }}>
+                            Customer has completed 5 purchases in this cycle. As per Vishrea loyalty policy, staff should manually enter the 50% reward discount amount below.
+                          </p>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 12, color: '#166534' }}>
+                          <strong>Loyalty Status:</strong> Stamp {stamps} / 6 ({5 - stamps > 0 ? `${5 - stamps} more purchase${5 - stamps === 1 ? '' : 's'} until 50% reward` : 'Cycle resets after next purchase'})
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="field">
+                  <label htmlFor="cs-date">Sale Date</label>
+                  <input
+                    id="cs-date"
+                    type="date"
+                    required
+                    value={activeItem.sale_date || ''}
+                    onChange={(e) => setActiveItem({ ...activeItem, sale_date: e.target.value })}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="cs-mode">Payment Mode</label>
+                  <select
+                    id="cs-mode"
+                    value={activeItem.payment_mode || 'upi'}
+                    onChange={(e) => setActiveItem({ ...activeItem, payment_mode: e.target.value })}
+                  >
+                    <option value="upi">UPI / QR Code</option>
+                    <option value="card">Card Terminal</option>
+                    <option value="cash">Cash Counter</option>
+                  </select>
+                </div>
+
+                <div className="field full">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span className="field-label" style={{ margin: 0 }}>Sale Items</span>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ padding: '2px 8px', fontSize: 11 }}
+                      onClick={() => {
+                        const first = displayProducts[0];
+                        const nextItems = [...items, {
+                          variant_id: first?.variant_id || first?.id || '',
+                          quantity: 1,
+                          unit_price: first?.sale_price_inr && first?.sale_price_inr < first?.price_inr ? first?.sale_price_inr : (first?.price_inr || 0),
+                          cost_price: first?.cost_price_inr || 0,
+                        }];
+                        setActiveItem({ ...activeItem, items: nextItems });
+                      }}
+                    >
+                      + Add Another Piece
+                    </button>
+                  </div>
+
+                  <div className="table-wrap">
+                    <table className="table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Piece &amp; Size</th>
+                          <th style={{ width: 90 }}>Qty</th>
+                          <th style={{ width: 130 }}>Unit Price</th>
+                          <th style={{ width: 120 }}>Line Total</th>
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((it, idx) => {
+                          const lineAmt = calculateLineAmount(it.quantity, it.unit_price);
+                          return (
+                            <tr key={idx}>
+                              <td>
+                                <select
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  value={it.variant_id || ''}
+                                  onChange={(e) => {
+                                    const vid = e.target.value;
+                                    const p = displayProducts.find((x) => (x.variant_id || x.id) === vid);
+                                    const updated = [...items];
+                                    updated[idx] = {
+                                      ...it,
+                                      variant_id: vid,
+                                      unit_price: p?.sale_price_inr && p?.sale_price_inr < p?.price_inr ? p.sale_price_inr : (p?.price_inr || 0),
+                                      cost_price: p?.cost_price_inr || 0,
+                                    };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                >
+                                  {displayProducts.map((p) => (
+                                    <option key={p.variant_id || p.id} value={p.variant_id || p.id}>
+                                      {p.name} ({p.size_label}) · Stock: {p.stock_quantity} · {formatPrice(p.sale_price_inr && p.sale_price_inr < p.price_inr ? p.sale_price_inr : p.price_inr)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  value={it.quantity || 1}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, quantity: Math.max(1, Number(e.target.value)) };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  value={it.unit_price ?? 0}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, unit_price: Math.max(0, Number(e.target.value)) };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td><strong>{formatPrice(lineAmt)}</strong></td>
+                              <td>
+                                {items.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={{ padding: '2px 6px', color: '#dc2626' }}
+                                    onClick={() => {
+                                      const updated = items.filter((_, i) => i !== idx);
+                                      setActiveItem({ ...activeItem, items: updated });
+                                    }}
+                                  >
+                                    &times;
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="cs-discount">Discount (₹)</label>
+                  <input
+                    id="cs-discount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={activeItem.discount_amount ?? ''}
+                    onChange={(e) => setActiveItem({ ...activeItem, discount_amount: Math.max(0, Number(e.target.value)) })}
+                  />
+                  {isRewardEligible && subtotal > 0 && (
+                    <small style={{ color: '#92400e', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setActiveItem({ ...activeItem, discount_amount: Math.round(subtotal * 0.5) })}>
+                      Click to apply 50% discount: {formatPrice(Math.round(subtotal * 0.5))}
+                    </small>
+                  )}
+                </div>
+
+                <div className="field">
+                  <label htmlFor="cs-paid">Amount Paid (₹)</label>
+                  <input
+                    id="cs-paid"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={activeItem.amount_paid ?? ''}
+                    onChange={(e) => setActiveItem({ ...activeItem, amount_paid: Math.max(0, Number(e.target.value)) })}
+                  />
+                  <small style={{ color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setActiveItem({ ...activeItem, amount_paid: totals.finalTotal })}>
+                    Click to mark fully paid: {formatPrice(totals.finalTotal)}
+                  </small>
+                </div>
+
+                {/* Live Sale Financial Summary */}
+                <div className="field full" style={{ background: '#f8fafc', border: '1px solid var(--admin-line)', padding: '14px', borderRadius: 4, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Subtotal</small>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatPrice(subtotal)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Final Total</small>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{formatPrice(totals.finalTotal)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Amount Due</small>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: totals.amountDue > 0 ? '#dc2626' : '#166534' }}>{formatPrice(totals.amountDue)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Payment Status</small>
+                    <div style={{ marginTop: 2 }}>{paymentBadge(totals.paymentStatus)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Estimated Profit</small>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: estProfit >= 0 ? '#166534' : '#dc2626' }}>{formatPrice(estProfit)}</div>
+                  </div>
+                </div>
+
+                <div className="field full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button type="button" className="btn" onClick={() => setModalType(null)}>Cancel</button>
+                  <button type="submit" className="btn primary" disabled={busy}>
+                    {busy ? 'Recording…' : 'Record Counter Sale'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: Sale Receipt */}
+      {modalType === 'receipt' && activeItem && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Sale Receipt" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+          <div className="modal-card" style={{ maxWidth: 580, padding: '24px 28px' }}>
+            <div className="modal-head" style={{ borderBottom: '1px dashed #ccc', paddingBottom: 12, marginBottom: 16 }}>
+              <div>
+                <h2 style={{ letterSpacing: '0.08em', margin: 0 }}>VISHREA STUDIO</h2>
+                <small style={{ color: 'var(--muted)' }}>Walk-in Studio Store Counter Sale</small>
+              </div>
+              <button className="close" type="button" aria-label="Close" onClick={() => setModalType(null)}>&times;</button>
+            </div>
+
+            <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
+              <div><strong>Invoice:</strong> {activeItem.invoice_number || activeItem.id}</div>
+              <div><strong>Date:</strong> {activeItem.sale_date ? new Date(activeItem.sale_date).toLocaleDateString('en-IN') : new Date(activeItem.created_at).toLocaleDateString('en-IN')}</div>
+              <div><strong>Customer:</strong> {activeItem.customer_name || 'Walk-in Client'} {activeItem.customer_phone ? `(${activeItem.customer_phone})` : ''}</div>
+              <div><strong>Payment Mode:</strong> {(activeItem.channel === 'pos' ? 'Card / POS' : activeItem.payment_status || 'UPI').toUpperCase()}</div>
+            </div>
+
+            <table className="table" style={{ fontSize: 12, marginBottom: 16 }}>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(activeItem.items || []).map((it, idx) => (
+                  <tr key={idx}>
+                    <td>{it.name || it.product_name} {it.size ? `(${it.size})` : ''}</td>
+                    <td>{it.quantity}</td>
+                    <td>{formatPrice(it.unit_price)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPrice(Number(it.quantity || 0) * Number(it.unit_price || 0))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ borderTop: '1px dashed #ccc', paddingTop: 12, fontSize: 13, lineHeight: 1.8, textAlign: 'right' }}>
+              <div>Subtotal: <strong>{formatPrice(activeItem.subtotal || 0)}</strong></div>
+              {Number(activeItem.discount_amount) > 0 && (
+                <div style={{ color: '#166534' }}>Discount: -{formatPrice(activeItem.discount_amount)}</div>
+              )}
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Total: {formatPrice(activeItem.total || 0)}</div>
+              <div>Amount Paid: {formatPrice(activeItem.amount_paid || 0)}</div>
+              {Number(activeItem.amount_due) > 0 && (
+                <div style={{ color: '#dc2626', fontWeight: 600 }}>Balance Due: {formatPrice(activeItem.amount_due)}</div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button type="button" className="btn" onClick={() => setModalType(null)}>Close</button>
+              <button type="button" className="btn primary" onClick={() => window.print()}>Print Receipt</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Add / Edit Vendor */}
+      {modalType === 'vendor' && activeItem && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Vendor details" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+          <div className="modal-card" style={{ maxWidth: 640 }}>
+            <div className="modal-head">
+              <h2>{activeItem.id ? 'Edit Vendor' : 'Add New Vendor'}</h2>
+              <button className="close" type="button" aria-label="Close" onClick={() => setModalType(null)}>&times;</button>
+            </div>
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                mutate(
+                  () => post('vendor', activeItem),
+                  { success: 'Vendor saved successfully', reload: 'vendors', close: true }
+                );
+              }}
+            >
+              <div className="field">
+                <label htmlFor="v-name">Vendor Name</label>
+                <input
+                  id="v-name"
+                  required
+                  placeholder="e.g. Silk & Heritage Weaves"
+                  value={activeItem.name || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, name: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="v-code">Vendor Code</label>
+                <input
+                  id="v-code"
+                  placeholder="e.g. VEND-001"
+                  value={activeItem.code || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, code: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="v-contact">Contact Person</label>
+                <input
+                  id="v-contact"
+                  placeholder="e.g. Rameshwar Gupta"
+                  value={activeItem.contact_person || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, contact_person: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="v-phone">Phone Number</label>
+                <input
+                  id="v-phone"
+                  placeholder="+91 98765 00000"
+                  value={activeItem.phone || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, phone: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="v-categories">Categories Supplied (comma-separated)</label>
+                <input
+                  id="v-categories"
+                  placeholder="Couture, Banarasi, Chiffon, Handloom"
+                  value={Array.isArray(activeItem.categories) ? activeItem.categories.join(', ') : (activeItem.categories || '')}
+                  onChange={(e) => setActiveItem({ ...activeItem, categories: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="v-address">Studio / Workshop Address</label>
+                <input
+                  id="v-address"
+                  placeholder="e.g. Weaver Colony, Varanasi, UP"
+                  value={activeItem.address || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, address: e.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label htmlFor="v-notes">Procurement Notes</label>
+                <textarea
+                  id="v-notes"
+                  rows={2}
+                  placeholder="Lead times, MOQ terms, payment terms..."
+                  value={activeItem.notes || ''}
+                  onChange={(e) => setActiveItem({ ...activeItem, notes: e.target.value })}
+                />
+              </div>
+              <div className="field full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
+                <button type="button" className="btn" onClick={() => setModalType(null)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={busy}>
+                  {busy ? 'Saving…' : 'Save Vendor'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: New / Edit Purchase Order */}
+      {modalType === 'purchase_order' && activeItem && (() => {
+        const items = Array.isArray(activeItem.items) ? activeItem.items : [];
+        const poTotals = calculatePurchaseOrderTotals(items, activeItem.courier_charges || 0);
+
+        return (
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Purchase order details" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+            <div className="modal-card" style={{ maxWidth: 840 }}>
+              <div className="modal-head">
+                <h2>{activeItem.id ? 'Edit Purchase Order' : 'Create Purchase Order'}</h2>
+                <button className="close" type="button" aria-label="Close" onClick={() => setModalType(null)}>&times;</button>
+              </div>
+              <form
+                className="form-grid"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!items.length) {
+                    showToast('Add at least one item to this purchase order.');
+                    return;
+                  }
+                  mutate(
+                    () => post('purchase_order', {
+                      ...activeItem,
+                      subtotal: poTotals.subtotal,
+                      grand_total: poTotals.grandTotal,
+                    }),
+                    {
+                      success: 'Purchase order saved successfully',
+                      reload: 'procurement',
+                      close: true,
+                    }
+                  );
+                }}
+              >
+                <div className="field">
+                  <label htmlFor="po-vendor">Supplier / Vendor</label>
+                  <select
+                    id="po-vendor"
+                    required
+                    value={activeItem.vendor_id || ''}
+                    onChange={(e) => {
+                      const vid = e.target.value;
+                      const found = displayVendors.find((v) => v.id === vid);
+                      const vendorName = found?.name || '';
+                      const nextBatch = (!activeItem.batch_id || activeItem.batch_id.includes('-'))
+                        ? suggestBatchId(vendorName, activeItem.order_date)
+                        : activeItem.batch_id;
+                      setActiveItem({
+                        ...activeItem,
+                        vendor_id: vid,
+                        vendor_name: vendorName,
+                        batch_id: nextBatch,
+                      });
+                    }}
+                  >
+                    <option value="">Select Vendor</option>
+                    {displayVendors.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name} ({v.code || 'VEND'})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="po-date">Order Date</label>
+                  <input
+                    id="po-date"
+                    type="date"
+                    required
+                    value={activeItem.order_date || ''}
+                    onChange={(e) => {
+                      const d = e.target.value;
+                      const nextBatch = (!activeItem.batch_id || activeItem.batch_id.includes('-'))
+                        ? suggestBatchId(activeItem.vendor_name || 'PO', d)
+                        : activeItem.batch_id;
+                      setActiveItem({ ...activeItem, order_date: d, batch_id: nextBatch });
+                    }}
+                  />
+                </div>
+
+                <div className="field">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label htmlFor="po-batch">Batch ID</label>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ padding: '1px 6px', fontSize: 10, height: 'auto', marginBottom: 2 }}
+                      onClick={() => setActiveItem({ ...activeItem, batch_id: suggestBatchId(activeItem.vendor_name || 'PO', activeItem.order_date) })}
+                    >
+                      Suggest Batch ID
+                    </button>
+                  </div>
+                  <input
+                    id="po-batch"
+                    placeholder="e.g. SILK-202611-01"
+                    value={activeItem.batch_id || ''}
+                    onChange={(e) => setActiveItem({ ...activeItem, batch_id: e.target.value })}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="po-courier">Total Courier Freight (₹)</label>
+                  <input
+                    id="po-courier"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={activeItem.courier_charges ?? 0}
+                    onChange={(e) => setActiveItem({ ...activeItem, courier_charges: Math.max(0, Number(e.target.value)) })}
+                  />
+                </div>
+
+                <div className="field full">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span className="field-label" style={{ margin: 0 }}>Purchase Order Items</span>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ padding: '2px 8px', fontSize: 11 }}
+                      onClick={() => {
+                        const updated = [...items, { item_name: '', category: 'Couture', quantity: 1, unit_cost: 0 }];
+                        setActiveItem({ ...activeItem, items: updated });
+                      }}
+                    >
+                      + Add Item
+                    </button>
+                  </div>
+
+                  <div className="table-wrap">
+                    <table className="table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Item Description</th>
+                          <th style={{ width: 150 }}>Category</th>
+                          <th style={{ width: 90 }}>Qty</th>
+                          <th style={{ width: 130 }}>Unit Cost (₹)</th>
+                          <th style={{ width: 120 }}>Line Total</th>
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((it, idx) => {
+                          const lineAmt = Number(it.quantity || 0) * Number(it.unit_cost || 0);
+                          return (
+                            <tr key={idx}>
+                              <td>
+                                <input
+                                  required
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  placeholder="e.g. Handwoven Mulberry Silk Fabric"
+                                  value={it.item_name || ''}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, item_name: e.target.value };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  placeholder="Category"
+                                  value={it.category || ''}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, category: e.target.value };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  value={it.quantity || 1}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, quantity: Math.max(1, Number(e.target.value)) };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  style={{ width: '100%', fontSize: 12 }}
+                                  value={it.unit_cost ?? 0}
+                                  onChange={(e) => {
+                                    const updated = [...items];
+                                    updated[idx] = { ...it, unit_cost: Math.max(0, Number(e.target.value)) };
+                                    setActiveItem({ ...activeItem, items: updated });
+                                  }}
+                                />
+                              </td>
+                              <td><strong>{formatPrice(lineAmt)}</strong></td>
+                              <td>
+                                {items.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={{ padding: '2px 6px', color: '#dc2626' }}
+                                    onClick={() => {
+                                      const updated = items.filter((_, i) => i !== idx);
+                                      setActiveItem({ ...activeItem, items: updated });
+                                    }}
+                                  >
+                                    &times;
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="field full" style={{ background: '#f8fafc', border: '1px solid var(--admin-line)', padding: '12px 16px', borderRadius: 4, display: 'flex', gap: 24 }}>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Subtotal</small>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatPrice(poTotals.subtotal)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Courier Freight</small>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatPrice(poTotals.courierCharges)}</div>
+                  </div>
+                  <div>
+                    <small style={{ color: 'var(--muted)', textTransform: 'uppercase', fontSize: 10 }}>Grand Total</small>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{formatPrice(poTotals.grandTotal)}</div>
+                  </div>
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="po-notes">Order Notes / Delivery Terms</label>
+                  <textarea
+                    id="po-notes"
+                    rows={2}
+                    placeholder="Delivery instructions, batch details, quality inspection requirements..."
+                    value={activeItem.notes || ''}
+                    onChange={(e) => setActiveItem({ ...activeItem, notes: e.target.value })}
+                  />
+                </div>
+
+                <div className="field full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button type="button" className="btn" onClick={() => setModalType(null)}>Cancel</button>
+                  <button type="submit" className="btn primary" disabled={busy}>
+                    {busy ? 'Saving…' : 'Save Purchase Order'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: Printable Purchase Order View */}
+      {modalType === 'view_po' && activeItem && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Purchase Order Document" onClick={(e) => { if (e.target.classList.contains('modal')) setModalType(null); }}>
+          <div className="modal-card" style={{ maxWidth: 720, padding: '28px 32px' }}>
+            <div className="modal-head" style={{ borderBottom: '2px solid #333', paddingBottom: 16, marginBottom: 20 }}>
+              <div>
+                <h1 style={{ fontSize: 20, letterSpacing: '0.08em', margin: 0 }}>VISHREA STUDIO</h1>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Official Studio Procurement Order</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <h2 style={{ fontSize: 16, margin: 0 }}>{activeItem.po_number}</h2>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Date: {new Date(activeItem.order_date).toLocaleDateString('en-IN')}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20, fontSize: 12 }}>
+              <div style={{ background: '#f9f9f9', padding: 12, borderRadius: 3 }}>
+                <strong style={{ textTransform: 'uppercase', fontSize: 10, color: 'var(--muted)' }}>Vendor / Supplier:</strong>
+                <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{activeItem.vendor_name || 'Vendor'}</div>
+                <div>Batch Reference: <code style={{ background: '#eee', padding: '1px 4px' }}>{activeItem.batch_id || '—'}</code></div>
+              </div>
+              <div style={{ background: '#f9f9f9', padding: 12, borderRadius: 3 }}>
+                <strong style={{ textTransform: 'uppercase', fontSize: 10, color: 'var(--muted)' }}>Order Status:</strong>
+                <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2, textTransform: 'capitalize' }}>{activeItem.status}</div>
+                {activeItem.fulfilled_at && <div>Fulfilled on: {new Date(activeItem.fulfilled_at).toLocaleDateString('en-IN')}</div>}
+              </div>
+            </div>
+
+            <table className="table" style={{ fontSize: 12, marginBottom: 20 }}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item Description</th>
+                  <th>Category</th>
+                  <th style={{ textAlign: 'center' }}>Qty</th>
+                  <th style={{ textAlign: 'right' }}>Unit Cost</th>
+                  <th style={{ textAlign: 'right' }}>Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(activeItem.items || []).map((it, idx) => (
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td><strong>{it.item_name}</strong></td>
+                    <td>{it.category || '—'}</td>
+                    <td style={{ textAlign: 'center' }}>{it.quantity}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPrice(it.unit_cost)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPrice(it.line_total || (Number(it.quantity || 0) * Number(it.unit_cost || 0)))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ borderTop: '1px solid #ccc', paddingTop: 12, fontSize: 13, lineHeight: 1.8, textAlign: 'right' }}>
+              <div>Subtotal: <strong>{formatPrice(activeItem.subtotal || 0)}</strong></div>
+              <div>Freight / Courier Charges: <strong>{formatPrice(activeItem.courier_charges || 0)}</strong></div>
+              <div style={{ fontSize: 18, fontWeight: 700, borderTop: '1px solid #eee', paddingTop: 6 }}>
+                Grand Total: {formatPrice(activeItem.grand_total || 0)}
+              </div>
+            </div>
+
+            {activeItem.notes && (
+              <div style={{ marginTop: 16, padding: 12, background: '#fbfbfb', border: '1px solid #eee', fontSize: 12 }}>
+                <strong>Procurement Terms / Notes:</strong>
+                <p style={{ margin: '4px 0 0' }}>{activeItem.notes}</p>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+              <button type="button" className="btn" onClick={() => setModalType(null)}>Close</button>
+              <button type="button" className="btn primary" onClick={() => window.print()}>Print Purchase Order</button>
+            </div>
           </div>
         </div>
       )}

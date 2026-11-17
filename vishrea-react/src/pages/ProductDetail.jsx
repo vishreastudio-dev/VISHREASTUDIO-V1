@@ -10,7 +10,7 @@ import { useApi } from '../lib/useApi';
 import { usePageSeo } from '../lib/usePageSeo';
 import { describeProduct, measurementText, productFaqs } from '../lib/productCopy';
 import { faqSchema } from '../lib/schema';
-import { absoluteUrl } from '../site.config';
+import { SITE, absoluteUrl } from '../site.config';
 import { NotFound } from './NotFound';
 
 const STOCK_COPY = {
@@ -74,11 +74,11 @@ export const ProductDetail = () => {
     () =>
       product
         ? [
-            { name: 'Home', url: '/' },
-            { name: 'Shop', url: '/catalogue' },
-            ...(product.category_slug ? [{ name: product.category, url: `/catalogue/${product.category_slug}` }] : []),
-            { name: product.name, url: `/product/${product.slug}` },
-          ]
+          { name: 'Home', url: '/' },
+          { name: 'Shop', url: '/catalogue' },
+          ...(product.category_slug ? [{ name: product.category, url: `/catalogue/${product.category_slug}` }] : []),
+          { name: product.name, url: `/product/${product.slug}` },
+        ]
         : null,
     [product]
   );
@@ -343,7 +343,7 @@ export const ProductDetail = () => {
             <div className="pdp-actions-v2" style={{ gridTemplateColumns: '1fr' }}>
               {alreadyInCart ? (
                 <Link to="/cart" className="button button-dark add-pdp-v2 in-bag-btn">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ marginRight: 8 }}><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ marginRight: 8 }}><polyline points="20 6 9 17 4 12" /></svg>
                   In your bag · Proceed to checkout
                 </Link>
               ) : (
@@ -366,11 +366,39 @@ export const ProductDetail = () => {
                 In your Wardrobe Bag · View →
               </Link>
             ) : (
-            <button type="button" className="pdp-save" disabled={saving} onClick={saveToWardrobe}>
-              {saving ? 'Saving…' : 'Save to Wardrobe Bag'}
-            </button>
+              <button type="button" className="pdp-save" disabled={saving} onClick={saveToWardrobe}>
+                {saving ? 'Saving…' : 'Save to Wardrobe Bag'}
+              </button>
             )}
             {!(alreadyInCart && msg.tone === 'success') && <InlineMessage tone={msg.tone}>{msg.text}</InlineMessage>}
+
+            <a
+              href={`https://wa.me/${(SITE.contact?.whatsapp || '916364116567').replace(/\D/g, '')}?text=${encodeURIComponent(`Hello Vishrea Studio! I am interested in inquiring/ordering: ${product.name}${selected?.size_label ? ` (Size: ${selected.size_label})` : ''}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pdp-whatsapp-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '12px 18px',
+                borderRadius: 'var(--radius, 4px)',
+                border: '1px solid #25d366',
+                color: '#128c7e',
+                background: 'rgba(37, 211, 102, 0.08)',
+                fontWeight: 600,
+                fontSize: 14,
+                textDecoration: 'none',
+                marginTop: 10,
+                cursor: 'pointer',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.311.045-.698.059-1.146-.086-.301-.098-.679-.247-1.164-.46-1.954-.856-3.236-2.839-3.333-2.969-.098-.133-.799-1.062-.799-2.024 0-.963.504-1.436.684-1.631.18-.196.393-.245.524-.245.132 0 .263.002.378.007.121.005.284-.046.444.339.164.394.56 1.365.61 1.464.05.099.083.214.017.347-.067.133-.101.216-.201.332-.099.117-.21.261-.299.351-.101.1-.206.21-.089.41.117.199.52 8.57 1.117 1.099.769.684 1.417.896 1.62.996.202.1.32.083.438-.05.119-.133.509-.592.645-.795.135-.202.271-.169.456-.101.186.068 1.179.556 1.382.658.203.101.339.152.39.237.05.084.05.489-.094.894z" />
+              </svg>
+              <span>Order via WhatsApp</span>
+            </a>
 
             <div className="detail-accordion-v2">
               <details open>

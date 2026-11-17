@@ -33,3 +33,38 @@ export const InlineMessage = ({ tone = 'info', id, children }) =>
       {children}
     </p>
   ) : null;
+
+export class AdminErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('AdminErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+    if (this.props.onRetry) {
+      this.props.onRetry();
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorState
+          error={this.state.error}
+          onRetry={this.handleRetry}
+          title={this.props.title || 'This section could not be loaded'}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}

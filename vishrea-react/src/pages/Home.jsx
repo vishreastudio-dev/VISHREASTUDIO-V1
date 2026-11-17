@@ -4,19 +4,62 @@ import { Header, Footer } from '../components/Layout';
 import { ProductCard } from '../components/ProductCard';
 import { ProductTicker } from '../components/ProductTicker';
 import { HeroCarousel } from '../components/HeroCarousel';
+import { ReviewsTicker } from '../components/ReviewsTicker';
 import { ErrorState, LoadingState } from '../components/Status';
 import { useApi } from '../lib/useApi';
 import { usePageSeo } from '../lib/usePageSeo';
-import { itemListSchema } from '../lib/schema';
+import { faqSchema, itemListSchema } from '../lib/schema';
+import { HOME_LOCAL_FAQS } from '../content/faqs.js';
 import { SITE } from '../site.config.js';
 
 const CATEGORIES = [
-  { slug: 'dresses', name: 'Dresses', tagline: 'ELEGANT • TIMELESS • YOU', cls: 'cat-dresses' },
-  { slug: 'coord-sets', name: 'Co-ord Sets', tagline: 'MATCH • STYLE • REPEAT', cls: 'cat-coords' },
-  { slug: 'tops', name: 'Tops', tagline: 'CHIC • VERSATILE • MODERN', cls: 'cat-tops' },
-  { slug: 'pants', name: 'Trousers', tagline: 'COMFORT • STYLE • CONFIDENCE', cls: 'cat-pants' },
-  { slug: 'party-dresses', name: 'Party Dresses', tagline: 'CELEBRATE • SPARKLE • SHINE', cls: 'cat-party' },
+  { slug: 'coord-sets', name: 'Co-ord Sets', tagline: 'STARTING ₹1,850 • MATCH & STYLE', cls: 'cat-coords' },
+  { slug: 'dresses', name: 'Dresses', tagline: 'STARTING ₹1,450 • TIMELESS SILHOUETTES', cls: 'cat-dresses' },
+  { slug: 'tops', name: 'Tops & Blouses', tagline: 'STARTING ₹1,250 • CHIC & EVERYDAY', cls: 'cat-tops' },
+  { slug: 'pants', name: 'Trousers & Bottoms', tagline: 'STARTING ₹1,350 • TAILORED COMFORT', cls: 'cat-pants' },
+  { slug: 'party-dresses', name: 'Occasion & Party Wear', tagline: 'STARTING ₹2,100 • ELEGANT DRAPES', cls: 'cat-party' },
 ];
+
+function HomeFaqAccordion() {
+  const [openIdx, setOpenIdx] = useState(null);
+
+  return (
+    <section className="home-faq-section" id="faqs" aria-labelledby="home-faq-heading">
+      <div className="home-faq-header">
+        <p className="eyebrow">Frequently asked questions</p>
+        <h2 id="home-faq-heading" className="home-faq-title">Everything You Need To Know</h2>
+        <p className="home-faq-subtitle">
+          Details on visiting our Hebbagodi boutique, personal styling consultations, and pan-India express delivery.
+        </p>
+      </div>
+      <div className="home-faq-accordion" role="region" aria-label="Boutique FAQs">
+        {HOME_LOCAL_FAQS.map((faq, idx) => {
+          const isOpen = openIdx === idx;
+          return (
+            <div key={faq.q} className={`home-faq-item ${isOpen ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className="home-faq-trigger"
+                aria-expanded={isOpen}
+                onClick={() => setOpenIdx(isOpen ? null : idx)}
+              >
+                <span>{faq.q}</span>
+                <span className="home-faq-indicator" aria-hidden="true">
+                  {isOpen ? '−' : '+'}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="home-faq-content">
+                  <p>{faq.a}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 const instagramId = (url) => (String(url || '').match(/instagram\.com\/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1] || null;
 
@@ -30,33 +73,47 @@ const takeHeroHint = () => {
 };
 
 /** The original homepage hero, shown whenever no carousel slide is live. */
-const StaticHero = () => (
-  <section className="hero">
-    <div className="hero-copy">
-      <p className="eyebrow">Vishrea Studio · Bengaluru</p>
-      <h1>
-        Wear what feels<br />
-        <em>like you.</em>
-      </h1>
-      <p className="hero-text">
-        Womenswear chosen one piece at a time. Most of what you see here exists in a single size — when it’s gone, it’s gone.
-      </p>
-      <div className="hero-actions">
-        <Link className="button button-dark" to="/catalogue">Shop new arrivals</Link>
+const StaticHero = () => {
+  const rawWa = (SITE.contact?.whatsapp || '916364116567').replace(/\D/g, '');
+  const waUrl = `https://wa.me/${rawWa}?text=${encodeURIComponent('Hello Vishrea Studio! I would like to book a personal styling consultation at your Hebbagodi boutique.')}`;
+
+  return (
+    <section className="hero">
+      <div className="hero-copy">
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: 'var(--soft, #faf9f8)', border: '1px solid var(--line, #ebe6e1)', borderRadius: 20, fontSize: 12, fontWeight: 600, color: 'var(--ink, #121112)', marginBottom: 14 }}>
+          <span style={{ color: 'var(--gold, #b89560)' }}>5.0 ★</span>
+          <span>47 Verified Google Reviews</span>
+          <span style={{ color: 'var(--line, #ebe6e1)' }}>·</span>
+          <span>Bengaluru Atelier</span>
+        </div>
+        <p className="eyebrow">Womenswear Studio · Bengaluru</p>
+        <h1>
+          Curated Luxury,<br />
+          <em>Uniquely Yours.</em>
+        </h1>
+        <p className="hero-text">
+          Womenswear chosen one piece at a time — co-ord sets, dresses, kurtis, and contemporary western wear. Enjoy complimentary 1-on-1 personal styling at our Bengaluru studio with free studio pickup and flat ₹99 pan-India delivery.
+        </p>
+        <div className="hero-actions" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <Link className="button button-dark" to="/catalogue">Explore Collection</Link>
+          <a className="button button-light" href={waUrl} target="_blank" rel="noopener noreferrer">
+            Book Personal Styling
+          </a>
+        </div>
       </div>
-    </div>
-    <div className="hero-image">
-      <img
-        src="/assets/hero-editorial.jpg"
-        alt="Model in a draped chocolate-brown and ivory silk drape, standing in a stone archway"
-        loading="eager"
-        fetchPriority="high"
-        width="1200"
-        height="896"
-      />
-    </div>
-  </section>
-);
+      <div className="hero-image">
+        <img
+          src="/assets/hero-editorial.jpg"
+          alt="Model in a draped chocolate-brown and ivory silk drape, standing in a stone archway"
+          loading="eager"
+          fetchPriority="high"
+          width="1200"
+          height="896"
+        />
+      </div>
+    </section>
+  );
+};
 
 function HomeHero() {
   const [hint] = useState(takeHeroHint);
@@ -84,7 +141,12 @@ export const Home = () => {
   const [playing, setPlaying] = useState({});
   const videoRefs = useRef({});
 
-  usePageSeo({ schema: featured.length ? itemListSchema(SITE.url + '/', featured) : null, ready: !featuredReq.loading });
+  const homeSchemas = [
+    featured.length ? itemListSchema(SITE.url + '/', featured) : null,
+    faqSchema(SITE.url + '/', HOME_LOCAL_FAQS),
+  ].filter(Boolean);
+
+  usePageSeo({ schema: homeSchemas, ready: !featuredReq.loading });
 
   // Autoplay IG reels and feedback videos when they enter the viewport
   useEffect(() => {
@@ -199,6 +261,8 @@ export const Home = () => {
           )}
         </section>
 
+        <ReviewsTicker />
+
         <section className="editorial-strip" aria-labelledby="membership-title">
           <div>
             <p className="eyebrow">Walkin Wardrobe membership</p>
@@ -208,7 +272,7 @@ export const Home = () => {
           </div>
           <img
             src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80"
-            alt=""
+            alt="Curated luxury fashion capsule wardrobe collection by Vishrea Studio"
             loading="lazy"
             decoding="async"
             width="1200"
@@ -218,21 +282,26 @@ export const Home = () => {
 
         <section className="section story" id="story" aria-labelledby="story-title">
           <div className="story-copy">
-            <p className="eyebrow">About the studio</p>
+            <p className="eyebrow">About The Studio · Bengaluru</p>
             <h2 id="story-title">
-              Fewer pieces.<br />
-              Chosen properly.
+              Fewer Pieces.<br />
+              Chosen Properly.
             </h2>
             <p>
-              Vishrea is a womenswear studio in Bengaluru. Most pieces are one-of-one, so the edit changes from week to week.
-              Pick up from the studio for free, or have it delivered anywhere in India.
+              Vishrea is an independent womenswear studio in Bengaluru. Most pieces are one-of-one, so our curated edit changes from week to week. We focus on modern silhouettes, rich handloom textures, and thoughtful tailoring.
             </p>
-            <Link className="text-link" to="/contact">Visiting, delivery and exchanges <span aria-hidden="true">→</span></Link>
+            <p>
+              Visit our Bengaluru studio for a complimentary 1-on-1 personal styling consultation, or shop online with free studio pickup and flat ₹99 insured courier delivery across India.
+            </p>
+            <div style={{ display: 'flex', gap: 16, marginTop: 18, flexWrap: 'wrap' }}>
+              <Link className="text-link" to="/contact">Visiting, delivery and exchanges <span aria-hidden="true">→</span></Link>
+              <a className="text-link" href="https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5" target="_blank" rel="noopener noreferrer">Studio location on Google Maps <span aria-hidden="true">↗</span></a>
+            </div>
           </div>
           <div className="story-panel">
             <img
               src="https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=1000&q=80"
-              alt=""
+              alt="Vishrea Studio atelier craftsmanship and designer womenswear curation in Bengaluru"
               loading="lazy"
               decoding="async"
               width="1000"
@@ -313,6 +382,8 @@ export const Home = () => {
             </div>
           </section>
         )}
+
+        <HomeFaqAccordion />
       </main>
       <Footer />
     </div>

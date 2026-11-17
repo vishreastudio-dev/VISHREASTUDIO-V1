@@ -10,7 +10,7 @@ export const PAGES = {
   home: {
     path: '/',
     title: 'Vishrea Studio — One-of-One Womenswear, Bengaluru',
-    description: 'One-of-one and small-run womenswear from a Bengaluru studio: tops, dresses, co-ords and layers. Free studio pickup, ₹99 delivery across India.',
+    description: 'One-of-one and small-run womenswear from a Bengaluru studio: tops, dresses, co-ords and layers. Free studio pickup in Bengaluru, ₹99 delivery across India.',
     indexable: true,
     ogImage: '/assets/hero-editorial.jpg',
   },

@@ -52,12 +52,7 @@ export const ProductCard = ({ product: p, className = 'product-card', showAvaila
           {priceLabel(p)}
           {p.compare_at_price ? <span className="price-compare">{formatINR(p.compare_at_price)}</span> : null}
         </p>
-        {isMatch && p.available !== false && activeSizeProfile && (
-          <span className="product-size-match-badge">
-            Fits {activeSizeProfile.name} ({matchSizeLabel})
-          </span>
-        )}
-        {showAvailability && p.available !== false && !isMatch && (
+        {showAvailability && p.available !== false && (
           <small className="product-sizes">{p.is_one_of_one ? `One of one${p.sizes?.length ? ` · ${p.sizes[0]}` : ''}` : p.sizes?.length ? p.sizes.join(' · ') : ''}</small>
         )}
       </div>

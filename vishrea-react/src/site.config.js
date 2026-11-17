@@ -8,7 +8,7 @@ export const SITE = {
   url: 'https://vishreastudio.com',
   locale: 'en_IN',
   description:
-    'Vishrea Studio is a womenswear studio in Bengaluru selling one-of-one pieces and small-run designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.',
+    'Vishrea Studio is an independent womenswear studio in Bengaluru selling one-of-one pieces and timeless designs — tops, dresses, co-ord sets, and layers — with studio pickup and delivery across India.',
   logo: '/apple-touch-icon.png',
   defaultImage: '/assets/hero-editorial.jpg',
   contact: {
@@ -18,16 +18,23 @@ export const SITE = {
     email: null,
   },
   address: {
-    streetAddress: null,
+    streetAddress: '16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2',
     locality: 'Bengaluru',
     region: 'Karnataka',
-    postalCode: null,
+    postalCode: '560100',
     country: 'IN',
   },
-  openingHours: null,
-  // Seller legal details and the grievance officer are entered by the owner in admin Settings
-  // (Legal information) and published on the contact page only once marked verified.
-  sameAs: ['https://www.instagram.com/vishreastudio'],
+  openingHours: 'Mo-Su 10:30-20:30',
+  priceRange: '₹₹',
+  rating: {
+    ratingValue: '5.0',
+    reviewCount: '47',
+  },
+  // Verified business profiles & social channels
+  sameAs: [
+    'https://www.instagram.com/vishrea_studio/',
+    'https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5',
+  ],
   shipping: { fee: 99, currency: 'INR', country: 'IN' },
   returns: { days: 7, damageHours: 24 },
 };

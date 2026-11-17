@@ -193,18 +193,19 @@ export function GiftEnquiriesSection({ toast }) {
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Enquiry</th><th>From</th><th>For</th><th>Plan</th><th>Status</th><th>Codes</th><th></th></tr></thead>
+            <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Enquiry</th><th>From</th><th>For</th><th>Plan</th><th>Status</th><th>Codes</th><th style={{ minWidth: 100, textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th></tr></thead>
             <tbody>
-              {!rows.length && <tr><td colSpan="7" className="empty">No gift enquiries.</td></tr>}
-              {rows.map((e) => (
+              {!rows.length && <tr><td colSpan="8" className="empty">No gift enquiries.</td></tr>}
+              {rows.map((e, idx) => (
                 <tr key={e.id}>
+                  <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                   <td><strong>{e.enquiry_number}</strong><br /><small>{d(e.created_at)}</small></td>
                   <td>{e.sender_name}{e.company_name ? <small style={{ display: 'block' }}>{e.company_name}</small> : null}<small style={{ display: 'block' }}>{e.sender_email}</small></td>
                   <td>{e.recipient_name || '—'}</td>
                   <td>{e.membership_months} mo × {e.quantity}</td>
                   <td><GiftStatus e={e} /></td>
                   <td>{e.tokens_redeemed}/{e.tokens_issued} redeemed</td>
-                  <td><button className="btn" onClick={() => setOpen(e.id)}>Open</button></td>
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}><div className="table-actions"><button type="button" className="btn-action" onClick={() => setOpen(e.id)}>Open</button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -327,11 +328,12 @@ export function CouriersSection({ toast }) {
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Courier</th><th>Contact</th><th>Tracking</th><th>Service areas</th><th>Status</th><th>Shipments</th><th></th></tr></thead>
+            <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Courier</th><th>Contact</th><th>Tracking</th><th>Service areas</th><th>Status</th><th>Shipments</th><th style={{ minWidth: 200, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th></tr></thead>
             <tbody>
-              {!rows.length && <tr><td colSpan="7" className="empty">{search ? 'No couriers match this search.' : 'No couriers yet. Add your first courier.'}</td></tr>}
-              {rows.map((c) => (
+              {!rows.length && <tr><td colSpan="8" className="empty">{search ? 'No couriers match this search.' : 'No couriers yet. Add your first courier.'}</td></tr>}
+              {rows.map((c, idx) => (
                 <tr key={c.id}>
+                  <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                   <td>
                     <strong>{c.name}</strong>
                     {c.website && <small style={{ display: 'block' }}><a href={c.website} target="_blank" rel="noopener noreferrer">{c.website.replace(/^https:\/\//, '')}</a></small>}
@@ -342,16 +344,16 @@ export function CouriersSection({ toast }) {
                   <td>{c.service_areas || '—'}</td>
                   <td><span className={`status ${c.is_active ? 'good' : 'warn'}`}>{c.is_active ? 'active' : 'inactive'}</span></td>
                   <td>{c.shipment_count}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      <button type="button" className="btn" disabled={busy} onClick={() => setEditing(c)}>Edit</button>
-                      <button type="button" className="btn" disabled={busy} onClick={() => act(() => post('courier_status', { id: c.id, is_active: !c.is_active }), c.is_active ? `${c.name} deactivated` : `${c.name} activated`)}>
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <div className="table-actions">
+                      <button type="button" className="btn-action" disabled={busy} onClick={() => setEditing(c)}>Edit</button>
+                      <button type="button" className="btn-action" disabled={busy} onClick={() => act(() => post('courier_status', { id: c.id, is_active: !c.is_active }), c.is_active ? `${c.name} deactivated` : `${c.name} activated`)}>
                         {c.is_active ? 'Deactivate' : 'Activate'}
                       </button>
                       {c.shipment_count === 0 && (
                         <button
                           type="button"
-                          className="btn"
+                          className="btn-action danger"
                           disabled={busy}
                           onClick={() => window.confirm(`Delete ${c.name}? It has never been used on a shipment.`) && act(() => api(`/api/admin/ops?section=courier&id=${encodeURIComponent(c.id)}`, { method: 'DELETE' }), `${c.name} deleted`)}
                         >
@@ -467,14 +469,15 @@ export function AdministratorsSection({ toast }) {
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Administrator</th><th>Role</th><th>Status</th><th>Last sign-in</th><th>Last activity</th><th>Added</th><th></th></tr></thead>
+            <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Administrator</th><th>Role</th><th>Status</th><th>Last sign-in</th><th>Last activity</th><th>Added</th><th style={{ minWidth: 160, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th></tr></thead>
             <tbody>
-              {!rows.length && <tr><td colSpan="7" className="empty">No administrators found.</td></tr>}
-              {rows.map((a) => {
+              {!rows.length && <tr><td colSpan="8" className="empty">No administrators found.</td></tr>}
+              {rows.map((a, idx) => {
                 const self = a.id === data.me;
                 const [tone, label] = status(a);
                 return (
                   <tr key={a.id}>
+                    <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                     <td>
                       <strong>{a.name || a.email.split('@')[0]}</strong>{self && <small style={{ marginLeft: 6, color: 'var(--muted)' }}>(you)</small>}
                       <small style={{ display: 'block', color: 'var(--muted)' }}>{a.email}</small>
@@ -484,12 +487,12 @@ export function AdministratorsSection({ toast }) {
                     <td>{dt(a.last_sign_in)}</td>
                     <td>{dt(a.last_activity)}</td>
                     <td>{d(a.created_at)}</td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {canManage(a) ? (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          <button type="button" className="btn" disabled={busy} onClick={() => setEditing(a)}>Edit</button>
+                        <div className="table-actions">
+                          <button type="button" className="btn-action" disabled={busy} onClick={() => setEditing(a)}>Edit</button>
                           {!self && (
-                            <button type="button" className="btn" style={{ color: '#c3272b', borderColor: '#f2dede' }} disabled={busy} onClick={() => remove(a)}>Remove</button>
+                            <button type="button" className="btn-action danger" disabled={busy} onClick={() => remove(a)}>Remove</button>
                           )}
                         </div>
                       ) : <small style={{ color: 'var(--muted)' }}>Owner only</small>}
@@ -523,11 +526,12 @@ export function ReferralsSection() {
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Referrer</th><th>Friend</th><th>Code</th><th>Status</th><th>Discount</th><th>Reward</th><th>Joined</th></tr></thead>
+            <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Referrer</th><th>Friend</th><th>Code</th><th>Status</th><th>Discount</th><th>Reward</th><th>Joined</th></tr></thead>
             <tbody>
-              {!rows.length && <tr><td colSpan="7" className="empty">No referrals yet.</td></tr>}
-              {rows.map((r) => (
+              {!rows.length && <tr><td colSpan="8" className="empty">No referrals yet.</td></tr>}
+              {rows.map((r, idx) => (
                 <tr key={r.id}>
+                  <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                   <td>{r.referrer_email}</td>
                   <td>{r.referred_email}</td>
                   <td>{r.referral_code}</td>
@@ -570,11 +574,12 @@ export function RewardsSection({ toast }) {
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Customer</th><th>Type</th><th>Status</th><th>Issued</th><th>Order</th><th>Flag</th><th></th></tr></thead>
+            <thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Customer</th><th>Type</th><th>Status</th><th>Issued</th><th>Order</th><th>Flag</th><th></th></tr></thead>
             <tbody>
-              {!rows.length && <tr><td colSpan="7" className="empty">No rewards issued yet.</td></tr>}
-              {rows.map((r) => (
+              {!rows.length && <tr><td colSpan="8" className="empty">No rewards issued yet.</td></tr>}
+              {rows.map((r, idx) => (
                 <tr key={r.id}>
+                  <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                   <td>{r.email}</td>
                   <td>{r.kind === 'referral' ? 'Referral' : `6th month #${r.milestone_number}`}</td>
                   <td><span className={`status ${r.status === 'available' ? 'good' : 'warn'}`}>{r.status}</span></td>
@@ -884,11 +889,93 @@ export function CustomerDetail({ id, onClose }) {
   const { data, loading, error, reload } = useSection(`/api/admin/ops?section=customer&id=${encodeURIComponent(id)}`);
   const p = data?.profile;
   const m = data?.membership;
+  const stats = data?.stats;
+  const loyalty = stats?.loyalty;
+
   return (
     <Modal title={p ? p.full_name || p.email : 'Customer'} onClose={onClose}>
       {loading && !data ? <LoadingState /> : error ? <ErrorState error={error} onRetry={reload} /> : p && (
         <div className="customer-detail">
           <p>{p.email} · {p.phone || 'no phone'} · joined {d(p.created_at)} · role {p.role}{p.is_active === false ? ' · disabled' : ''}{p.referral_code ? ` · referral code ${p.referral_code}` : ''}</p>
+          
+          {/* Key Purchase & Spend Metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, background: '#fbf9f6', padding: 12, borderRadius: 6, margin: '12px 0', border: '1px solid #efe8df' }}>
+            <div>
+              <small style={{ color: '#777', fontSize: 11, textTransform: 'uppercase' }}>Lifetime Orders</small>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink, #1a1a1a)' }}>{stats?.lifetime_orders ?? 0}</div>
+            </div>
+            <div>
+              <small style={{ color: '#777', fontSize: 11, textTransform: 'uppercase' }}>Lifetime Spend</small>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink, #1a1a1a)' }}>{inr(stats?.lifetime_spend || 0)}</div>
+            </div>
+            <div>
+              <small style={{ color: '#777', fontSize: 11, textTransform: 'uppercase' }}>Average Order</small>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink, #1a1a1a)' }}>{inr(stats?.aov || 0)}</div>
+            </div>
+            <div>
+              <small style={{ color: '#777', fontSize: 11, textTransform: 'uppercase' }}>Last Purchase</small>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink, #1a1a1a)', marginTop: 2 }}>{stats?.last_purchase_date ? d(stats.last_purchase_date) : 'No orders yet'}</div>
+            </div>
+          </div>
+
+          {/* CRM Notes */}
+          {p.notes && (
+            <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 14px', margin: '10px 0', fontSize: 13 }}>
+              <strong>Client Notes:</strong> <span style={{ color: '#555' }}>{p.notes}</span>
+            </div>
+          )}
+
+          {/* 6-Stamp Customer Loyalty Card */}
+          <div style={{ background: '#fcfaf7', border: '1px solid #ebd9c0', borderRadius: 8, padding: 16, margin: '14px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <h4 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 12, color: '#543b18' }}>
+                  6-Purchase Stamp Card · Cycle {loyalty?.cycleNumber || 1}
+                </h4>
+                <small style={{ color: '#888', fontSize: 11 }}>Every 6 purchases form 1 cycle. 5 stamps qualify for 50% off next purchase.</small>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: loyalty?.isRewardEligible ? '#b8860b' : '#543b18' }}>
+                {loyalty?.currentStamp ?? 0} / 6 Stamps
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, textAlign: 'center', margin: '8px 0' }}>
+              {[1, 2, 3, 4, 5, 6].map((stampNum) => {
+                const isEarned = (loyalty?.currentStamp || 0) >= stampNum;
+                const isRewardStamp = stampNum === 6;
+                return (
+                  <div key={stampNum} style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        border: isEarned ? '2px solid #543b18' : isRewardStamp ? '2px dashed #b8860b' : '1px dashed #ccc',
+                        background: isEarned ? '#543b18' : isRewardStamp ? '#fffdf7' : '#fff',
+                        color: isEarned ? '#fff' : isRewardStamp ? '#b8860b' : '#999',
+                        borderRadius: '50%',
+                        width: 42,
+                        height: 42,
+                        margin: '0 auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: 12,
+                      }}
+                    >
+                      {isEarned ? '✓' : isRewardStamp ? '50%' : stampNum}
+                    </div>
+                    <small style={{ fontSize: 10, color: isRewardStamp ? '#b8860b' : '#888', marginTop: 4, display: 'block' }}>
+                      {isRewardStamp ? '50% off' : `Buy ${stampNum}`}
+                    </small>
+                  </div>
+                );
+              })}
+            </div>
+            {loyalty?.isRewardEligible && (
+              <div style={{ marginTop: 12, padding: '8px 12px', background: '#fdf3d8', border: '1px solid #f2cf7e', borderRadius: 4, color: '#7a5200', fontSize: 12, fontWeight: 600 }}>
+                REWARD ELIGIBLE: Customer has completed 5 purchases! Staff can manually enter 50% discount on next counter sale. Cycle resets after purchase 6.
+              </div>
+            )}
+          </div>
+
           <h3>Membership</h3>
           {m ? <p>{m.status} · paid until {d(m.paid_through)} · {m.credits_balance} credits · {m.consecutive_paid_months} consecutive months</p> : <p className="empty">No membership.</p>}
           {data.periods.length > 0 && (
@@ -904,12 +991,28 @@ export function CustomerDetail({ id, onClose }) {
           {data.colour_reviews[0] ? (
             <p>{data.colour_reviews[0].season || '—'} · {data.colour_reviews[0].undertone} · {d(data.colour_reviews[0].created_at)} <span style={{ display: 'inline-flex', gap: 4, verticalAlign: 'middle' }}>{(data.colour_reviews[0].palette || []).map((h) => <i key={h} style={{ width: 16, height: 16, background: h, display: 'inline-block' }} />)}</span></p>
           ) : <p className="empty">No colour profile saved.</p>}
-          <h3>Orders</h3>
+          
+          <h3>Purchase Timeline</h3>
           <div className="table-wrap">
-            <table className="table"><thead><tr><th>Date</th><th>Items</th><th>Status</th><th>Total</th></tr></thead>
+            <table className="table"><thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Date</th><th>Items</th><th>Status</th><th>Total</th><th>Reward</th></tr></thead>
               <tbody>
-                {!data.orders.length && <tr><td colSpan="4" className="empty">No orders.</td></tr>}
-                {data.orders.map((o) => <tr key={o.id}><td>{d(o.created_at)}</td><td>{o.items.map((i) => `${i.name} (${i.size}) ×${i.qty}`).join(', ')}</td><td>{o.payment_status === 'paid' ? o.status : o.payment_status}</td><td>{inr(o.total)}</td></tr>)}
+                {!data.orders.length && <tr><td colSpan="6" className="empty">No orders.</td></tr>}
+                {data.orders.map((o, idx) => (
+                  <tr key={o.id}>
+                    <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                    <td>{d(o.created_at)}</td>
+                    <td>{o.items.map((i) => `${i.name} (${i.size}) ×${i.qty}`).join(', ')}</td>
+                    <td>{o.payment_status === 'paid' ? o.status : o.payment_status}</td>
+                    <td><strong>{inr(o.total)}</strong></td>
+                    <td>
+                      {Number(o.discount_amount) > 0 || o.rewards_used > 0 ? (
+                        <span className="status good" style={{ fontSize: 10, padding: '2px 6px' }}>50% / Reward</span>
+                      ) : (
+                        <span style={{ color: '#aaa', fontSize: 11 }}>Standard</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -917,8 +1020,8 @@ export function CustomerDetail({ id, onClose }) {
           <p>{data.rewards.length} reward(s): {data.rewards.map((r) => `${r.kind} ${r.status}`).join(', ') || '—'} · {data.referrals.length} referral record(s)</p>
           <h3>Recent credit ledger</h3>
           <div className="table-wrap">
-            <table className="table"><thead><tr><th>Date</th><th>Change</th><th>Reason</th><th>Expires</th></tr></thead>
-              <tbody>{data.credits.slice(0, 15).map((c, i) => <tr key={i}><td>{d(c.created_at)}</td><td>{c.delta > 0 ? `+${c.delta}` : c.delta}</td><td>{c.reason}</td><td>{d(c.expires_at)}</td></tr>)}</tbody>
+            <table className="table"><thead><tr><th style={{ width: 44, textAlign: 'center' }}>#</th><th>Date</th><th>Change</th><th>Reason</th><th>Expires</th></tr></thead>
+              <tbody>{data.credits.slice(0, 15).map((c, i) => <tr key={i}><td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{i + 1}</td><td>{d(c.created_at)}</td><td>{c.delta > 0 ? `+${c.delta}` : c.delta}</td><td>{c.reason}</td><td>{d(c.expires_at)}</td></tr>)}</tbody>
             </table>
           </div>
         </div>

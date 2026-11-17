@@ -17,6 +17,17 @@ import { config } from '../../lib/config.js';
 import { log } from '../../lib/log.js';
 import { buildTrackingUrl, deleteCourier, listCouriers, orderCourier, resolveCourier, saveCourier, setCourierActive, trackingNumber } from '../../lib/couriers.js';
 import { bool, email as validEmail, gstin, indianState, int, isSlug, mediaUrl, money, oneOf, pageParams, slugify, text, uuid } from '../../lib/validate.js';
+import {
+  suggestBatchId,
+  calculateCostPerUnit,
+  calculateStockLeft,
+  calculateStockValue,
+  classifyInventory,
+  calculateSaleTotals,
+  calculateCustomerLoyalty,
+  calculatePurchaseOrderTotals,
+  calculateRetentionRate,
+} from '../../lib/business-calculations.js';
 
 export const access = 'admin';
 export const methods = ['GET', 'POST', 'PUT', 'DELETE'];
@@ -43,13 +54,47 @@ async function dashboard(query = {}) {
   if (from && to && from > to) throw badRequest('invalid_range', 'The start date must be before the end date');
   const range = [from, to];
   const inRange = (col) => `${col} >= COALESCE($1::date, date_trunc('month', now())::date) AND ${col} < COALESCE($2::date + 1, now() + interval '1 day')`;
-  const q = (sql, params = []) => db.query(sql, params).then((r) => r.rows);
-  const [[sales], [orders], [membershipSales], [products], [customers], [members], [credits], [exchanges], stockAge, gaps, [failed], [refunds], [gifts], [expiring]] = await Promise.all([
+  const q = (sql, params = []) => db.query(sql, params).then((r) => r.rows).catch((err) => { log.warn('dashboard_query_warn', { message: err.message }); return []; });
+  const [
+    [sales],
+    [orders],
+    [allTimeSales],
+    [todaySales],
+    [profitRow],
+    [membershipSales],
+    [products],
+    [customers],
+    [newCustMonth],
+    [repeatCust],
+    [members],
+    [credits],
+    [exchanges],
+    stockAge,
+    gaps,
+    [failed],
+    [refunds],
+    [gifts],
+    [expiring],
+    revenueHistory,
+    bestCategories,
+    [stockValRow],
+    [lowStockRow],
+    [fastMovingRow],
+    [deadStockRow],
+    [poMetrics],
+    [vendorMetrics],
+    [topVendorProd]
+  ] = await Promise.all([
     q(`SELECT COALESCE(SUM(total),0) AS revenue FROM orders WHERE payment_status='paid' AND ${inRange('paid_at')}`, range),
     q(`SELECT count(*)::int AS n FROM orders WHERE payment_status = 'paid' AND ${inRange('paid_at')}`, range),
+    q("SELECT COALESCE(SUM(total),0) AS revenue, count(*)::int AS n FROM orders WHERE payment_status = 'paid'"),
+    q("SELECT COALESCE(SUM(total),0) AS revenue, count(*)::int AS n FROM orders WHERE payment_status = 'paid' AND paid_at >= current_date"),
+    q("SELECT COALESCE(SUM(total - COALESCE(estimated_cost, 0)), 0) AS profit FROM orders WHERE payment_status = 'paid'"),
     q(`SELECT COALESCE(SUM(amount),0) AS revenue, count(*)::int AS n FROM membership_payments WHERE status = 'paid' AND ${inRange('paid_at')}`, range),
     q('SELECT count(*)::int AS n FROM products WHERE is_active = true AND archived_at IS NULL'),
     q('SELECT count(*)::int AS n FROM customer_profiles'),
+    q("SELECT count(*)::int AS n FROM customer_profiles WHERE created_at >= date_trunc('month', now())"),
+    q("SELECT count(*)::int AS n FROM (SELECT auth_user_id FROM orders WHERE payment_status = 'paid' AND auth_user_id IS NOT NULL GROUP BY auth_user_id HAVING count(*) >= 2) t"),
     q("SELECT count(*)::int AS n FROM memberships WHERE status = 'active'"),
     q("SELECT COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END),0)::int AS issued, COALESCE(SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END),0)::int AS used FROM credit_ledger WHERE created_at >= date_trunc('month', now())"),
     q("SELECT count(*)::int AS n FROM exchanges WHERE status IN ('requested','review')"),
@@ -59,14 +104,86 @@ async function dashboard(query = {}) {
     q("SELECT count(*)::int AS n FROM orders WHERE payment_status = 'refund_required'"),
     q("SELECT count(*)::int AS n FROM admin_gift_enquiries WHERE status = 'pending'"),
     q("SELECT count(*)::int AS n FROM memberships WHERE status IN ('active','paused') AND paid_through < now() + interval '7 days'"),
+    q("SELECT to_char(date_trunc('month', paid_at), 'YYYY-MM') AS month_key, to_char(date_trunc('month', paid_at), 'Mon YYYY') AS label, COALESCE(SUM(total), 0)::numeric(12,2) AS revenue, count(*)::int AS orders FROM orders WHERE payment_status = 'paid' AND paid_at >= date_trunc('month', now() - interval '5 months') GROUP BY 1, 2 ORDER BY 1 ASC"),
+    q("SELECT COALESCE(c.name, 'Unassigned') AS name, sum(oi.quantity)::int AS units, COALESCE(sum(oi.quantity * oi.unit_price), 0)::numeric(12,2) AS revenue FROM order_items oi JOIN orders o ON o.id = oi.order_id LEFT JOIN products p ON p.id = oi.product_id LEFT JOIN categories c ON c.id = p.category_id WHERE o.payment_status = 'paid' GROUP BY 1 ORDER BY units DESC LIMIT 5"),
+    q("SELECT COALESCE(SUM(v.stock_quantity * COALESCE(p.cost_price_inr, 0)), 0)::numeric(12,2) AS val FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.is_active AND p.is_active"),
+    q("SELECT count(*)::int AS n FROM (SELECT p.id, sum(v.stock_quantity) as total_stock, p.low_stock_threshold FROM products p JOIN product_variants v ON v.product_id = p.id WHERE p.is_active GROUP BY p.id, p.low_stock_threshold HAVING sum(v.stock_quantity) <= COALESCE(p.low_stock_threshold, 2)) t"),
+    q("SELECT count(*)::int AS n FROM (SELECT p.id, p.purchase_quantity, COALESCE(sum(oi.quantity), 0) AS sold FROM products p JOIN order_items oi ON oi.product_id = p.id JOIN orders o ON o.id = oi.order_id WHERE o.payment_status = 'paid' AND p.purchase_quantity > 0 GROUP BY p.id, p.purchase_quantity HAVING sum(oi.quantity) > (p.purchase_quantity * 0.5)) t"),
+    q("SELECT count(*)::int AS n FROM products p WHERE p.purchase_quantity > 0 AND p.is_active AND NOT EXISTS (SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.payment_status = 'paid')"),
+    q("SELECT count(*)::int AS total_pos, count(*) FILTER (WHERE status = 'unfulfilled')::int AS pending_pos, count(*) FILTER (WHERE status = 'fulfilled')::int AS fulfilled_pos, COALESCE(SUM(grand_total), 0)::numeric(12,2) AS total_val FROM purchase_orders"),
+    q("SELECT count(*)::int AS total_vendors, count(*) FILTER (WHERE is_active = true)::int AS active_vendors FROM vendors"),
+    q("SELECT oi.product_name, sum(oi.quantity)::int as units FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.payment_status = 'paid' GROUP BY oi.product_name ORDER BY units DESC LIMIT 1"),
   ]);
+
+  const eligibleOrders = Number(orders?.n || 0);
+  const aov = eligibleOrders > 0 ? Math.round((Number(sales?.revenue || 0) / eligibleOrders) * 100) / 100 : 0;
+  const purchasingCustRow = await q("SELECT count(DISTINCT auth_user_id)::int AS n FROM orders WHERE payment_status = 'paid'");
+  const totalPurchasingCustomers = Number(purchasingCustRow[0]?.n || 0);
+  const retentionRate = calculateRetentionRate(Number(repeatCust?.n || 0), totalPurchasingCustomers);
+
+  const recentOrders = await q(
+    `SELECT o.id, o.created_at, o.total, o.payment_status, o.status, o.channel,
+            COALESCE(cp.full_name, 'Client') AS customer_name,
+            COALESCE((SELECT c.name FROM order_items oi JOIN products p ON p.id = oi.product_id LEFT JOIN categories c ON c.id = p.category_id WHERE oi.order_id = o.id LIMIT 1), 'Apparel') AS category,
+            COALESCE((SELECT sum(quantity) FROM order_items WHERE order_id = o.id), 1)::int AS items_count
+       FROM orders o
+       LEFT JOIN customer_profiles cp ON cp.auth_user_id = o.auth_user_id
+      ORDER BY o.created_at DESC
+      LIMIT 8`
+  );
+
   return {
     range: { from: from || null, to: to || null },
-    revenue: Number(sales.revenue), orders: orders.n, membership_revenue: Number(membershipSales.revenue), membership_payments: membershipSales.n,
-    total_revenue: Number(sales.revenue) + Number(membershipSales.revenue),
-    products: products.n, customers: customers.n, members: members.n,
-    credits_issued: credits.issued, credits_used: credits.used, exchanges: exchanges.n, failed_payments: failed.n,
-    refunds_required: refunds.n, pending_gift_enquiries: gifts.n, memberships_ending_soon: expiring.n, stock_age: stockAge, gaps,
+    revenue: Number(sales?.revenue || 0),
+    orders: Number(orders?.n || 0),
+    all_time_revenue: Number(allTimeSales?.revenue || 0),
+    all_time_orders: Number(allTimeSales?.n || 0),
+    today_revenue: Number(todaySales?.revenue || 0),
+    today_orders: Number(todaySales?.n || 0),
+    aov,
+    estimated_profit: Number(profitRow?.profit || 0),
+    membership_revenue: Number(membershipSales?.revenue || 0),
+    membership_payments: Number(membershipSales?.n || 0),
+    total_revenue: Number(sales?.revenue || 0) + Number(membershipSales?.revenue || 0),
+    products: Number(products?.n || 0),
+    customers: Number(customers?.n || 0),
+    new_customers_month: Number(newCustMonth?.n || 0),
+    repeat_customers: Number(repeatCust?.n || 0),
+    retention_rate: retentionRate,
+    members: Number(members?.n || 0),
+    credits_issued: credits?.issued || 0,
+    credits_used: credits?.used || 0,
+    exchanges: exchanges?.n || 0,
+    failed_payments: failed?.n || 0,
+    refunds_required: refunds?.n || 0,
+    pending_gift_enquiries: gifts?.n || 0,
+    memberships_ending_soon: expiring?.n || 0,
+    stock_age: stockAge || [],
+    gaps: gaps || [],
+    revenue_history: revenueHistory || [],
+    six_month_revenue: (revenueHistory || []).map((r) => ({
+      month: r.label || r.month_key,
+      orders: Number(r.orders || 0),
+      revenue: Number(r.revenue || 0),
+    })),
+    best_categories: bestCategories || [],
+    best_selling_categories: (bestCategories || []).map((c) => ({
+      category: c.name,
+      units: Number(c.units || 0),
+      revenue: Number(c.revenue || 0),
+    })),
+    recent_orders: recentOrders || [],
+    stock_value: Number(stockValRow?.val || 0),
+    low_stock_count: Number(lowStockRow?.n || 0),
+    fast_moving_count: Number(fastMovingRow?.n || 0),
+    dead_stock_count: Number(deadStockRow?.n || 0),
+    total_pos: Number(poMetrics?.total_pos || 0),
+    pending_pos: Number(poMetrics?.pending_pos || 0),
+    fulfilled_pos: Number(poMetrics?.fulfilled_pos || 0),
+    total_po_value: Number(poMetrics?.total_val || 0),
+    total_vendors: Number(vendorMetrics?.total_vendors || 0),
+    active_vendors: Number(vendorMetrics?.active_vendors || 0),
+    top_selling_product: topVendorProd?.product_name || '—',
   };
 }
 
@@ -103,8 +220,21 @@ async function exportCsv(type, res) {
 }
 
 async function handleGet(req, res) {
-  const q = req.query || {};
-  const section = q.section || 'dashboard';
+  const q = { ...(req.query || {}) };
+  let section = q.section || 'dashboard';
+  if (typeof section === 'string' && (section.includes('?') || section.includes('&'))) {
+    const parts = section.split(/[?&]/);
+    section = parts[0];
+    q.section = section;
+    for (let i = 1; i < parts.length; i++) {
+      const pair = parts[i];
+      if (!pair) continue;
+      const [k, v] = pair.split('=');
+      if (k && q[decodeURIComponent(k)] === undefined) {
+        q[decodeURIComponent(k)] = v !== undefined ? decodeURIComponent(v) : '';
+      }
+    }
+  }
   const { limit, offset } = pageParams(q, { defaultLimit: 200, maxLimit: 500 });
   const rows = (sql, params = []) => db.query(sql, params).then((r) => r.rows);
 
@@ -119,18 +249,30 @@ async function handleGet(req, res) {
         products: await rows(
           `SELECT p.id, p.name, p.slug, p.price_inr, p.cost_price_inr, p.badge, p.is_active, p.archived_at, p.featured, p.is_one_of_one, p.image_url, p.images,
                   p.color, p.colour_season, p.size_label, p.category_id, p.credit_eligible, p.drop_id, c.name AS category, p.created_at,
-                  COALESCE(vs.variants, '[]') AS variants, COALESCE(vs.stock, 0)::int AS stock_total, vs.min_price, vs.max_price
+                  p.batch_id, p.purchase_date, p.purchase_quantity, p.purchase_price_per_piece, p.courier_charge, p.low_stock_threshold, p.supplier_name, p.vendor_id,
+                  COALESCE(vnd.name, p.supplier_name) AS vendor_name,
+                  COALESCE(vs.variants, '[]') AS variants, COALESCE(vs.stock, 0)::int AS stock_total, vs.min_price, vs.max_price,
+                  COALESCE(sold_sub.units_sold, 0)::int AS units_sold,
+                  ROUND(COALESCE(vs.stock, 0) * COALESCE(p.cost_price_inr, 0), 2) AS remaining_stock_value,
+                  ROUND(COALESCE(p.purchase_quantity, COALESCE(vs.stock, 0)) * COALESCE(p.cost_price_inr, 0), 2) AS inventory_value
              FROM products p LEFT JOIN categories c ON c.id = p.category_id
+             LEFT JOIN vendors vnd ON vnd.id = p.vendor_id
+             LEFT JOIN LATERAL (
+               SELECT sum(oi.quantity)::int AS units_sold
+                 FROM order_items oi
+                 JOIN orders o ON o.id = oi.order_id
+                WHERE oi.product_id = p.id AND o.payment_status = 'paid'
+             ) sold_sub ON true
              LEFT JOIN LATERAL (
                SELECT json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label, 'price_inr', v.price_inr, 'sale_price_inr', v.sale_price_inr,
                                                  'stock_quantity', v.stock_quantity, 'is_active', v.is_active) ORDER BY v.sort_order, v.created_at) AS variants,
                       sum(v.stock_quantity) FILTER (WHERE v.is_active) AS stock, min(v.price_inr) FILTER (WHERE v.is_active) AS min_price, max(v.price_inr) FILTER (WHERE v.is_active) AS max_price
                  FROM product_variants v WHERE v.product_id = p.id) vs ON true
-            WHERE ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND lower(sv.sku) LIKE '%' || $1 || '%'))
+            WHERE ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' OR lower(COALESCE(p.batch_id, '')) LIKE '%' || $1 || '%' OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND lower(sv.sku) LIKE '%' || $1 || '%'))
               AND ($4::boolean OR p.archived_at IS NULL)
               AND ($5::uuid IS NULL OR p.category_id = $5)
               AND ($6 = '' OR ($6 = 'live' AND p.is_active AND p.archived_at IS NULL) OR ($6 = 'hidden' AND NOT p.is_active AND p.archived_at IS NULL)
-                   OR ($6 = 'out_of_stock' AND COALESCE(vs.stock, 0) = 0) OR ($6 = 'low_stock' AND COALESCE(vs.stock, 0) BETWEEN 1 AND 2))
+                   OR ($6 = 'out_of_stock' AND COALESCE(vs.stock, 0) = 0) OR ($6 = 'low_stock' AND COALESCE(vs.stock, 0) <= COALESCE(p.low_stock_threshold, 2)))
             ORDER BY p.created_at DESC LIMIT $2 OFFSET $3`,
           [search, limit, offset, bool(q.include_archived), q.category_id ? uuid(q.category_id, 'category_id') : null, oneOf(q.state || '', ['', 'live', 'hidden', 'out_of_stock', 'low_stock'], { field: 'state' })]
         ),
@@ -229,6 +371,88 @@ async function handleGet(req, res) {
       return res.json({ drops: await rows('SELECT * FROM drop_settings ORDER BY starts_at DESC LIMIT 200') });
     case 'sourcing':
       return res.json({ batches: await rows('SELECT * FROM sourcing_batches ORDER BY batch_date DESC, created_at DESC LIMIT 200') });
+    case 'vendors': {
+      const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
+      const list = await rows(
+        `SELECT v.*,
+                COALESCE(po_sub.pos_served, 0)::int AS pos_served,
+                COALESCE(po_sub.total_purchases, 0)::numeric(12,2) AS total_purchases,
+                COALESCE(prof_sub.sales_profit, 0)::numeric(12,2) AS sales_profit,
+                COALESCE(top_sub.top_product, '—') AS top_product
+           FROM vendors v
+           LEFT JOIN LATERAL (
+             SELECT count(*)::int AS pos_served, sum(grand_total) AS total_purchases
+               FROM purchase_orders po WHERE po.vendor_id = v.id
+           ) po_sub ON true
+           LEFT JOIN LATERAL (
+             SELECT sum(oi.quantity * (oi.unit_price - COALESCE(p.cost_price_inr, 0))) AS sales_profit
+               FROM products p
+               JOIN order_items oi ON oi.product_id = p.id
+               JOIN orders o ON o.id = oi.order_id
+              WHERE p.vendor_id = v.id AND o.payment_status = 'paid'
+           ) prof_sub ON true
+           LEFT JOIN LATERAL (
+             SELECT oi.product_name AS top_product
+               FROM products p
+               JOIN order_items oi ON oi.product_id = p.id
+               JOIN orders o ON o.id = oi.order_id
+              WHERE p.vendor_id = v.id AND o.payment_status = 'paid'
+              GROUP BY oi.product_name
+              ORDER BY sum(oi.quantity) DESC
+              LIMIT 1
+           ) top_sub ON true
+          WHERE ($1 = '' OR lower(v.name) LIKE '%' || $1 || '%' OR lower(COALESCE(v.contact_phone, '')) LIKE '%' || $1 || '%')
+          ORDER BY v.created_at DESC LIMIT $2 OFFSET $3`,
+        [search, limit, offset]
+      );
+      return res.json({ vendors: list });
+    }
+    case 'vendor': {
+      const v = (await rows('SELECT * FROM vendors WHERE id = $1', [uuid(q.id)]))[0];
+      if (!v) throw notFound('vendor_not_found', 'Vendor not found');
+      return res.json({ vendor: v });
+    }
+    case 'procurement':
+    case 'purchase_orders': {
+      const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
+      const statusFilter = q.status && ['unfulfilled', 'fulfilled', 'cancelled'].includes(q.status) ? q.status : null;
+      const list = await rows(
+        `SELECT po.*,
+                COALESCE((SELECT json_agg(json_build_object('id', poi.id, 'item_name', poi.item_name, 'category', poi.category, 'quantity', poi.quantity, 'unit_cost', poi.unit_cost, 'line_total', poi.line_total))
+                            FROM purchase_order_items poi WHERE poi.purchase_order_id = po.id), '[]') AS items
+           FROM purchase_orders po
+          WHERE ($1 = '' OR lower(po.po_number) LIKE '%' || $1 || '%' OR lower(po.vendor_name) LIKE '%' || $1 || '%' OR lower(po.batch_id) LIKE '%' || $1 || '%')
+            AND ($4::text IS NULL OR po.status = $4)
+          ORDER BY po.order_date DESC, po.created_at DESC LIMIT $2 OFFSET $3`,
+        [search, limit, offset, statusFilter]
+      );
+      const vendorList = await rows('SELECT id, name, COALESCE(code, vendor_code) AS code, COALESCE(vendor_code, code) AS vendor_code, COALESCE(contact_person, contact_name) AS contact_person, COALESCE(contact_name, contact_person) AS contact_name, COALESCE(phone, contact_phone) AS phone, categories FROM vendors WHERE is_active = true ORDER BY name ASC');
+      return res.json({ purchase_orders: list, vendors: vendorList });
+    }
+    case 'purchase_order': {
+      const po = (await rows('SELECT * FROM purchase_orders WHERE id = $1', [uuid(q.id)]))[0];
+      if (!po) throw notFound('po_not_found', 'Purchase order not found');
+      const items = await rows('SELECT * FROM purchase_order_items WHERE purchase_order_id = $1 ORDER BY created_at ASC', [po.id]);
+      return res.json({ purchase_order: { ...po, items } });
+    }
+    case 'sales': {
+      const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
+      const statusFilter = q.status && ['paid', 'partially_paid', 'due', 'cancelled'].includes(q.status) ? q.status : null;
+      const list = await rows(
+        `SELECT o.id, o.sale_date, o.customer_id, o.customer_name, o.customer_phone, o.channel,
+                o.subtotal, o.discount_amount, o.total, o.amount_paid, o.amount_due, o.payment_status,
+                o.status, o.estimated_cost, o.estimated_profit, o.invoice_number, o.created_at,
+                COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'quantity', i.quantity, 'unit_price', i.unit_price))
+                            FROM order_items i WHERE i.order_id = o.id), '[]') AS items
+           FROM orders o
+          WHERE (o.channel = 'studio' OR o.channel = 'pos' OR o.customer_name IS NOT NULL)
+            AND ($1 = '' OR lower(COALESCE(o.customer_name, '')) LIKE '%' || $1 || '%' OR lower(COALESCE(o.customer_phone, '')) LIKE '%' || $1 || '%' OR lower(o.id::text) LIKE '%' || $1 || '%')
+            AND ($4::text IS NULL OR o.payment_status = $4)
+          ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
+        [search, limit, offset, statusFilter]
+      );
+      return res.json({ sales: list });
+    }
     case 'content': {
       const [i, v, s, l, settings] = await Promise.all([
         rows('SELECT * FROM instagram_content ORDER BY sort_order, created_at DESC'),
@@ -274,7 +498,7 @@ async function handleGet(req, res) {
     case 'customer': {
       const id = text(q.id, { max: 80, field: 'id', required: true });
       const profile = (await rows(
-        `SELECT p.auth_user_id, p.email, p.role, p.is_admin, p.is_active, p.created_at, cp.full_name, cp.phone, cp.gst_number, cp.marketing_opt_in, cp.whatsapp_opt_in, cp.referral_code
+        `SELECT p.auth_user_id, p.email, p.role, p.is_admin, p.is_active, p.created_at, cp.full_name, cp.phone, cp.gst_number, cp.marketing_opt_in, cp.whatsapp_opt_in, cp.referral_code, cp.notes, cp.tags
            FROM profiles p LEFT JOIN customer_profiles cp ON cp.auth_user_id = p.auth_user_id WHERE p.auth_user_id = $1`,
         [id]
       ))[0];
@@ -282,8 +506,8 @@ async function handleGet(req, res) {
       const [membership, wearers, orders, colour, referrals, rewards, credits, periods, sizeProfiles] = await Promise.all([
         rows('SELECT * FROM memberships WHERE auth_user_id = $1', [id]),
         rows('SELECT id, name, relationship, size_label, bust_cm, waist_cm, hip_cm, length_cm, birthday, created_at FROM wearer_profiles WHERE auth_user_id = $1 ORDER BY created_at', [id]),
-        rows(`SELECT o.id, o.created_at, o.status, o.payment_status, o.total, o.invoice_number, o.channel, o.credits_used, o.rewards_used,
-                     COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'qty', i.quantity)) FROM order_items i WHERE i.order_id = o.id), '[]') AS items
+        rows(`SELECT o.id, o.created_at, o.status, o.payment_status, o.total, o.invoice_number, o.channel, o.credits_used, o.rewards_used, o.discount_amount,
+                     COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'qty', i.quantity, 'unit_price', i.unit_price)) FROM order_items i WHERE i.order_id = o.id), '[]') AS items
                 FROM orders o WHERE o.auth_user_id = $1 ORDER BY o.created_at DESC LIMIT 50`, [id]),
         rows('SELECT undertone, season, palette, confidence, lighting, created_at FROM colour_reviews WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 5', [id]),
         rows(`SELECT r.id, r.status, r.referred_email, r.referrer_user_id, r.referred_user_id, r.attributed_at, r.qualified_at FROM referrals r
@@ -294,7 +518,32 @@ async function handleGet(req, res) {
                 FROM membership_periods mp JOIN memberships m ON m.id = mp.membership_id WHERE m.auth_user_id = $1 ORDER BY mp.starts_at DESC LIMIT 36`, [id]),
         rows('SELECT id, name, relationship, is_primary, size_standard, clothing_size, category_sizes, fit_preference, silhouette_preference, created_at FROM customer_size_profiles WHERE auth_user_id = $1 ORDER BY is_primary DESC, created_at ASC', [id]).catch(() => []),
       ]);
-      return res.json({ profile, membership: membership[0] || null, periods, wearers, size_profiles: sizeProfiles, orders, colour_reviews: colour, referrals, rewards, credits });
+
+      const paidOrders = orders.filter((o) => o.payment_status === 'paid' && o.status !== 'cancelled');
+      const lifetimeSpend = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+      const aov = paidOrders.length ? Math.round((lifetimeSpend / paidOrders.length) * 100) / 100 : 0;
+      const lastPurchaseDate = paidOrders.length ? paidOrders[0].created_at : null;
+      const loyalty = calculateCustomerLoyalty(paidOrders.length);
+
+      return res.json({
+        profile,
+        membership: membership[0] || null,
+        periods,
+        wearers,
+        size_profiles: sizeProfiles,
+        orders,
+        colour_reviews: colour,
+        referrals,
+        rewards,
+        credits,
+        stats: {
+          lifetime_orders: paidOrders.length,
+          lifetime_spend: lifetimeSpend,
+          aov,
+          last_purchase_date: lastPurchaseDate,
+          loyalty,
+        },
+      });
     }
     case 'gift_enquiries': {
       const status = q.status && q.status !== 'all' ? oneOf(q.status, Object.keys(GIFT_ENQUIRY_FLOW), { field: 'status' }) : null;
@@ -345,14 +594,36 @@ async function handleGet(req, res) {
       });
     case 'invoices':
       return res.json({ invoices: await rows('SELECT ir.*, o.auth_user_id, cp.full_name, cp.email FROM invoice_records ir LEFT JOIN orders o ON o.id = ir.order_id LEFT JOIN customer_profiles cp ON cp.auth_user_id = o.auth_user_id ORDER BY ir.issued_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
-    case 'store':
+    case 'store': {
+      const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
+      const statusFilter = q.status && ['paid', 'partially_paid', 'due', 'cancelled'].includes(q.status) ? q.status : null;
+      const salesList = await rows(
+        `SELECT o.id, o.sale_date, o.customer_id, o.customer_name, o.customer_phone, o.channel,
+                o.subtotal, o.discount_amount, o.total, o.amount_paid, o.amount_due, o.payment_status,
+                o.status, o.estimated_cost, o.estimated_profit, o.invoice_number, o.created_at,
+                COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'quantity', i.quantity, 'unit_price', i.unit_price))
+                            FROM order_items i WHERE i.order_id = o.id), '[]') AS items
+           FROM orders o
+          WHERE (o.channel = 'studio' OR o.channel = 'pos' OR o.customer_name IS NOT NULL)
+            AND ($1 = '' OR lower(COALESCE(o.customer_name, '')) LIKE '%' || $1 || '%' OR lower(COALESCE(o.customer_phone, '')) LIKE '%' || $1 || '%' OR lower(o.id::text) LIKE '%' || $1 || '%')
+            AND ($4::text IS NULL OR o.payment_status = $4)
+          ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
+        [search, limit, offset, statusFilter]
+      );
+      const activeProducts = await rows(
+        `SELECT p.id, p.name, p.cost_price_inr, v.id AS variant_id, v.sku, v.size_label, v.price_inr, v.sale_price_inr, v.stock_quantity
+           FROM products p JOIN product_variants v ON v.product_id = p.id
+          WHERE p.is_active AND v.is_active AND v.stock_quantity > 0 ORDER BY p.name, v.sort_order LIMIT 1000`
+      );
+      const custList = await rows(
+        `SELECT auth_user_id, full_name, email, phone FROM customer_profiles ORDER BY full_name ASC LIMIT 500`
+      );
       return res.json({
-        products: await rows(
-          `SELECT p.id, p.name, v.id AS variant_id, v.sku, v.size_label, v.price_inr, v.sale_price_inr, v.stock_quantity
-             FROM products p JOIN product_variants v ON v.product_id = p.id
-            WHERE p.is_active AND v.is_active AND v.stock_quantity > 0 ORDER BY p.name, v.sort_order LIMIT 1000`
-        ),
+        products: activeProducts,
+        sales: salesList,
+        customers: custList,
       });
+    }
     case 'export':
       return exportCsv(String(q.type || 'orders'), res);
     case 'listing':
@@ -971,9 +1242,254 @@ async function handleWrite(req, res) {
     return res.json({ ok: true, courier });
   }
 
-  if (section === 'store_sale') {
-    const r = await db.tx((c) => storeSale(c, uid, b));
+  if (section === 'store_sale' || section === 'sale') {
+    const r = await db.tx(async (c) => {
+      const items = Array.isArray(b.items) && b.items.length ? b.items : [];
+      if (!items.length) throw badRequest('items_required', 'Add at least one piece to the sale');
+      
+      let customerId = b.customer_id || b.auth_user_id;
+      let customerName = text(b.customer_name, { max: 120, field: 'customer_name' }) || '';
+      let customerPhone = text(b.customer_phone, { max: 40, field: 'customer_phone' }) || '';
+
+      if (customerId) {
+        const cp = (await c.query('SELECT full_name, phone, email FROM customer_profiles WHERE auth_user_id = $1', [customerId])).rows[0];
+        if (cp) {
+          if (!customerName) customerName = cp.full_name;
+          if (!customerPhone) customerPhone = cp.phone;
+        }
+      } else if (customerName) {
+        const genUid = 'usr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await c.query('INSERT INTO profiles (auth_user_id, full_name, email, role) VALUES ($1,$2,$3,$4)', [genUid, customerName, `${genUid}@store.local`, 'customer']);
+        await c.query('INSERT INTO customer_profiles (auth_user_id, full_name, phone) VALUES ($1,$2,$3)', [genUid, customerName, customerPhone]);
+        customerId = genUid;
+      } else {
+        throw badRequest('customer_required', 'Customer selection or name is required');
+      }
+
+      const lines = [];
+      const stockTakeLines = [];
+      for (const it of items) {
+        const v = it.variant_id
+          ? (await c.query('SELECT v.*, p.name, p.cost_price_inr, p.hsn_code FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = $1', [uuid(it.variant_id, 'variant_id')])).rows[0]
+          : (await c.query('SELECT v.*, p.name, p.cost_price_inr, p.hsn_code FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.product_id = $1 AND v.is_active ORDER BY v.sort_order LIMIT 1', [uuid(it.product_id, 'product_id')])).rows[0];
+        
+        if (!v) throw notFound('variant_not_found', 'Product or size not found');
+        const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
+        if (Number(v.stock_quantity) < qty) {
+          throw conflict('insufficient_stock', `Insufficient stock for ${v.name} (${v.size_label}). Available: ${v.stock_quantity}`);
+        }
+        const saleRate = it.sale_rate !== undefined ? money(it.sale_rate, { field: 'sale_rate' }) : Number(v.sale_price_inr || v.price_inr);
+        lines.push({
+          product_id: v.product_id,
+          variant_id: v.id,
+          name: v.name,
+          size_label: v.size_label,
+          quantity: qty,
+          sale_rate: saleRate,
+          unit_price: saleRate,
+          cost_price_inr: Number(v.cost_price_inr || 0),
+          hsn_code: v.hsn_code || '6204',
+        });
+        stockTakeLines.push({
+          product_id: v.product_id,
+          variant_id: v.id,
+          quantity: qty,
+          name: v.name,
+          size_label: v.size_label,
+        });
+      }
+
+      await takeStock(c, stockTakeLines);
+
+      const totals = calculateSaleTotals(lines, b.discount || b.discount_amount || 0, b.amount_paid !== undefined ? b.amount_paid : b.total);
+
+      const insOrder = await c.query(
+        `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, discount_amount, channel,
+                             amount_paid, amount_due, sale_date, customer_id, customer_name, customer_phone, estimated_cost, estimated_profit, manual_discount)
+         VALUES ($1, $2, $3, $4, 0, $5, $6, 'studio', $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         RETURNING *`,
+        [customerId, totals.paymentStatus === 'paid' ? 'delivered' : 'processing', totals.paymentStatus, totals.subtotal, totals.finalAmount, totals.discount,
+         totals.amountPaid, totals.amountDue, b.sale_date || new Date().toISOString().slice(0, 10), customerId, customerName, customerPhone, totals.estimatedCost, totals.estimatedProfit, totals.discount]
+      );
+      const order = insOrder.rows[0];
+
+      for (const l of lines) {
+        await c.query(
+          'INSERT INTO order_items (order_id, product_id, variant_id, product_name, variant_label, quantity, unit_price, tax_rate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [order.id, l.product_id, l.variant_id, l.name, l.size_label, l.quantity, l.sale_rate, 5]
+        );
+      }
+
+      await c.query('INSERT INTO store_sales (order_id, sold_by, payment_mode) VALUES ($1,$2,$3)', [order.id, uid, b.payment_mode || 'counter']);
+      await syncProductInventory(c, lines.map((l) => l.product_id));
+
+      const invoice = await createOrderInvoice(c, order).catch(() => null);
+      await audit(c, { actor: uid, action: 'create_sale', entityType: 'order', entityId: order.id, details: { total: totals.finalAmount, status: totals.paymentStatus } });
+
+      return {
+        order_id: order.id,
+        total: totals.finalAmount,
+        payment_status: totals.paymentStatus,
+        invoice_number: invoice?.invoice_number || null,
+      };
+    });
     return res.json({ ok: true, ...r });
+  }
+
+  if (section === 'vendor') {
+    const name = text(b.name, { max: 160, field: 'name', required: true });
+    const contactName = text(b.contact_name || b.contact_person, { max: 120, field: 'contact_name' }) || '';
+    const contactPhone = text(b.contact_phone || b.phone, { max: 40, field: 'contact_phone' }) || '';
+    const notes = text(b.notes, { max: 2000, field: 'notes' }) || '';
+    const categories = Array.isArray(b.categories) ? b.categories.map((c) => String(c).trim()).filter(Boolean) : (typeof b.categories === 'string' ? b.categories.split(',').map((c) => c.trim()).filter(Boolean) : []);
+    const isActive = b.is_active !== false;
+
+    if (b.id) {
+      await db.query(
+        'UPDATE vendors SET name = $1, contact_name = $2, contact_person = $2, contact_phone = $3, phone = $3, categories = $4, notes = $5, is_active = $6, updated_at = now() WHERE id = $7',
+        [name, contactName, contactPhone, JSON.stringify(categories), notes, isActive, uuid(b.id)]
+      );
+      await audit(db, { actor: uid, action: 'update_vendor', entityType: 'vendor', entityId: b.id, details: { name } });
+    } else {
+      const countRes = await db.query('SELECT count(*)::int AS n FROM vendors');
+      const vendorCode = text(b.vendor_code || b.code, { max: 40, field: 'vendor_code' }) || `VEND-${String(Number(countRes.rows[0]?.n || 0) + 1).padStart(3, '0')}`;
+      await db.query(
+        'INSERT INTO vendors (vendor_code, code, name, contact_name, contact_person, contact_phone, phone, categories, notes, is_active) VALUES ($1,$1,$2,$3,$3,$4,$4,$5,$6,$7)',
+        [vendorCode, name, contactName, contactPhone, JSON.stringify(categories), notes, isActive]
+      );
+      await audit(db, { actor: uid, action: 'create_vendor', entityType: 'vendor', details: { name, vendorCode } });
+    }
+    return res.json({ ok: true });
+  }
+
+  if (section === 'purchase_order') {
+    const vendorId = b.vendor_id ? uuid(b.vendor_id, 'vendor_id') : null;
+    const vendorName = text(b.vendor_name, { max: 160, field: 'vendor_name', required: true });
+    const orderDate = b.order_date && /^\d{4}-\d{2}-\d{2}$/.test(b.order_date) ? b.order_date : new Date().toISOString().slice(0, 10);
+    const batchId = text(b.batch_id, { max: 60, field: 'batch_id', required: true });
+    const courierCharges = money(b.courier_charges || 0, { field: 'courier_charges' });
+    const notes = text(b.notes, { max: 2000, field: 'notes' }) || '';
+    const rawItems = Array.isArray(b.items) && b.items.length ? b.items : [];
+    if (!rawItems.length) throw badRequest('items_required', 'Add at least one item to purchase order');
+
+    const poTotals = calculatePurchaseOrderTotals(rawItems, courierCharges);
+
+    const poId = await db.tx(async (c) => {
+      let currentPoId = b.id ? uuid(b.id) : null;
+      if (currentPoId) {
+        const existing = (await c.query('SELECT status FROM purchase_orders WHERE id = $1', [currentPoId])).rows[0];
+        if (!existing) throw notFound('po_not_found', 'Purchase order not found');
+        if (existing.status === 'fulfilled') throw conflict('fulfilled_po_immutable', 'Fulfilled purchase orders cannot be modified');
+        await c.query(
+          'UPDATE purchase_orders SET vendor_id = $1, vendor_name = $2, order_date = $3, batch_id = $4, courier_charges = $5, subtotal = $6, grand_total = $7, notes = $8, updated_at = now() WHERE id = $9',
+          [vendorId, vendorName, orderDate, batchId, poTotals.courierCharges, poTotals.subtotal, poTotals.grandTotal, notes, currentPoId]
+        );
+        await c.query('DELETE FROM purchase_order_items WHERE purchase_order_id = $1', [currentPoId]);
+      } else {
+        const datePrefix = orderDate.replace(/-/g, '').slice(0, 6);
+        const countRes = await c.query('SELECT count(*)::int AS n FROM purchase_orders');
+        const poNumber = `PO-${datePrefix}-${String(Number(countRes.rows[0]?.n || 0) + 1).padStart(3, '0')}`;
+        const ins = await c.query(
+          'INSERT INTO purchase_orders (po_number, vendor_id, vendor_name, order_date, batch_id, courier_charges, subtotal, grand_total, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+          [poNumber, vendorId, vendorName, orderDate, batchId, poTotals.courierCharges, poTotals.subtotal, poTotals.grandTotal, notes]
+        );
+        currentPoId = ins.rows[0].id;
+      }
+
+      for (const it of poTotals.items) {
+        await c.query(
+          'INSERT INTO purchase_order_items (purchase_order_id, item_name, category, category_id, quantity, unit_cost, line_total) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [currentPoId, text(it.item_name, { max: 160, field: 'item_name', required: true }), text(it.category, { max: 80, field: 'category' }) || '', it.category_id && isUuid(it.category_id) ? it.category_id : null, it.quantity, it.unit_cost, it.line_total]
+        );
+      }
+      return currentPoId;
+    });
+
+    await audit(db, { actor: uid, action: b.id ? 'update_purchase_order' : 'create_purchase_order', entityType: 'purchase_order', entityId: poId });
+    return res.json({ ok: true, po_id: poId });
+  }
+
+  if (section === 'fulfil_purchase_order') {
+    const poId = uuid(b.id, 'id');
+    await db.tx(async (c) => {
+      const po = (await c.query('SELECT * FROM purchase_orders WHERE id = $1 FOR UPDATE', [poId])).rows[0];
+      if (!po) throw notFound('po_not_found', 'Purchase order not found');
+      if (po.status === 'fulfilled') throw conflict('already_fulfilled', 'This purchase order has already been fulfilled');
+
+      const items = (await c.query('SELECT * FROM purchase_order_items WHERE purchase_order_id = $1', [poId])).rows;
+      if (!items.length) throw badRequest('no_items', 'Purchase order contains no items');
+
+      const totals = calculatePurchaseOrderTotals(items, Number(po.courier_charges || 0));
+
+      for (const it of totals.items) {
+        const itemCourier = Math.round(Number(it.freight_per_unit || 0) * it.quantity * 100) / 100;
+        await saveProduct(c, uid, {
+          name: it.item_name,
+          category: it.category,
+          category_id: it.category_id,
+          vendor_id: po.vendor_id,
+          supplier_name: po.vendor_name,
+          batch_id: po.batch_id,
+          purchase_date: po.order_date,
+          purchase_quantity: it.quantity,
+          purchase_price_per_piece: it.unit_cost,
+          courier_charge: itemCourier,
+          cost_price_inr: it.landed_cost_per_unit,
+          price_inr: Math.round(it.landed_cost_per_unit * 2.4),
+          is_one_of_one: it.quantity === 1,
+          is_active: true,
+          variants: [{
+            size_label: 'Free Size',
+            price_inr: Math.round(it.landed_cost_per_unit * 2.4),
+            stock_quantity: it.quantity,
+            is_active: true,
+          }],
+        });
+      }
+
+      await c.query("UPDATE purchase_orders SET status = 'fulfilled', fulfilled_at = now(), updated_at = now() WHERE id = $1", [poId]);
+      await audit(c, { actor: uid, action: 'fulfil_purchase_order', entityType: 'purchase_order', entityId: poId, details: { po_number: po.po_number, items: items.length } });
+    });
+    return res.json({ ok: true });
+  }
+
+  if (section === 'customer') {
+    const fullName = text(b.full_name, { max: 120, field: 'full_name', required: true });
+    const email = b.email ? validEmail(b.email, { field: 'email' }) : '';
+    const phone = text(b.phone, { max: 40, field: 'phone' }) || '';
+    const notes = text(b.notes, { max: 2000, field: 'notes' }) || '';
+    const tags = Array.isArray(b.tags) ? b.tags : [];
+
+    let authUserId = b.auth_user_id || b.id;
+    if (authUserId) {
+      await db.tx(async (c) => {
+        await c.query(
+          'UPDATE customer_profiles SET full_name = $1, phone = $2, notes = $3, tags = $4, updated_at = now() WHERE auth_user_id = $5',
+          [fullName, phone, notes, JSON.stringify(tags), authUserId]
+        );
+        if (email) {
+          await c.query('UPDATE profiles SET full_name = $1, email = $2, updated_at = now() WHERE auth_user_id = $3', [fullName, email, authUserId]);
+          await c.query('UPDATE customer_profiles SET email = $1 WHERE auth_user_id = $2', [email, authUserId]);
+        }
+      });
+      await audit(db, { actor: uid, action: 'update_customer', entityType: 'customer', entityId: authUserId });
+    } else {
+      if (!email) throw badRequest('email_required', 'Email is required for new customer');
+      authUserId = await db.tx(async (c) => {
+        const generatedUid = 'usr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await c.query(
+          'INSERT INTO profiles (auth_user_id, full_name, email, role, is_admin) VALUES ($1,$2,$3,$4,$5)',
+          [generatedUid, fullName, email, 'customer', false]
+        );
+        await c.query(
+          'INSERT INTO customer_profiles (auth_user_id, full_name, email, phone, notes, tags) VALUES ($1,$2,$3,$4,$5,$6)',
+          [generatedUid, fullName, email, phone, notes, JSON.stringify(tags)]
+        );
+        return generatedUid;
+      });
+      await audit(db, { actor: uid, action: 'create_customer', entityType: 'customer', entityId: authUserId });
+    }
+    return res.json({ ok: true, auth_user_id: authUserId });
   }
 
   if (section === 'admin') {
@@ -987,7 +1503,12 @@ async function handleWrite(req, res) {
 async function handleDelete(req, res) {
   const uid = req.user.id;
   const q = { ...(req.body || {}), ...(req.query || {}) };
-  const section = q.section;
+  let section = q.section;
+  if (typeof section === 'string' && (section.includes('?') || section.includes('&'))) {
+    const parts = section.split(/[?&]/);
+    section = parts[0];
+    q.section = section;
+  }
   if (section === 'product') {
     const result = await db.tx((c) => deleteOrArchiveProduct(c, uid, uuid(q.id)));
     return res.json({ ok: true, result });
@@ -1005,6 +1526,60 @@ async function handleDelete(req, res) {
   }
   if (section === 'courier') {
     return res.json({ ok: true, ...(await db.tx((c) => deleteCourier(c, uid, q.id))) });
+  }
+  if (section === 'vendor') {
+    const id = uuid(q.id);
+    const hasPOs = (await db.query('SELECT 1 FROM purchase_orders WHERE vendor_id = $1 LIMIT 1', [id])).rows[0];
+    const hasProducts = (await db.query('SELECT 1 FROM products WHERE vendor_id = $1 LIMIT 1', [id])).rows[0];
+    if (hasPOs || hasProducts) {
+      throw conflict('vendor_in_use', 'Cannot delete vendor with purchase orders or product inventory. Mark the vendor inactive instead.');
+    }
+    await db.query('DELETE FROM vendors WHERE id = $1', [id]);
+    await audit(db, { actor: uid, action: 'delete_vendor', entityType: 'vendor', entityId: id });
+    return res.json({ ok: true });
+  }
+  if (section === 'purchase_order') {
+    const id = uuid(q.id);
+    const po = (await db.query('SELECT status FROM purchase_orders WHERE id = $1', [id])).rows[0];
+    if (!po) throw notFound('po_not_found', 'Purchase order not found');
+    if (po.status === 'fulfilled') {
+      throw conflict('fulfilled_po_immutable', 'Fulfilled purchase orders cannot be deleted.');
+    }
+    await db.query('DELETE FROM purchase_orders WHERE id = $1', [id]);
+    await audit(db, { actor: uid, action: 'delete_purchase_order', entityType: 'purchase_order', entityId: id });
+    return res.json({ ok: true });
+  }
+  if (section === 'customer') {
+    const authUserId = text(q.id, { max: 80, field: 'id', required: true });
+    const hasOrders = (await db.query("SELECT 1 FROM orders WHERE (auth_user_id = $1 OR customer_id = $1) AND payment_status = 'paid' LIMIT 1", [authUserId])).rows[0];
+    if (hasOrders) {
+      throw conflict('customer_has_orders', 'Cannot delete customer with purchase history. Customer records are preserved for accounting and loyalty.');
+    }
+    await db.tx(async (c) => {
+      await c.query('DELETE FROM customer_profiles WHERE auth_user_id = $1', [authUserId]);
+      await c.query('DELETE FROM wearer_profiles WHERE auth_user_id = $1', [authUserId]);
+      await c.query('DELETE FROM profiles WHERE auth_user_id = $1', [authUserId]);
+    });
+    await audit(db, { actor: uid, action: 'delete_customer', entityType: 'customer', entityId: authUserId });
+    return res.json({ ok: true });
+  }
+  if (section === 'sale') {
+    const id = uuid(q.id, 'id');
+    await db.tx(async (c) => {
+      const order = (await c.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [id])).rows[0];
+      if (!order) throw notFound('sale_not_found', 'Sale not found');
+      if (order.status === 'cancelled') return;
+      const items = (await c.query('SELECT variant_id, quantity, product_id FROM order_items WHERE order_id = $1', [id])).rows;
+      for (const it of items) {
+        if (it.variant_id) {
+          await c.query('UPDATE product_variants SET stock_quantity = stock_quantity + $2, updated_at = now() WHERE id = $1', [it.variant_id, it.quantity]);
+        }
+      }
+      await syncProductInventory(c, items.map((i) => i.product_id).filter(Boolean));
+      await c.query("UPDATE orders SET status = 'cancelled', payment_status = 'cancelled', updated_at = now() WHERE id = $1", [id]);
+      await audit(c, { actor: uid, action: 'cancel_sale', entityType: 'order', entityId: id, details: { total: order.total } });
+    });
+    return res.json({ ok: true });
   }
   if (section === 'admin') {
     return res.json({ ok: true, ...(await db.tx((c) => removeAdmin(c, uid, q.id))) });

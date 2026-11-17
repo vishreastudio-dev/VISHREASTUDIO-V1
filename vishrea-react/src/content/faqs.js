@@ -2,6 +2,25 @@
 // same text is published as FAQPage structured data — keep both in sync by editing only here.
 // Figures match the default store settings (shipping ₹99, 7-day exchange, 24-hour damage window).
 
+export const HOME_LOCAL_FAQS = [
+  {
+    q: 'Where can I buy trendy co-ord sets and western wear in Electronic City Phase 2?',
+    a: 'Vishrea Studio is located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru. We curate designer co-ord sets, dresses, tops, and contemporary western wear with one-on-one personal styling consultations.',
+  },
+  {
+    q: 'Does Vishrea Studio offer personal styling consultations in Hebbagodi?',
+    a: 'Yes, we offer complimentary 1-on-1 personal styling consultations at our Hebbagodi boutique. Our stylists help you discover silhouettes, fabrics, and palettes tailored to your skin tone and frame.',
+  },
+  {
+    q: 'Does Vishrea Studio provide pan-India shipping?',
+    a: 'Yes, Vishrea Studio delivers pan-India with express insured courier partners (Bluedart, Delhivery, DTDC) for a flat ₹99 fee. We also offer free studio pickup for Bengaluru shoppers.',
+  },
+  {
+    q: 'What is the price range of outfits at Vishrea Studio?',
+    a: 'Our curated collections start from ₹1,250 for tops and everyday pieces, with co-ord sets, kurtis, and occasion dresses typically priced between ₹1,800 to ₹4,500, delivering accessible luxury with all taxes included.',
+  },
+];
+
 export const HELP_FAQS = [
   {
     q: 'What does “one-of-one” mean?',
