@@ -25,7 +25,7 @@ const FEATURES = [
     key: 'wardrobe',
     eyebrow: 'Private Haute Horlogerie',
     title: 'Your Private Wardrobe Vault',
-    desc: 'Each 1-of-1 silhouette or reserved edit piece lives in your personal digital wardrobe vault. Access private styling records and track your bespoke garments.',
+    desc: 'Each 1-of-1 silhouette or reserved edit piece lives in your personal digital wardrobe vault. Access private styling records and track your curated garments.',
     tag: 'One-of-One Edits',
     actionText: 'Enter Private Wardrobe',
     actionLink: '/wardrobe',
@@ -37,7 +37,7 @@ const FEATURES = [
   },
   {
     key: 'wearers',
-    eyebrow: 'Bespoke Atelier Fit',
+    eyebrow: 'Atelier Fit & Sizing',
     title: 'Precision Wearer Profiles',
     desc: 'Store exact anatomical measurements in centimetres for yourself and those you shop for. Every piece you select can be precision-tailored to your exact drape.',
     tag: 'Custom Silhouette',
@@ -84,7 +84,7 @@ const FEATURES = [
 ];
 
 export function FirstTimeOnboardingModal() {
-  const { user, completeProfile, completeOnboarding } = useStore();
+  const { user, completeProfile, completeOnboarding, fitPreferences } = useStore();
   const navigate = useNavigate();
 
   // If user is not logged in or is an admin, do not show
@@ -95,10 +95,10 @@ export function FirstTimeOnboardingModal() {
 
   if (!needsProfile && !needsTour) return null;
 
-  return <OnboardingWizard user={user} needsProfile={needsProfile} completeProfile={completeProfile} completeOnboarding={completeOnboarding} navigate={navigate} />;
+  return <OnboardingWizard user={user} needsProfile={needsProfile} completeProfile={completeProfile} completeOnboarding={completeOnboarding} navigate={navigate} fitPreferences={fitPreferences} />;
 }
 
-function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboarding, navigate }) {
+function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboarding, navigate, fitPreferences = [] }) {
   const [stage, setStage] = useState(needsProfile ? 'profile' : 'tour');
   const [tourIndex, setTourIndex] = useState(0);
 
@@ -139,9 +139,13 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
       setMsg({ tone: 'error', text: 'Please enter your full name.' });
       return;
     }
-    const cleanPhone = phone.replace(/[^\d+]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setMsg({ tone: 'error', text: 'Please enter a valid 10-digit mobile number for order delivery.' });
+    let cleanPhone = phone.trim().replace(/[\s\-()]/g, '');
+    if (cleanPhone.startsWith('+91')) cleanPhone = cleanPhone.slice(3);
+    else if (cleanPhone.startsWith('91') && cleanPhone.length === 12) cleanPhone = cleanPhone.slice(2);
+    else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) cleanPhone = cleanPhone.slice(1);
+
+    if (!/^[6-9]\d{9}$/.test(cleanPhone) && !/^\+[1-9]\d{6,14}$/.test(cleanPhone)) {
+      setMsg({ tone: 'error', text: 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
       return;
     }
     if (!ageConfirmed) {
@@ -263,7 +267,7 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
                 Complete Your Profile
               </h2>
               <p style={{ color: 'var(--muted, #666)', fontSize: 13, lineHeight: 1.6, maxWidth: 440, margin: '0 auto' }}>
-                To unlock private bespoke pieces, tailored sizing, and secure order delivery, please finalize your details below.
+                To unlock private curated pieces, tailored sizing, and secure order delivery, please finalize your details below.
               </p>
             </div>
 
@@ -450,18 +454,24 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
                   <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6, color: '#333' }}>
                     Fit Preference
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                    {['relaxed', 'regular', 'slim', 'oversized'].map((fp) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Math.max((fitPreferences || []).filter(o => o.active !== false).length || 4, 2), 4)}, 1fr)`, gap: 8 }}>
+                    {((fitPreferences && fitPreferences.length ? fitPreferences.filter(o => o.active !== false) : [
+                      { id: 'relaxed', label: 'Relaxed' },
+                      { id: 'regular', label: 'Regular' },
+                      { id: 'slim', label: 'Slim' },
+                      { id: 'oversized', label: 'Oversized' },
+                    ])).map((fp) => (
                       <button
-                        key={fp}
+                        key={fp.id}
                         type="button"
-                        onClick={() => setFitPreference(fp)}
+                        onClick={() => setFitPreference(fp.id)}
+                        title={fp.description || fp.label}
                         style={{
                           padding: '8px 4px',
-                          border: `1px solid ${fitPreference === fp ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
-                          background: fitPreference === fp ? '#fbf5f6' : '#fff',
-                          color: fitPreference === fp ? 'var(--wine, #752238)' : '#333',
-                          fontWeight: fitPreference === fp ? 600 : 400,
+                          border: `1px solid ${fitPreference === fp.id ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
+                          background: fitPreference === fp.id ? '#fbf5f6' : '#fff',
+                          color: fitPreference === fp.id ? 'var(--wine, #752238)' : '#333',
+                          fontWeight: fitPreference === fp.id ? 600 : 400,
                           fontSize: 11.5,
                           textTransform: 'capitalize',
                           cursor: 'pointer',
@@ -469,7 +479,7 @@ function OnboardingWizard({ user, needsProfile, completeProfile, completeOnboard
                           borderRadius: 2,
                         }}
                       >
-                        {fp}
+                        {fp.label || fp.id}
                       </button>
                     ))}
                   </div>

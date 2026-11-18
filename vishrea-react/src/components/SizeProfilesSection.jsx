@@ -33,6 +33,7 @@ export function SizeProfilesSection() {
   const {
     sizeProfiles,
     activeSizeProfile,
+    fitPreferences,
     switchActiveProfile,
     saveSizeProfile,
     deleteSizeProfile,
@@ -347,26 +348,41 @@ export function SizeProfilesSection() {
             <label style={{ display: 'block', fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>
               Fit Preference
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {['relaxed', 'regular', 'slim', 'oversized'].map((fp) => (
-                <button
-                  key={fp}
-                  type="button"
-                  onClick={() => setForm({ ...form, fit_preference: fp })}
-                  style={{
-                    padding: '8px 4px',
-                    border: `1px solid ${form.fit_preference === fp ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
-                    background: form.fit_preference === fp ? '#fbf5f6' : '#fff',
-                    color: form.fit_preference === fp ? 'var(--wine, #752238)' : '#333',
-                    fontWeight: form.fit_preference === fp ? 600 : 400,
-                    fontSize: 11.5,
-                    textTransform: 'capitalize',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {fp}
-                </button>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Math.max((fitPreferences || []).filter(o => o.active !== false).length || 4, 2), 4)}, 1fr)`, gap: 8 }}>
+              {(() => {
+                const baseList = (fitPreferences && fitPreferences.length ? fitPreferences.filter(o => o.active !== false) : [
+                  { id: 'relaxed', label: 'Relaxed' },
+                  { id: 'regular', label: 'Regular' },
+                  { id: 'slim', label: 'Slim' },
+                  { id: 'oversized', label: 'Oversized' },
+                ]);
+                if (form.fit_preference && !baseList.some(o => o.id === form.fit_preference)) {
+                  baseList.push({
+                    id: form.fit_preference,
+                    label: form.fit_preference.charAt(0).toUpperCase() + form.fit_preference.slice(1) + ' (Saved)',
+                  });
+                }
+                return baseList.map((fp) => (
+                  <button
+                    key={fp.id}
+                    type="button"
+                    onClick={() => setForm({ ...form, fit_preference: fp.id })}
+                    title={fp.description || fp.label}
+                    style={{
+                      padding: '8px 4px',
+                      border: `1px solid ${form.fit_preference === fp.id ? 'var(--wine, #752238)' : 'var(--line, #dcd4ce)'}`,
+                      background: form.fit_preference === fp.id ? '#fbf5f6' : '#fff',
+                      color: form.fit_preference === fp.id ? 'var(--wine, #752238)' : '#333',
+                      fontWeight: form.fit_preference === fp.id ? 600 : 400,
+                      fontSize: 11.5,
+                      textTransform: 'capitalize',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {fp.label || fp.id}
+                  </button>
+                ));
+              })()}
             </div>
           </div>
 

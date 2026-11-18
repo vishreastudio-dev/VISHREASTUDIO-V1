@@ -32,6 +32,7 @@ export const StoreProvider = ({ children }) => {
   // Personalized Size Profiles & Active Shopping Profile
   const [sizeProfiles, setSizeProfiles] = useState([]);
   const [activeSizeProfile, setActiveSizeProfile] = useState(null);
+  const [fitPreferences, setFitPreferences] = useState([]);
   const [sizeFilterEnabled, setSizeFilterEnabledState] = useState(() => readJson(SIZE_FILTER_KEY, true));
 
   const setSizeFilterEnabled = useCallback((enabled) => {
@@ -45,6 +46,9 @@ export const StoreProvider = ({ children }) => {
       if (Array.isArray(d?.profiles)) {
         setSizeProfiles(d.profiles);
         setActiveSizeProfile(d.active_profile || d.profiles.find((p) => p.id === d.active_profile_id) || d.profiles[0] || null);
+        if (Array.isArray(d?.fit_preferences)) {
+          setFitPreferences(d.fit_preferences);
+        }
         return d;
       }
     } catch {
@@ -357,6 +361,7 @@ export const StoreProvider = ({ children }) => {
       completeOnboarding,
       sizeProfiles,
       activeSizeProfile,
+      fitPreferences,
       sizeFilterEnabled,
       setSizeFilterEnabled,
       refreshSizeProfiles,
@@ -364,7 +369,7 @@ export const StoreProvider = ({ children }) => {
       saveSizeProfile,
       deleteSizeProfile,
     }),
-    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral, sizeProfiles, activeSizeProfile, sizeFilterEnabled, setSizeFilterEnabled, refreshSizeProfiles, switchActiveProfile, saveSizeProfile, deleteSizeProfile]
+    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral, sizeProfiles, activeSizeProfile, fitPreferences, sizeFilterEnabled, setSizeFilterEnabled, refreshSizeProfiles, switchActiveProfile, saveSizeProfile, deleteSizeProfile]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

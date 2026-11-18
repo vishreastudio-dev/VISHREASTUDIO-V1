@@ -5,7 +5,7 @@ import { HeroCarousel } from '../components/HeroCarousel';
 import { ReviewsTicker } from '../components/ReviewsTicker';
 import { useApi } from '../lib/useApi';
 import { usePageSeo } from '../lib/usePageSeo';
-import { faqSchema, itemListSchema } from '../lib/schema';
+import { faqSchema, itemListSchema, organizationSchema, websiteSchema } from '../lib/schema';
 import { HOME_LOCAL_FAQS } from '../content/faqs.js';
 import { SITE } from '../site.config.js';
 import { useStore } from '../context/StoreContext';
@@ -101,6 +101,8 @@ export const Home = () => {
   const videos = contentReq.data?.feedback_videos || [];
 
   const homeSchemas = [
+    organizationSchema(),
+    websiteSchema(),
     featured.length ? itemListSchema(SITE.url + '/', featured) : null,
     faqSchema(SITE.url + '/', HOME_LOCAL_FAQS),
   ].filter(Boolean);
@@ -161,26 +163,26 @@ export const Home = () => {
     <div className="home-page">
       <Header />
       <main id="main-content">
-        {/* Hero Section */}
+        {/* 1. Home Hero / Carousel */}
         <HomeHero />
 
-        {/* Section 1: Explore Categories → New UI: "Pick a Piece" (Fanned Arc, 3D Cursor Tilt, Spring Add) */}
-        <PickAPiece
-          categories={CATEGORIES}
-          onAddToBag={handleAddToBag}
-        />
-
-        {/* Section 2: Just In → New UI: "Styled head to toe" / "Try the Look" (Shared Arc Engine) */}
+        {/* 2. JUST IN · STYLED HEAD TO TOE (Shared Arc Engine) */}
         <TryTheLook
           products={featured}
           onAddToBag={handleAddToBag}
           onAddFullLook={handleAddFullLook}
         />
 
-        {/* Section 3: Words From Real Customers (Preserved as-is) */}
+        {/* 3. EXPLORE CATEGORIES (Fanned Arc, 3D Cursor Tilt, Spring Add) */}
+        <PickAPiece
+          categories={CATEGORIES}
+          onAddToBag={handleAddToBag}
+        />
+
+        {/* 4. Words From Real Customers (Retained content & functionality) */}
         <ReviewsTicker />
 
-        {/* Section 4: Walkin Wardrobe Membership (Preserved as-is) */}
+        {/* 5. Walkin Wardrobe Membership (Retained content & functionality) */}
         <section className="editorial-strip" aria-labelledby="membership-title">
           <div>
             <p className="eyebrow">Walkin Wardrobe membership</p>
@@ -198,17 +200,17 @@ export const Home = () => {
           />
         </section>
 
-        {/* Section 5: About the Studio · Bengaluru → New UI: "Feel the drape" (Storefront image in gold frame, Scrolling photo stream) */}
+        {/* 6. ABOUT THE STUDIO · BENGALURU (Storefront image in gold frame, Scrolling photo stream) */}
         <FeelTheDrape
           imageUrl="/assets/studio-storefront.jpg"
         />
 
-        {/* Section 6: Worn by our customers → New UI: "Style, in motion." (3D Reel Arc, Autoplay 4s, Fullscreen Player) */}
+        {/* 7. WORN BY OUR CUSTOMERS (3D Reel Arc, Autoplay 4s, Fullscreen Player) */}
         <StyleInMotion
           videos={videos}
         />
 
-        {/* Section 7: Frequently Asked Questions → New Accordion UI */}
+        {/* 8. FREQUENTLY ASKED QUESTIONS (Compact Accordion UI) */}
         <HomeFaqAccordion
           faqs={HOME_LOCAL_FAQS}
         />

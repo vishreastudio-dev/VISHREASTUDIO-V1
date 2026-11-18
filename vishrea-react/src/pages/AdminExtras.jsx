@@ -631,8 +631,177 @@ function IdPicker({ id, options, value, onChange }) {
   );
 }
 
+function FitPreferenceSettingsEditor({ value = [], onChange }) {
+  const options = Array.isArray(value) ? value : [];
+
+  const handleUpdate = (idx, field, val) => {
+    const updated = options.map((opt, i) => (i === idx ? { ...opt, [field]: val } : opt));
+    onChange(updated);
+  };
+
+  const handleToggle = (idx) => {
+    const target = options[idx];
+    if (target.active) {
+      const activeCount = options.filter((o) => o.active).length;
+      if (activeCount <= 1) {
+        alert('At least one fit preference option must remain active.');
+        return;
+      }
+    }
+    handleUpdate(idx, 'active', !target.active);
+  };
+
+  const move = (idx, dir) => {
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= options.length) return;
+    const next = [...options];
+    const temp = next[idx];
+    next[idx] = next[targetIdx];
+    next[targetIdx] = temp;
+    onChange(next.map((o, i) => ({ ...o, sort_order: i + 1 })));
+  };
+
+  const addOption = () => {
+    const count = options.length + 1;
+    const newId = `custom_fit_${count}`;
+    const next = [
+      ...options,
+      {
+        id: newId,
+        label: `Custom Fit ${count}`,
+        description: 'Custom silhouette preference',
+        active: true,
+        sort_order: count,
+      },
+    ];
+    onChange(next);
+  };
+
+  const removeOption = (idx) => {
+    if (options.length <= 1) {
+      alert('You must have at least one fit preference option.');
+      return;
+    }
+    const filtered = options.filter((_, i) => i !== idx);
+    if (!filtered.some((o) => o.active)) {
+      alert('At least one fit preference option must remain active.');
+      return;
+    }
+    onChange(filtered.map((o, i) => ({ ...o, sort_order: i + 1 })));
+  };
+
+  return (
+    <div style={{ background: '#fdfbf9', border: '1px solid #ebdcd0', borderRadius: 8, padding: 14, marginTop: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--soft, #666)' }}>
+          Active options are displayed to customers in Profile Completion and Size Personalization.
+        </p>
+        <button type="button" className="btn small" onClick={addOption} style={{ fontSize: 11, padding: '4px 10px' }}>
+          + Add Fit Option
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {options.map((opt, idx) => (
+          <div
+            key={opt.id || idx}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: 10,
+              background: opt.active ? '#fff' : '#f5f5f5',
+              border: `1px solid ${opt.active ? '#e0d6cf' : '#ddd'}`,
+              borderRadius: 6,
+              opacity: opt.active ? 1 : 0.75,
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <button
+                type="button"
+                disabled={idx === 0}
+                onClick={() => move(idx, -1)}
+                style={{ cursor: idx === 0 ? 'default' : 'pointer', border: 'none', background: 'transparent', padding: 0, fontSize: 10 }}
+                title="Move up"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                disabled={idx === options.length - 1}
+                onClick={() => move(idx, 1)}
+                style={{ cursor: idx === options.length - 1 ? 'default' : 'pointer', border: 'none', background: 'transparent', padding: 0, fontSize: 10 }}
+                title="Move down"
+              >
+                ▼
+              </button>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0, fontSize: 12, fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={opt.active !== false}
+                onChange={() => handleToggle(idx)}
+              />
+              <span style={{ color: opt.active ? 'var(--wine, #752238)' : '#888' }}>
+                {opt.active ? 'Active' : 'Inactive'}
+              </span>
+            </label>
+
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '120px 180px 1fr', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="ID (e.g. relaxed)"
+                value={opt.id || ''}
+                onChange={(e) => handleUpdate(idx, 'id', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                style={{ fontSize: 12, padding: '4px 8px' }}
+                title="System identifier"
+              />
+              <input
+                type="text"
+                placeholder="Customer Label"
+                value={opt.label || ''}
+                onChange={(e) => handleUpdate(idx, 'label', e.target.value)}
+                style={{ fontSize: 12, padding: '4px 8px', fontWeight: 500 }}
+                title="Visible title shown to customer"
+              />
+              <input
+                type="text"
+                placeholder="Fit description (e.g. drape notes)"
+                value={opt.description || ''}
+                onChange={(e) => handleUpdate(idx, 'description', e.target.value)}
+                style={{ fontSize: 12, padding: '4px 8px' }}
+                title="Helpful customer hint"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => removeOption(idx)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#b00',
+                cursor: 'pointer',
+                fontSize: 14,
+                padding: '4px 8px',
+              }}
+              title="Delete option"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SettingInput({ name, meta, value, options, onChange }) {
   const id = `set-${name}`;
+  if (meta.type === 'json' && name === 'fit_preference_options') {
+    return <FitPreferenceSettingsEditor value={value} onChange={onChange} />;
+  }
   if (meta.type === 'bool') {
     return (
       <label className="settings-check" htmlFor={id}>

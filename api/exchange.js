@@ -3,6 +3,7 @@ import { badRequest, conflict, notFound } from '../lib/http.js';
 import { getSettings } from '../lib/settings.js';
 import { audit } from '../lib/audit.js';
 import { oneOf, text, uuid } from '../lib/validate.js';
+import { nextHumanId, ID_PREFIXES } from '../lib/id-generator.js';
 
 export const access = 'user';
 export const methods = ['GET', 'POST'];
@@ -39,11 +40,12 @@ export default async function exchange(req, res) {
       }
       const open = await c.query("SELECT 1 FROM exchanges WHERE order_id = $1 AND status IN ('requested','review')", [orderId]);
       if (open.rows[0]) throw conflict('exchange_already_open', 'There is already an open request for this order');
+      const exchangeCode = await nextHumanId(c, ID_PREFIXES.EXCHANGE);
       const r = await c.query(
-        'INSERT INTO exchanges (order_id, auth_user_id, reason, claim_type, evidence_urls) VALUES ($1,$2,$3,$4,$5) RETURNING id, order_id, claim_type, reason, status, created_at',
-        [orderId, uid, reason, claimType, JSON.stringify(evidence)]
+        'INSERT INTO exchanges (order_id, auth_user_id, reason, claim_type, evidence_urls, exchange_code) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, exchange_code, order_id, claim_type, reason, status, created_at',
+        [orderId, uid, reason, claimType, JSON.stringify(evidence), exchangeCode]
       );
-      await audit(c, { actor: uid, action: 'exchange_requested', entityType: 'exchange', entityId: r.rows[0].id, details: { order_id: orderId, claim_type: claimType } });
+      await audit(c, { actor: uid, action: 'exchange_requested', entityType: 'exchange', entityId: r.rows[0].id, details: { order_id: orderId, claim_type: claimType, exchange_code: exchangeCode } });
       return r.rows[0];
     });
     return res.status(201).json({ exchange: created, ...(await list(uid)) });
@@ -52,6 +54,6 @@ export default async function exchange(req, res) {
 }
 
 async function list(uid) {
-  const r = await db.query('SELECT id, order_id, claim_type, reason, status, resolution, created_at FROM exchanges WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 100', [uid]);
+  const r = await db.query('SELECT id, exchange_code, order_id, claim_type, reason, status, resolution, created_at FROM exchanges WHERE auth_user_id = $1 ORDER BY created_at DESC LIMIT 100', [uid]);
   return { exchanges: r.rows };
 }

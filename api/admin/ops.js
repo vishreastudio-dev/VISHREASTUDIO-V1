@@ -16,6 +16,7 @@ import { notify, sendDispatchNotification } from '../../lib/notify.js';
 import { config } from '../../lib/config.js';
 import { log } from '../../lib/log.js';
 import { buildTrackingUrl, deleteCourier, listCouriers, orderCourier, resolveCourier, saveCourier, setCourierActive, trackingNumber } from '../../lib/couriers.js';
+import { nextHumanId, ID_PREFIXES } from '../../lib/id-generator.js';
 import { bool, email as validEmail, gstin, indianState, int, isSlug, mediaUrl, money, oneOf, pageParams, slugify, text, uuid } from '../../lib/validate.js';
 import {
   suggestBatchId,
@@ -195,11 +196,11 @@ const csvCell = (v) => {
 
 async function exportCsv(type, res) {
   const queries = {
-    customers: 'SELECT auth_user_id, full_name, email, phone, gst_number, marketing_opt_in, whatsapp_opt_in, created_at FROM customer_profiles ORDER BY created_at DESC LIMIT 20000',
-    products: `SELECT p.name, p.slug, c.name AS category, v.sku, v.size_label, v.price_inr, v.sale_price_inr, v.stock_quantity, v.is_active AS variant_active, p.is_active
+    customers: 'SELECT customer_code, auth_user_id, full_name, email, phone, gst_number, marketing_opt_in, whatsapp_opt_in, created_at FROM customer_profiles ORDER BY created_at DESC LIMIT 20000',
+    products: `SELECT p.product_code, p.name, p.slug, c.name AS category, v.sku, v.size_label, v.price_inr, v.sale_price_inr, v.stock_quantity, v.is_active AS variant_active, p.is_active
                  FROM products p LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN product_variants v ON v.product_id = p.id ORDER BY p.created_at DESC LIMIT 20000`,
     invoices: 'SELECT invoice_number, order_id, membership_payment_id, taxable_value, gst_amount, cgst_amount, sgst_amount, igst_amount, total_amount, place_of_supply, buyer_gstin, issued_at FROM invoice_records ORDER BY issued_at DESC LIMIT 20000',
-    orders: `SELECT o.id, o.created_at, o.status, o.payment_status, o.subtotal, o.shipping_fee, o.total, o.tax_amount, o.invoice_number, o.channel, o.shipping_method,
+    orders: `SELECT o.order_number, o.id, o.created_at, o.status, o.payment_status, o.subtotal, o.shipping_fee, o.total, o.tax_amount, o.invoice_number, o.channel, o.shipping_method,
                     o.tracking_number, o.razorpay_payment_id, cp.full_name, cp.email
                FROM orders o LEFT JOIN customer_profiles cp ON cp.auth_user_id = o.auth_user_id ORDER BY o.created_at DESC LIMIT 20000`,
     membership_payments: `SELECT mp.paid_at, mp.attempted_at, mp.status, mp.charge_kind, mp.kind, mp.months, mp.list_amount, mp.discount_amount, mp.amount,
@@ -247,7 +248,7 @@ async function handleGet(req, res) {
       const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
       return res.json({
         products: await rows(
-          `SELECT p.id, p.name, p.slug, p.price_inr, p.cost_price_inr, p.badge, p.is_active, p.archived_at, p.featured, p.is_one_of_one, p.image_url, p.images,
+          `SELECT p.id, p.product_code, p.name, p.slug, p.price_inr, p.cost_price_inr, p.badge, p.is_active, p.archived_at, p.featured, p.is_one_of_one, p.image_url, p.images,
                   p.color, p.colour_season, p.size_label, p.category_id, p.credit_eligible, p.drop_id, c.name AS category, p.created_at,
                   p.batch_id, p.purchase_date, p.purchase_quantity, p.purchase_price_per_piece, p.courier_charge, p.low_stock_threshold, p.supplier_name, p.vendor_id,
                   COALESCE(vnd.name, p.supplier_name) AS vendor_name,
@@ -268,7 +269,7 @@ async function handleGet(req, res) {
                                                  'stock_quantity', v.stock_quantity, 'is_active', v.is_active) ORDER BY v.sort_order, v.created_at) AS variants,
                       sum(v.stock_quantity) FILTER (WHERE v.is_active) AS stock, min(v.price_inr) FILTER (WHERE v.is_active) AS min_price, max(v.price_inr) FILTER (WHERE v.is_active) AS max_price
                  FROM product_variants v WHERE v.product_id = p.id) vs ON true
-            WHERE ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' OR lower(COALESCE(p.batch_id, '')) LIKE '%' || $1 || '%' OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND lower(sv.sku) LIKE '%' || $1 || '%'))
+            WHERE ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' OR lower(COALESCE(p.product_code, '')) LIKE '%' || $1 || '%' OR lower(COALESCE(p.batch_id, '')) LIKE '%' || $1 || '%' OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND lower(sv.sku) LIKE '%' || $1 || '%'))
               AND ($4::boolean OR p.archived_at IS NULL)
               AND ($5::uuid IS NULL OR p.category_id = $5)
               AND ($6 = '' OR ($6 = 'live' AND p.is_active AND p.archived_at IS NULL) OR ($6 = 'hidden' AND NOT p.is_active AND p.archived_at IS NULL)
@@ -282,7 +283,7 @@ async function handleGet(req, res) {
     case 'product':
       return res.json({ product: await getProductWithVariants(db, uuid(q.id)) });
     case 'categories':
-      return res.json({ categories: await rows('SELECT * FROM categories ORDER BY sort_order, name') });
+      return res.json({ categories: await rows('SELECT id, category_code, name, slug, is_active, sort_order, parent_id FROM categories ORDER BY sort_order, name') });
     case 'orders': {
       // Abandoned checkouts (never paid, then expired or cancelled) are hidden unless asked for.
       const showAbandoned = bool(q.abandoned) || ['expired', 'cancelled'].includes(q.payment_status) || ['expired', 'cancelled'].includes(q.status);
@@ -290,13 +291,13 @@ async function handleGet(req, res) {
       return res.json({
         abandoned_hidden: showAbandoned ? 0 : (await rows(`SELECT count(*)::int AS n FROM orders o WHERE ${abandoned}`))[0].n,
         orders: await rows(
-          `SELECT o.id, o.auth_user_id, o.status, o.payment_status, o.total, o.tax_amount, o.channel, o.shipping_method, o.tracking_number, o.courier_partner, o.courier_id, o.tracking_url, o.invoice_number,
-                  o.created_at, o.paid_at, o.payment_failure_reason, cp.full_name, cp.email,
+          `SELECT o.id, o.order_number, o.auth_user_id, o.status, o.payment_status, o.total, o.tax_amount, o.channel, o.shipping_method, o.tracking_number, o.courier_partner, o.courier_id, o.tracking_url, o.invoice_number,
+                  o.created_at, o.paid_at, o.payment_failure_reason, cp.customer_code, cp.full_name, cp.email,
                   COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'sku', i.sku, 'qty', i.quantity, 'image_url', p.image_url, 'images', p.images))
                               FROM order_items i LEFT JOIN products p ON p.id = i.product_id WHERE i.order_id = o.id), '[]') AS items
              FROM orders o LEFT JOIN customer_profiles cp ON cp.auth_user_id = o.auth_user_id
             WHERE ($1 = '' OR o.payment_status = $1) AND ($4 = '' OR o.status = $4) AND ($6::boolean OR NOT ${abandoned})
-              AND ($5 = '' OR o.id::text LIKE $5 || '%' OR lower(COALESCE(cp.email, '')) LIKE '%' || $5 || '%' OR lower(COALESCE(cp.full_name, '')) LIKE '%' || $5 || '%'
+              AND ($5 = '' OR o.id::text LIKE $5 || '%' OR lower(COALESCE(o.order_number, '')) LIKE '%' || $5 || '%' OR lower(COALESCE(cp.email, '')) LIKE '%' || $5 || '%' OR lower(COALESCE(cp.full_name, '')) LIKE '%' || $5 || '%'
                    OR lower(COALESCE(o.invoice_number, '')) LIKE '%' || $5 || '%' OR lower(COALESCE(o.tracking_number, '')) LIKE '%' || $5 || '%')
             ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
           [
@@ -316,7 +317,7 @@ async function handleGet(req, res) {
       const isTopSpending = sort === 'top_spending' || sort === 'spent_desc' || q.top_spending === 'true';
       return res.json({
         customers: await rows(
-          `SELECT cp.auth_user_id, cp.full_name, cp.email, cp.phone, cp.marketing_opt_in, cp.created_at,
+          `SELECT cp.customer_code, cp.auth_user_id, cp.full_name, cp.email, cp.phone, cp.marketing_opt_in, cp.created_at,
                   m.status AS membership_status, m.credits_balance,
                   COALESCE(orders_summary.order_count, 0)::int AS order_count,
                   COALESCE(orders_summary.total_spent, 0)::numeric(12,2) AS total_spent
@@ -330,7 +331,7 @@ async function handleGet(req, res) {
                 WHERE payment_status = 'paid'
                 GROUP BY auth_user_id
              ) orders_summary ON orders_summary.auth_user_id = cp.auth_user_id
-            WHERE ($3 = '' OR lower(COALESCE(cp.full_name, '')) LIKE '%' || $3 || '%' OR lower(COALESCE(cp.email, '')) LIKE '%' || $3 || '%'
+            WHERE ($3 = '' OR lower(COALESCE(cp.full_name, '')) LIKE '%' || $3 || '%' OR lower(COALESCE(cp.customer_code, '')) LIKE '%' || $3 || '%' OR lower(COALESCE(cp.email, '')) LIKE '%' || $3 || '%'
                    OR regexp_replace(COALESCE(cp.phone, ''), '\\D', '', 'g') LIKE '%' || NULLIF(regexp_replace($3, '\\D', '', 'g'), '') || '%')
               AND ($4 = '' OR ($4 = 'none' AND m.id IS NULL) OR m.status = $4)
               AND ($5::numeric = 0 OR COALESCE(orders_summary.total_spent, 0) >= $5::numeric)
@@ -347,11 +348,11 @@ async function handleGet(req, res) {
       });
     }
     case 'memberships':
-      return res.json({ memberships: await rows('SELECT m.*, cp.full_name, cp.email FROM memberships m LEFT JOIN customer_profiles cp ON cp.auth_user_id = m.auth_user_id ORDER BY m.updated_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
+      return res.json({ memberships: await rows('SELECT m.*, cp.customer_code, cp.full_name, cp.email FROM memberships m LEFT JOIN customer_profiles cp ON cp.auth_user_id = m.auth_user_id ORDER BY m.updated_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
     case 'credits':
-      return res.json({ credits: await rows('SELECT cl.*, cp.full_name, cp.email FROM credit_ledger cl LEFT JOIN customer_profiles cp ON cp.auth_user_id = cl.auth_user_id ORDER BY cl.created_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
+      return res.json({ credits: await rows('SELECT cl.*, cp.customer_code, cp.full_name, cp.email FROM credit_ledger cl LEFT JOIN customer_profiles cp ON cp.auth_user_id = cl.auth_user_id ORDER BY cl.created_at DESC LIMIT $1 OFFSET $2', [limit, offset]) });
     case 'exchanges': {
-      const list = await rows('SELECT e.*, o.total, o.delivered_at, cp.full_name, cp.email FROM exchanges e JOIN orders o ON o.id = e.order_id LEFT JOIN customer_profiles cp ON cp.auth_user_id = e.auth_user_id ORDER BY e.created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+      const list = await rows('SELECT e.*, o.order_number, o.total, o.delivered_at, cp.customer_code, cp.full_name, cp.email FROM exchanges e JOIN orders o ON o.id = e.order_id LEFT JOIN customer_profiles cp ON cp.auth_user_id = e.auth_user_id ORDER BY e.created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
       // Evidence is private: staff get short-lived signed links, generated per request and never cached.
       for (const e of list) {
         const refs = Array.isArray(e.evidence_urls) ? e.evidence_urls : [];
@@ -439,14 +440,14 @@ async function handleGet(req, res) {
       const search = String(q.q || '').trim().toLowerCase().slice(0, 80);
       const statusFilter = q.status && ['paid', 'partially_paid', 'due', 'cancelled'].includes(q.status) ? q.status : null;
       const list = await rows(
-        `SELECT o.id, o.sale_date, o.customer_id, o.customer_name, o.customer_phone, o.channel,
+        `SELECT o.id, o.order_number, o.sale_date, o.customer_id, o.customer_name, o.customer_phone, o.channel,
                 o.subtotal, o.discount_amount, o.total, o.amount_paid, o.amount_due, o.payment_status,
                 o.status, o.estimated_cost, o.estimated_profit, o.invoice_number, o.created_at,
                 COALESCE((SELECT json_agg(json_build_object('name', i.product_name, 'size', i.variant_label, 'quantity', i.quantity, 'unit_price', i.unit_price))
                             FROM order_items i WHERE i.order_id = o.id), '[]') AS items
            FROM orders o
           WHERE (o.channel = 'studio' OR o.channel = 'pos' OR o.customer_name IS NOT NULL)
-            AND ($1 = '' OR lower(COALESCE(o.customer_name, '')) LIKE '%' || $1 || '%' OR lower(COALESCE(o.customer_phone, '')) LIKE '%' || $1 || '%' OR lower(o.id::text) LIKE '%' || $1 || '%')
+            AND ($1 = '' OR lower(COALESCE(o.customer_name, '')) LIKE '%' || $1 || '%' OR lower(COALESCE(o.customer_phone, '')) LIKE '%' || $1 || '%' OR lower(o.id::text) LIKE '%' || $1 || '%' OR lower(COALESCE(o.order_number, '')) LIKE '%' || $1 || '%')
             AND ($4::text IS NULL OR o.payment_status = $4)
           ORDER BY o.created_at DESC LIMIT $2 OFFSET $3`,
         [search, limit, offset, statusFilter]
@@ -798,12 +799,13 @@ async function storeSale(c, uid, b) {
   if (mode === 'credit' && membership?.status !== 'active') throw badRequest('membership_required', 'Credit sales need an active member email');
 
   const price = calculateCartPrice({ lines, method: 'pickup', placeOfSupply: settings.seller_state, membership, settings });
+  const orderNumber = await nextHumanId(c, ID_PREFIXES.SALE);
   const o = (await c.query(
     `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, channel, shipping_method, amount_paise, paid_at, delivered_at,
-                         taxable_amount, cgst_amount, sgst_amount, igst_amount, tax_amount, place_of_supply, credits_used, shipping_address)
-     VALUES ($1,'delivered','paid',$2,0,$3,'store','pickup',$4,now(),now(),$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+                         taxable_amount, cgst_amount, sgst_amount, igst_amount, tax_amount, place_of_supply, credits_used, shipping_address, order_number)
+     VALUES ($1,'delivered','paid',$2,0,$3,'store','pickup',$4,now(),now(),$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
     [customerId, price.subtotal, price.total, price.amount_paise, price.taxable_amount, price.cgst, price.sgst, price.igst, price.tax_amount,
-     price.place_of_supply, price.credits_used, JSON.stringify({ name: text(b.customer_name, { max: 120, field: 'customer_name' }) || 'Studio customer' })]
+     price.place_of_supply, price.credits_used, JSON.stringify({ name: text(b.customer_name, { max: 120, field: 'customer_name' }) || 'Studio customer' }), orderNumber]
   )).rows[0];
   for (const l of price.lines) {
     await c.query(
@@ -940,7 +942,10 @@ async function handleWrite(req, res) {
     const sort = int(b.sort_order ?? 0, { min: -1000, max: 100000, field: 'sort_order' });
     const parent = b.parent_id ? uuid(b.parent_id, 'parent_id') : null;
     if (b.id) await db.query('UPDATE categories SET name = $1, slug = $2, is_active = $3, sort_order = $4, parent_id = $5 WHERE id = $6', [name, slug, b.is_active !== false, sort, parent, uuid(b.id)]);
-    else await db.query('INSERT INTO categories (name, slug, is_active, sort_order, parent_id) VALUES ($1,$2,$3,$4,$5)', [name, slug, b.is_active !== false, sort, parent]);
+    else {
+      const catCode = await nextHumanId(db, ID_PREFIXES.CATEGORY);
+      await db.query('INSERT INTO categories (name, slug, is_active, sort_order, parent_id, category_code) VALUES ($1,$2,$3,$4,$5,$6)', [name, slug, b.is_active !== false, sort, parent, catCode]);
+    }
     await audit(db, { actor: uid, action: 'save_category', entityType: 'category', entityId: b.id || slug, details: { name, slug } });
     return res.json({ ok: true });
   }
@@ -1259,8 +1264,9 @@ async function handleWrite(req, res) {
         }
       } else if (customerName) {
         const genUid = 'usr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const custCode = await nextHumanId(c, ID_PREFIXES.CUSTOMER);
         await c.query('INSERT INTO profiles (auth_user_id, full_name, email, role) VALUES ($1,$2,$3,$4)', [genUid, customerName, `${genUid}@store.local`, 'customer']);
-        await c.query('INSERT INTO customer_profiles (auth_user_id, full_name, phone) VALUES ($1,$2,$3)', [genUid, customerName, customerPhone]);
+        await c.query('INSERT INTO customer_profiles (auth_user_id, full_name, phone, customer_code) VALUES ($1,$2,$3,$4)', [genUid, customerName, customerPhone, custCode]);
         customerId = genUid;
       } else {
         throw badRequest('customer_required', 'Customer selection or name is required');
@@ -1303,13 +1309,14 @@ async function handleWrite(req, res) {
 
       const totals = calculateSaleTotals(lines, b.discount || b.discount_amount || 0, b.amount_paid !== undefined ? b.amount_paid : b.total);
 
+      const saleNumber = await nextHumanId(c, ID_PREFIXES.SALE);
       const insOrder = await c.query(
         `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, discount_amount, channel,
-                             amount_paid, amount_due, sale_date, customer_id, customer_name, customer_phone, estimated_cost, estimated_profit, manual_discount)
-         VALUES ($1, $2, $3, $4, 0, $5, $6, 'studio', $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                             amount_paid, amount_due, sale_date, customer_id, customer_name, customer_phone, estimated_cost, estimated_profit, manual_discount, order_number)
+         VALUES ($1, $2, $3, $4, 0, $5, $6, 'studio', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING *`,
         [customerId, totals.paymentStatus === 'paid' ? 'delivered' : 'processing', totals.paymentStatus, totals.subtotal, totals.finalAmount, totals.discount,
-         totals.amountPaid, totals.amountDue, b.sale_date || new Date().toISOString().slice(0, 10), customerId, customerName, customerPhone, totals.estimatedCost, totals.estimatedProfit, totals.discount]
+         totals.amountPaid, totals.amountDue, b.sale_date || new Date().toISOString().slice(0, 10), customerId, customerName, customerPhone, totals.estimatedCost, totals.estimatedProfit, totals.discount, saleNumber]
       );
       const order = insOrder.rows[0];
 
@@ -1351,8 +1358,7 @@ async function handleWrite(req, res) {
       );
       await audit(db, { actor: uid, action: 'update_vendor', entityType: 'vendor', entityId: b.id, details: { name } });
     } else {
-      const countRes = await db.query('SELECT count(*)::int AS n FROM vendors');
-      const vendorCode = text(b.vendor_code || b.code, { max: 40, field: 'vendor_code' }) || `VEND-${String(Number(countRes.rows[0]?.n || 0) + 1).padStart(3, '0')}`;
+      const vendorCode = text(b.vendor_code || b.code, { max: 40, field: 'vendor_code' }) || await nextHumanId(db, ID_PREFIXES.VENDOR);
       await db.query(
         'INSERT INTO vendors (vendor_code, code, name, contact_name, contact_person, contact_phone, phone, categories, notes, is_active) VALUES ($1,$1,$2,$3,$3,$4,$4,$5,$6,$7)',
         [vendorCode, name, contactName, contactPhone, JSON.stringify(categories), notes, isActive]
@@ -1386,9 +1392,7 @@ async function handleWrite(req, res) {
         );
         await c.query('DELETE FROM purchase_order_items WHERE purchase_order_id = $1', [currentPoId]);
       } else {
-        const datePrefix = orderDate.replace(/-/g, '').slice(0, 6);
-        const countRes = await c.query('SELECT count(*)::int AS n FROM purchase_orders');
-        const poNumber = `PO-${datePrefix}-${String(Number(countRes.rows[0]?.n || 0) + 1).padStart(3, '0')}`;
+        const poNumber = await nextHumanId(c, ID_PREFIXES.PROCUREMENT);
         const ins = await c.query(
           'INSERT INTO purchase_orders (po_number, vendor_id, vendor_name, order_date, batch_id, courier_charges, subtotal, grand_total, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
           [poNumber, vendorId, vendorName, orderDate, batchId, poTotals.courierCharges, poTotals.subtotal, poTotals.grandTotal, notes]
@@ -1481,9 +1485,10 @@ async function handleWrite(req, res) {
           'INSERT INTO profiles (auth_user_id, full_name, email, role, is_admin) VALUES ($1,$2,$3,$4,$5)',
           [generatedUid, fullName, email, 'customer', false]
         );
+        const custCode = await nextHumanId(c, ID_PREFIXES.CUSTOMER);
         await c.query(
-          'INSERT INTO customer_profiles (auth_user_id, full_name, email, phone, notes, tags) VALUES ($1,$2,$3,$4,$5,$6)',
-          [generatedUid, fullName, email, phone, notes, JSON.stringify(tags)]
+          'INSERT INTO customer_profiles (auth_user_id, full_name, email, phone, notes, tags, customer_code) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [generatedUid, fullName, email, phone, notes, JSON.stringify(tags), custCode]
         );
         return generatedUid;
       });

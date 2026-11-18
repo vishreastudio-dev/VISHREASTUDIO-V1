@@ -15,6 +15,7 @@ import { checkoutFields, issueLocalOrderPayment } from '../lib/local-pay.js';
 import { audit } from '../lib/audit.js';
 import { log } from '../lib/log.js';
 import { bool, gstin, indianState, oneOf, phone, text, uuid } from '../lib/validate.js';
+import { nextHumanId, ID_PREFIXES } from '../lib/id-generator.js';
 
 export const access = 'user';
 export const methods = ['POST'];
@@ -196,16 +197,17 @@ async function startCheckout(req, res) {
 
     const reservationMinutes = Math.min(60, Math.max(5, Number(settings.reservation_minutes) || 15));
     const discountAmount = Math.round(((price.reward_discount || 0) + (price.loyalty_discount || 0)) * 100) / 100;
+    const orderNumber = await nextHumanId(c, ID_PREFIXES.ORDER);
     const ins = await c.query(
       `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, shipping_address, gst_invoice_requested,
                            gift, gift_message, gift_packing_fee, channel, shipping_method, idempotency_key, checkout_fingerprint, amount_paise,
                            payment_expires_at, taxable_amount, cgst_amount, sgst_amount, igst_amount, tax_amount, place_of_supply, credits_used, buyer_gstin,
-                           rewards_used, discount_amount)
-       VALUES ($1,'pending_payment','pending',$2,$3,$4,$5,$6,$7,$8,$9,'web',$10,$11,$12,$13, now() + make_interval(mins => $14),$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                           rewards_used, discount_amount, order_number)
+       VALUES ($1,'pending_payment','pending',$2,$3,$4,$5,$6,$7,$8,$9,'web',$10,$11,$12,$13, now() + make_interval(mins => $14),$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
        RETURNING *`,
       [user.id, price.subtotal, price.shipping, price.total, JSON.stringify(address), Boolean(buyerGstin), gift, giftMessage, price.gift_fee, method,
        idemKey, fingerprint, price.amount_paise, reservationMinutes, price.taxable_amount, price.cgst, price.sgst, price.igst, price.tax_amount,
-       price.place_of_supply, price.credits_used, buyerGstin, price.rewards_used, discountAmount]
+       price.place_of_supply, price.credits_used, buyerGstin, price.rewards_used, discountAmount, orderNumber]
     );
     const order = ins.rows[0];
 

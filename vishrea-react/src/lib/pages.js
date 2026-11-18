@@ -9,8 +9,8 @@ export const BRAND_NAME = SITE.name;
 export const PAGES = {
   home: {
     path: '/',
-    title: 'Vishrea Studio — One-of-One Womenswear, Bengaluru',
-    description: 'One-of-one and small-run womenswear from a Bengaluru studio: tops, dresses, co-ords and layers. Free studio pickup in Bengaluru, ₹99 delivery across India.',
+    title: 'Vishrea Studio — Curated Women’s Clothing & Fashion, Bengaluru',
+    description: 'Discover curated women’s fashion and 1-of-1 silhouettes at Vishrea Studio. Experience our curated wardrobe, Walkin Wardrobe membership, and personal styling in Bengaluru.',
     indexable: true,
     ogImage: '/assets/hero-editorial.jpg',
   },

@@ -1248,7 +1248,7 @@ function AdminStudio({ section }) {
                                     <tr key={o.id}>
                                       <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                                       <td>
-                                        <strong>#{o.id.slice(0, 8).toUpperCase()}</strong>
+                                        <strong>{o.order_number || `#${o.id.slice(0, 8).toUpperCase()}`}</strong>
                                         <br />
                                         <small style={{ color: 'var(--muted)' }}>
                                           {new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -1610,6 +1610,11 @@ function AdminStudio({ section }) {
                           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                             <ProductThumb images={imgs} name={p.name} onOpen={() => { setActiveItem({ name: p.name, images: imgs, index: 0 }); setModalType('image'); }} />
                             <div>
+                              {p.product_code && (
+                                <span style={{ color: 'var(--wine, #752238)', fontWeight: 600, fontSize: 11, display: 'block', letterSpacing: '0.04em' }}>
+                                  {p.product_code}
+                                </span>
+                              )}
                               <strong>{p.name}</strong>
                               {p.featured && (
                                 <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#b89560', border: '1px solid #e0cdb2', background: '#faf6f0', padding: '1px 5px', borderRadius: 2 }}>
@@ -1841,7 +1846,7 @@ function AdminStudio({ section }) {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <strong style={{ fontSize: 13, letterSpacing: '0.04em', color: 'var(--ink)' }}>
-                            #{o.id.slice(0, 8).toUpperCase()}
+                            {o.order_number || `#${o.id.slice(0, 8).toUpperCase()}`}
                           </strong>
                           <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', background: '#f0ece7', color: '#555', padding: '1px 5px', borderRadius: 3, fontWeight: 600 }}>
                             {o.channel || 'web'}
@@ -2006,6 +2011,11 @@ function AdminStudio({ section }) {
                     <tr key={c.auth_user_id}>
                       <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                       <td>
+                        {c.customer_code && (
+                          <span style={{ color: 'var(--wine, #752238)', fontWeight: 600, fontSize: 11, display: 'block', letterSpacing: '0.04em' }}>
+                            {c.customer_code}
+                          </span>
+                        )}
                         <strong>{c.full_name || 'Customer'}</strong>
                         <br />
                         <small>{c.email}</small>
@@ -2204,9 +2214,17 @@ function AdminStudio({ section }) {
                     cache.exchanges.map((x, idx) => (
                       <tr key={x.id}>
                         <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
-                        <td>{x.full_name || x.email}<small style={{ display: 'block', color: 'var(--muted)' }}>{x.reason}</small></td>
                         <td>
-                          {x.order_id?.slice(0, 8).toUpperCase()}
+                          {x.exchange_code && (
+                            <span style={{ color: 'var(--wine, #752238)', fontWeight: 600, fontSize: 11, display: 'block' }}>
+                              {x.exchange_code}
+                            </span>
+                          )}
+                          {x.full_name || x.email}
+                          <small style={{ display: 'block', color: 'var(--muted)' }}>{x.reason}</small>
+                        </td>
+                        <td>
+                          <strong>{x.order_number || x.order_id?.slice(0, 8).toUpperCase()}</strong>
                           {(x.evidence || []).some((ev) => ev.url) && (
                             <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
                               {x.evidence.filter((ev) => ev.url).map((ev, i, all) => (
@@ -2589,7 +2607,7 @@ function AdminStudio({ section }) {
                       <tr key={s.id}>
                         <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
                         <td>
-                          <strong>{s.invoice_number || `#${s.id.slice(0, 8).toUpperCase()}`}</strong>
+                          <strong>{s.order_number || s.invoice_number || `#${s.id.slice(0, 8).toUpperCase()}`}</strong>
                           <br />
                           <small style={{ color: 'var(--muted)' }}>{s.channel || 'studio'}</small>
                         </td>
@@ -2636,7 +2654,7 @@ function AdminStudio({ section }) {
                                 className="btn-action danger"
                                 disabled={busy}
                                 onClick={() => {
-                                  if (!window.confirm(`Cancel sale ${s.invoice_number || s.id.slice(0, 8)}? All items will be restored to inventory stock immediately.`)) return;
+                                  if (!window.confirm(`Cancel sale ${s.order_number || s.invoice_number || s.id.slice(0, 8)}? All items will be restored to inventory stock immediately.`)) return;
                                   mutate(() => api(`/api/admin/ops?section=sale&id=${s.id}`, { method: 'DELETE' }), {
                                     success: 'Sale cancelled and stock restored to inventory',
                                     reload: 'store',
@@ -3904,7 +3922,7 @@ function AdminStudio({ section }) {
               <div className="field">
                 <label htmlFor="m-reward-benefit">Reward / Benefit</label>
                 <input id="m-reward-benefit"
-                  placeholder="e.g. 15% discount, complimentary alteration"
+                  placeholder="e.g. 15% discount, special styling offer"
                   value={activeItem.reward_config?.discount || '10%'}
                   onChange={(e) => setActiveItem({ ...activeItem, reward_config: { ...activeItem.reward_config, discount: e.target.value } })}
                 />

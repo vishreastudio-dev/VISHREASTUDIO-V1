@@ -8,6 +8,7 @@ import { email as validEmail, text } from '../lib/validate.js';
 import { audit } from '../lib/audit.js';
 import { log } from '../lib/log.js';
 import { AppError, h } from '../lib/http.js';
+import { nextHumanId, ID_PREFIXES } from '../lib/id-generator.js';
 
 const router = express.Router();
 const emailKey = (req) => `${req.ip}:${String(req.body?.email || '').trim().toLowerCase()}`;
@@ -123,10 +124,11 @@ router.post(
       } else if (shouldBeAdmin && (!p.is_admin || p.role !== 'admin')) {
         p = (await c.query("UPDATE profiles SET is_admin = true, role = 'admin' WHERE id = $1 RETURNING *", [p.id])).rows[0] || p;
       }
+      const custCode = await nextHumanId(c, ID_PREFIXES.CUSTOMER);
       await c.query(
-        `INSERT INTO customer_profiles (auth_user_id, email, full_name) VALUES ($1, $2, $3)
-         ON CONFLICT (auth_user_id) DO UPDATE SET email = COALESCE(customer_profiles.email, excluded.email)`,
-        [p.auth_user_id, p.email, p.full_name]
+        `INSERT INTO customer_profiles (auth_user_id, email, full_name, customer_code) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (auth_user_id) DO UPDATE SET email = COALESCE(customer_profiles.email, excluded.email), customer_code = COALESCE(customer_profiles.customer_code, excluded.customer_code)`,
+        [p.auth_user_id, p.email, p.full_name, custCode]
       );
       return p;
     });

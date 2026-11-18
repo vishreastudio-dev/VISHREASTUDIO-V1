@@ -120,6 +120,8 @@ export const FeelTheDrape: React.FC<FeelTheDrapeProps> = ({
                   src={imageUrl}
                   alt="Vishrea Studio flagship boutique storefront in Bengaluru"
                   className="vishrea-film-video"
+                  width={1200}
+                  height={675}
                   style={{
                     width: '100%',
                     height: '100%',

@@ -161,7 +161,7 @@ const TiltableCategoryCard: React.FC<CardItemProps> = ({
       onClick={onNavigate}
     >
       {/* Huge condensed uppercase category title behind the model */}
-      <div
+      <h3
         style={{
           position: 'absolute',
           inset: '16px 10px auto',
@@ -176,10 +176,11 @@ const TiltableCategoryCard: React.FC<CardItemProps> = ({
           zIndex: 1,
           wordBreak: 'break-word',
           pointerEvents: 'none',
+          margin: 0,
         }}
       >
         {item.name}
-      </div>
+      </h3>
 
       {/* Model/Category image in front of text with soft drop shadow */}
       <div
