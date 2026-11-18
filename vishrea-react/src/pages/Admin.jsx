@@ -376,6 +376,8 @@ function AdminStudio({ section }) {
   const [videoDurationValid, setVideoDurationValid] = useState(false);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState('');
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const formatPrice = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
 
@@ -593,13 +595,52 @@ function AdminStudio({ section }) {
     ).then((ok) => ok && (setUploadedVideoUrl(''), setVideoDuration(null)));
   };
 
+  const handleCoverImageFile = async (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      showToast('Please select a JPG, PNG or WEBP image');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      showToast('Uploading cover image…');
+      const up = await uploadFile(file, 'image', 'instagram');
+      setUploadedImageUrl(up.ref);
+      showToast('Cover image uploaded');
+    } catch (err) {
+      showToast(err.message || 'Image upload failed');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSwitchToDefaultReels = async () => {
+    if (!window.confirm('Switch homepage to Default Studio Reels? (This will unpublish live custom items so the curated default reels are shown on the homepage).')) return;
+    try {
+      setBusy(true);
+      const liveIg = displayInstagram.filter((x) => x.active !== false);
+      for (const item of liveIg) {
+        await post('content', { id: item.id, type: 'instagram_status', active: false });
+      }
+      const liveVids = displayVideos.filter((v) => v.active);
+      for (const v of liveVids) {
+        await post('content', { id: v.id, type: 'video_status', active: false });
+      }
+      mutate(() => Promise.resolve(), { success: 'Switched to Default Studio Reels', reload: 'content' });
+    } catch (err) {
+      showToast(err.message || 'Failed to switch to default reels');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSaveInstagram = (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     let postUrl = uploadedVideoUrl || String(fd.get('post_url') || '').trim();
     if (postUrl && !/^https?:\/\//.test(postUrl) && !postUrl.startsWith('/uploads/') && !postUrl.startsWith('storage://')) postUrl = `https://${postUrl}`;
-    mutate(() => post('content', { type: 'instagram', title: fd.get('title'), post_url: postUrl, image_url: fd.get('image_url') || '' }), { success: 'Feature saved', reload: 'content', close: true }).then(
-      (ok) => ok && setUploadedVideoUrl('')
+    const coverImage = uploadedImageUrl || String(fd.get('image_url') || '').trim();
+    mutate(() => post('content', { type: 'instagram', title: fd.get('title'), post_url: postUrl, image_url: coverImage }), { success: 'Feature saved and published', reload: 'content', close: true }).then(
+      (ok) => ok && (setUploadedVideoUrl(''), setUploadedImageUrl(''))
     );
   };
 
@@ -2934,16 +2975,42 @@ function AdminStudio({ section }) {
                     <h2>Instagram / Stories</h2>
                     <p>Stories from our wardrobe &amp; Instagram Reel features.</p>
                   </div>
+                  <div>
+                    <span className={`status ${displayInstagram.some((x) => x.active !== false) || displayVideos.some((v) => v.active) ? 'good' : 'warn'}`}>
+                      {displayInstagram.some((x) => x.active !== false) || displayVideos.some((v) => v.active)
+                        ? 'Live Custom Reels Active'
+                        : 'Default Studio Reels Active'}
+                    </span>
+                  </div>
                 </div>
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    setActiveItem({ title: '', post_url: '', image_url: '' });
-                    setModalType('instagram');
-                  }}
-                >
-                  + Add Instagram Reel / Story
-                </button>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    className="btn primary"
+                    onClick={() => {
+                      setActiveItem({ title: '', post_url: '', image_url: '' });
+                      setUploadedVideoUrl('');
+                      setUploadedImageUrl('');
+                      setModalType('instagram');
+                    }}
+                  >
+                    + Add Instagram Reel / Story
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{
+                      background: '#ffffff',
+                      color: 'var(--wine)',
+                      borderColor: 'var(--wine)',
+                      fontWeight: 600,
+                    }}
+                    disabled={busy}
+                    onClick={handleSwitchToDefaultReels}
+                    title="Unpublish live reels to show the default curated studio reels on the homepage"
+                  >
+                    Reset to Default Reels
+                  </button>
+                </div>
                 <div className="table-wrap">
                   <table className="table" style={{ marginTop: '14px' }}>
                     <thead>
@@ -3339,18 +3406,42 @@ function AdminStudio({ section }) {
             <form className="form-grid" onSubmit={handleSaveInstagram}>
               <div className="field full">
                 <label htmlFor="ig-title">Title / creator</label>
-                <input id="ig-title" name="title" required maxLength={160} placeholder="e.g. Studio look" />
+                <input id="ig-title" name="title" required maxLength={160} placeholder="e.g. Studio look" defaultValue={activeItem?.title || ''} />
               </div>
               <div className="field full">
                 <label htmlFor="ig-url">Instagram post or reel URL</label>
-                <input id="ig-url" name="post_url" required={!uploadedVideoUrl} placeholder="https://www.instagram.com/reel/…" />
+                <input id="ig-url" name="post_url" required={!uploadedVideoUrl} placeholder="https://www.instagram.com/reel/…" defaultValue={activeItem?.post_url || ''} />
               </div>
               <div className="field full">
-                <label htmlFor="ig-image">Cover image URL (optional, https)</label>
-                <input id="ig-image" name="image_url" placeholder="https://…" />
+                <label htmlFor="ig-image">Cover image URL or upload (optional)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    id="ig-image"
+                    name="image_url"
+                    placeholder="https://… or upload cover image"
+                    value={uploadedImageUrl || activeItem?.image_url || ''}
+                    onChange={(e) => setUploadedImageUrl(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <label className="btn" style={{ cursor: 'pointer', whiteSpace: 'nowrap', margin: 0 }}>
+                    {uploadingImage ? 'Uploading…' : 'Upload Cover'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      disabled={uploadingImage}
+                      onChange={(e) => handleCoverImageFile(e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
+                {uploadedImageUrl && (
+                  <div style={{ marginTop: '8px' }}>
+                    <img src={uploadedImageUrl} alt="Cover preview" style={{ maxHeight: '120px', borderRadius: '8px', border: '1px solid var(--line)', display: 'block' }} />
+                  </div>
+                )}
               </div>
               <div className="field full">
-                <button className="btn primary" disabled={busy}>{busy ? 'Saving…' : 'Save feature'}</button>
+                <button className="btn primary" disabled={busy || uploadingImage}>{busy ? 'Saving…' : 'Save & Publish Feature'}</button>
               </div>
             </form>
           </div>

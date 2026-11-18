@@ -12,6 +12,7 @@ import { describeProduct, measurementText, productFaqs } from '../lib/productCop
 import { faqSchema } from '../lib/schema';
 import { SITE, absoluteUrl } from '../site.config';
 import { NotFound } from './NotFound';
+import { useLikes, toggleLike } from '../lib/likes';
 
 const STOCK_COPY = {
   one_of_one: 'In stock — this is the only one',
@@ -25,6 +26,7 @@ export const ProductDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { addToCart, cartBusy, cart, user, activeSizeProfile } = useStore();
+  const { isLiked } = useLikes();
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(null);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
@@ -119,17 +121,19 @@ export const ProductDetail = () => {
   const soldOut = !product.available;
   const priceNow = selected ? selected.effective_price : product.price_inr;
   const comparePrice = selected ? (selected.effective_price < selected.price_inr ? selected.price_inr : null) : product.compare_at_price;
+  const isProductLiked = Boolean(isLiked(product?.id) || isLiked(product?.slug));
 
   const saveToWardrobe = async () => {
-    if (!user) {
-      navigate(`/login?next=${encodeURIComponent(`/product/${product.slug}`)}`);
-      return;
-    }
+    if (!product?.id) return;
     setSaving(true);
+    setMsg({ tone: 'info', text: '' });
     try {
-      await api('/api/wardrobe', { method: 'POST', body: { action: 'save', product_id: product.id } });
-      setSavedId(product.id);
-      setMsg({ tone: 'success', text: 'Saved to your Wardrobe Bag.' });
+      const willLike = await toggleLike(product, user);
+      setSavedId(willLike ? product.id : null);
+      setMsg({
+        tone: 'success',
+        text: willLike ? 'Saved to your Likes & Wardrobe Bag.' : 'Removed from your Likes.',
+      });
     } catch (err) {
       setMsg({ tone: 'error', text: err.message });
     } finally {
@@ -361,44 +365,22 @@ export const ProductDetail = () => {
                 Buy now
               </button>
             )}
-            {savedId === product.id ? (
-              <Link to="/wardrobe" className="pdp-save" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                In your Wardrobe Bag · View →
-              </Link>
+            {isProductLiked || savedId === product.id ? (
+              <button type="button" className="pdp-save is-saved" disabled={saving} onClick={saveToWardrobe} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderColor: '#7B1426', color: '#7B1426', background: '#fdf5f6' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="#7B1426" stroke="#7B1426" strokeWidth="2" aria-hidden="true">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+                <span>Saved to Likes &amp; Wardrobe · Tap to remove</span>
+              </button>
             ) : (
-              <button type="button" className="pdp-save" disabled={saving} onClick={saveToWardrobe}>
-                {saving ? 'Saving…' : 'Save to Wardrobe Bag'}
+              <button type="button" className="pdp-save" disabled={saving} onClick={saveToWardrobe} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+                <span>{saving ? 'Saving…' : 'Save to Likes & Wardrobe Bag'}</span>
               </button>
             )}
             {!(alreadyInCart && msg.tone === 'success') && <InlineMessage tone={msg.tone}>{msg.text}</InlineMessage>}
-
-            <a
-              href={`https://wa.me/${(SITE.contact?.whatsapp || '916364116567').replace(/\D/g, '')}?text=${encodeURIComponent(`Hello Vishrea Studio! I am interested in inquiring/ordering: ${product.name}${selected?.size_label ? ` (Size: ${selected.size_label})` : ''}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pdp-whatsapp-btn"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '12px 18px',
-                borderRadius: 'var(--radius, 4px)',
-                border: '1px solid #25d366',
-                color: '#128c7e',
-                background: 'rgba(37, 211, 102, 0.08)',
-                fontWeight: 600,
-                fontSize: 14,
-                textDecoration: 'none',
-                marginTop: 10,
-                cursor: 'pointer',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.311.045-.698.059-1.146-.086-.301-.098-.679-.247-1.164-.46-1.954-.856-3.236-2.839-3.333-2.969-.098-.133-.799-1.062-.799-2.024 0-.963.504-1.436.684-1.631.18-.196.393-.245.524-.245.132 0 .263.002.378.007.121.005.284-.046.444.339.164.394.56 1.365.61 1.464.05.099.083.214.017.347-.067.133-.101.216-.201.332-.099.117-.21.261-.299.351-.101.1-.206.21-.089.41.117.199.52 8.57 1.117 1.099.769.684 1.417.896 1.62.996.202.1.32.083.438-.05.119-.133.509-.592.645-.795.135-.202.271-.169.456-.101.186.068 1.179.556 1.382.658.203.101.339.152.39.237.05.084.05.489-.094.894z" />
-              </svg>
-              <span>Order via WhatsApp</span>
-            </a>
 
             <div className="detail-accordion-v2">
               <details open>

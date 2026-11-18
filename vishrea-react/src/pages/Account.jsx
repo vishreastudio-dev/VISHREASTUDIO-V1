@@ -9,6 +9,7 @@ import { useApi, useMutation } from '../lib/useApi';
 import { usePageSeo } from '../lib/usePageSeo';
 import { clearOnInput, markFieldError } from '../lib/fieldErrors';
 import { SizeProfilesSection } from '../components/SizeProfilesSection';
+import { SITE } from '../site.config';
 
 const Card = ({ label, value, children }) => (
   <article className="account-card">
@@ -164,24 +165,32 @@ function Referrals() {
   if (loading && !data) return <LoadingState minHeight={120} />;
   if (error) return <ErrorState error={error} />;
   if (!data) return null;
+
+  // Real-time dynamic referral link resolving to current origin or production SITE.url
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const liveOrigin = isLocal ? window.location.origin : (typeof window !== 'undefined' ? window.location.origin : (SITE?.url || 'https://vishreastudio.com'));
+  const link = data.code ? `${liveOrigin}/?ref=${encodeURIComponent(data.code)}` : (data.link || '');
+
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(data.link);
+      await navigator.clipboard.writeText(link);
       setCopied('Link copied.');
+      setTimeout(() => setCopied(''), 3000);
     } catch {
       setCopied('Copy the link above.');
     }
   };
+
   return (
     <div className="account-panel" id="referrals">
       <h2>Refer a friend</h2>
       <p className="fine">Friends who join through your link get ₹{data.offer.discount_inr} off a first {data.offer.plan_months}-month membership. When their first membership payment is confirmed, you receive one free piece.</p>
       <div className="referral-code">
         <span>Your code <strong>{data.code}</strong></span>
-        <input readOnly value={data.link} aria-label="Your referral link" onFocus={(e) => e.target.select()} />
+        <input readOnly value={link} aria-label="Your referral link" onFocus={(e) => e.target.select()} />
         <button type="button" className="button button-outline" onClick={copy}>Copy link</button>
       </div>
-      <p className="fine" role="status" aria-live="polite">{copied}</p>
+      {copied && <p className="fine" role="status" aria-live="polite" style={{ color: '#7B1426', marginTop: 8 }}>{copied}</p>}
       <div className="account-cards compact">
         <Card label="Successful referrals" value={data.summary.successful} />
         <Card label="Pending" value={data.summary.pending} />
@@ -315,7 +324,7 @@ export const Account = () => {
             </div>
           )}
 
-          <button type="button" onClick={async () => { await signOut(); navigate('/'); }} className="button button-outline">Sign out</button>
+          <button type="button" onClick={async () => { await signOut(); navigate('/'); }} className="button button-outline" style={{ margin: '14px 0 24px' }}>Sign out</button>
 
           <DeleteAccount onDeleted={async () => { await signOut().catch(() => {}); navigate('/'); }} />
         </section>

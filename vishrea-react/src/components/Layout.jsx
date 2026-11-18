@@ -4,6 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { ShoppingProfileSwitcher } from './ShoppingProfileSwitcher';
 import { WhatsAppFloatingButton } from './WhatsAppFloatingButton';
 import { SITE } from '../site.config.js';
+import { useLikes } from '../lib/likes';
 
 // The search panel loads on first use; hovering or focusing the button fetches it early. If it
 // cannot load (offline, or a tab left open across a deploy), the full catalogue page opens instead.
@@ -48,9 +49,21 @@ const FOOTER_CATEGORIES = [
 
 export const Header = () => {
   const { cartCount, user } = useStore();
+  const { count: likesCount } = useLikes();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [toast, setToast] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    const onToast = (e) => {
+      setToast(e.detail);
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    };
+    window.addEventListener('vishrea_toast', onToast);
+    return () => window.removeEventListener('vishrea_toast', onToast);
+  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -121,12 +134,32 @@ export const Header = () => {
             <span className="search-trigger-label" aria-hidden="true">Search</span>
           </button>
           <ShoppingProfileSwitcher />
+          <Link
+            className="likes-button"
+            to="/wardrobe"
+            aria-label={`Liked pieces (${likesCount})`}
+            title="Saved & Liked Pieces"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill={likesCount > 0 ? '#7B1426' : 'none'} stroke={likesCount > 0 ? '#7B1426' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            <span className="likes-label">Likes</span>
+            {likesCount > 0 && <span className="likes-count-badge">{likesCount}</span>}
+          </Link>
           <Link className="account-link" to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
           <Link className="bag-button" to="/cart" aria-label={`Shopping bag, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}>
             Bag <span id="bagCount">{cartCount}</span>
           </Link>
         </div>
       </header>
+      {toast && (
+        <div className="vishrea-global-toast" role="status" aria-live="polite">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#7B1426" stroke="#7B1426" strokeWidth="2" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+          <span>{toast.text}</span>
+        </div>
+      )}
       {menuOpen && (
         <div className="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.target === e.currentTarget && setMenuOpen(false)}>
           <nav aria-label="Mobile navigation">
@@ -164,6 +197,10 @@ export const Header = () => {
             {NAV.map(([to, label]) => (
               <Link key={to} to={to}>{label}</Link>
             ))}
+            <Link to="/wardrobe" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Wardrobe &amp; Likes</span>
+              {likesCount > 0 && <span style={{ background: '#7B1426', color: '#fff', fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>{likesCount}</span>}
+            </Link>
             <Link to="/orders">Orders</Link>
             <Link className="account-link" to={user ? '/account' : '/login'}>{user ? 'Account' : 'Sign in'}</Link>
             {user?.is_admin && <Link to="/admin">Admin studio</Link>}
@@ -187,7 +224,7 @@ export const Footer = () => (
         <Link className="wordmark" to="/">
           VISHREA <span>STUDIO</span>
         </Link>
-        <p>Vishrea Studio is an independent womenswear studio in Bengaluru creating one-of-one pieces and timeless designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.</p>
+        <p>Vishrea Studio is a boutique womenswear studio in Bengaluru creating one-of-one pieces and timeless designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.</p>
         <div style={{ marginTop: 14, fontSize: 13, color: 'var(--muted, #666)', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--ink, #1a1a1a)', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
           <span>16, 4th Cross, Kammasandra Rd, Hebbagodi,</span><br />

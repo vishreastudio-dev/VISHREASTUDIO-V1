@@ -716,10 +716,85 @@
   position: relative;
   overflow: hidden;
   box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.35);
+  background-color: #161013;
   background-size: cover;
   background-position: center;
   user-select: none;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.vishrea-reel-card.is-playing {
+  border-color: #C9984A !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(201, 152, 74, 0.5);
+  padding: 0;
+}
+
+.vishrea-reel-inline-player {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #000000;
+  border-radius: 20px;
+  overflow: hidden;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vishrea-reel-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: #000000;
+  display: block;
+}
+
+.vishrea-reel-inline-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #000000;
+  display: block;
+}
+
+.vishrea-reel-stop-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 25;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.vishrea-reel-stop-btn:hover {
+  background: #7B1426;
+  border-color: #C9984A;
+  transform: scale(1.1);
+}
+
+.vishrea-reel-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .vishrea-reel-card::before {

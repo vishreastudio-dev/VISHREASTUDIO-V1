@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import type { FeelTheDrapeProps } from './types';
@@ -14,9 +14,8 @@ const DEFAULT_LIFESTYLE_PHOTOS = [
   'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=600&q=85',
 ];
 
-// Fallback high-fashion atelier drape video stream if data layer hasn't provided one
-const FALLBACK_VIDEO_URL =
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+// Drone video tour of Vishrea Studio Bengaluru
+const FALLBACK_VIDEO_URL = '/assets/vishrea-drone.mp4';
 
 // SVG Icons (Strictly no emojis)
 const VolumeXIcon = () => (
@@ -36,13 +35,20 @@ const Volume2Icon = () => (
 
 export const FeelTheDrape: React.FC<FeelTheDrapeProps> = ({
   imageUrl = '/assets/studio-storefront.jpg',
-  videoUrl,
+  videoUrl = '/assets/vishrea-drone.mp4',
   lifestylePhotos = DEFAULT_LIFESTYLE_PHOTOS,
   onShopCollection,
 }) => {
   const prefersReduced = useReducedMotion();
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Guarantee video auto-playback on mount
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, []);
 
   // Magnetic CTA state
   const [magneticOffset, setMagneticOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -115,55 +121,43 @@ export const FeelTheDrape: React.FC<FeelTheDrapeProps> = ({
             <span className="vishrea-gold-bracket bottom-right" aria-hidden="true" />
 
             <div className="vishrea-film-box">
-              {imageUrl ? (
-                <img
-                  src={imageUrl}
-                  alt="Vishrea Studio flagship boutique storefront in Bengaluru"
-                  className="vishrea-film-video"
-                  width={1200}
-                  height={675}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    objectPosition: 'center',
-                    display: 'block',
-                  }}
-                  loading="eager"
-                />
-              ) : (
-                <>
-                  <video
-                    ref={videoRef}
-                    src={videoUrl || FALLBACK_VIDEO_URL}
-                    autoPlay
-                    loop
-                    muted={isMuted}
-                    playsInline
-                    preload="auto"
-                    className="vishrea-film-video"
-                    aria-label="Vishrea brand film showcasing fabric drape"
-                  />
+              <video
+                ref={videoRef}
+                src={videoUrl || FALLBACK_VIDEO_URL}
+                autoPlay
+                loop
+                muted={isMuted}
+                playsInline
+                preload="auto"
+                poster={imageUrl || '/assets/studio-storefront.jpg'}
+                className="vishrea-film-video"
+                aria-label="Vishrea Studio boutique drone video tour"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  display: 'block',
+                }}
+              />
 
-                  {/* Sound on/off pill */}
-                  <button
-                    type="button"
-                    className="vishrea-sound-pill"
-                    onClick={toggleSound}
-                    aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'}
-                  >
-                    {isMuted ? <VolumeXIcon /> : <Volume2Icon />}
-                    <span>{isMuted ? 'SOUND OFF' : 'SOUND ON'}</span>
-                  </button>
-                </>
-              )}
+              {/* Sound on/off pill */}
+              <button
+                type="button"
+                className="vishrea-sound-pill"
+                onClick={toggleSound}
+                aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'}
+              >
+                {isMuted ? <VolumeXIcon /> : <Volume2Icon />}
+                <span>{isMuted ? 'SOUND OFF' : 'SOUND ON'}</span>
+              </button>
             </div>
           </div>
 
           {/* Studio Narrative & Visiting Details from Render */}
           <div style={{ maxWidth: '640px', margin: '34px auto 0', textAlign: 'center' }}>
             <p style={{ color: 'var(--vishrea-soft)', fontSize: '0.96rem', lineHeight: '1.8', margin: '0 0 14px 0' }}>
-              Vishrea is an independent womenswear studio in Bengaluru. Most pieces are one-of-one, so our curated edit changes from week to week. We focus on modern silhouettes, rich handloom textures, and thoughtful tailoring.
+              Vishrea is a boutique womenswear studio in Bengaluru. Most pieces are one-of-one, so our curated edit changes from week to week. We focus on modern silhouettes, rich handloom textures, and thoughtful tailoring.
             </p>
             <p style={{ color: 'var(--vishrea-soft)', fontSize: '0.96rem', lineHeight: '1.8', margin: '0 0 24px 0' }}>
               Visit our Bengaluru studio for a complimentary 1-on-1 personal styling consultation, or shop online with free studio pickup and flat ₹99 insured courier delivery across India.

@@ -49,7 +49,7 @@ export default async function referrals(req, res) {
   const rows = history.rows;
   res.json({
     code,
-    link: referralLink(code),
+    link: referralLink(code, req),
     offer: { discount_inr: Number(settings.referral_discount_inr) || 0, plan_months: Number(settings.referral_plan_months) },
     summary: {
       successful: rows.filter((r) => r.status === 'qualified').length,

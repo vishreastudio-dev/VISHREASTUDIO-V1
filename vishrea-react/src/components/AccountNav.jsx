@@ -2,12 +2,12 @@ import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
 export const AccountNav = () => (
-  <nav className="account-nav" aria-label="Account" style={{ display: 'grid', gap: '8px', height: 'fit-content' }}>
-    <p className="eyebrow">MY VISHREA</p>
+  <nav className="account-nav" aria-label="Account">
+    <p className="account-nav-heading">MY VISHREA</p>
     <NavLink to="/account" end>Overview</NavLink>
     <a href="#size-profiles">My size profiles</a>
-    <NavLink to="/orders">Orders & exchanges</NavLink>
-    <NavLink to="/membership">Membership & credits</NavLink>
+    <NavLink to="/orders">Orders &amp; exchanges</NavLink>
+    <NavLink to="/membership">Membership &amp; credits</NavLink>
     <NavLink to="/wardrobe">Wardrobe Bag</NavLink>
     <Link to="/account#referrals">Refer a friend</Link>
     <NavLink to="/skin-tone">Colour profile</NavLink>

@@ -828,6 +828,22 @@ async function storeSale(c, uid, b) {
   return { order_id: o.id, total: price.total, invoice_number: invoice.invoice_number };
 }
 
+async function extractInstagramCover(url) {
+  try {
+    const m = String(url || '').match(/instagram\.com\/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/);
+    if (!m) return null;
+    const res = await fetch(`https://www.instagram.com/reel/${m[1]}/embed/`);
+    const html = await res.text();
+    const match = html.match(/class="[^"]*(?:EmbeddedMediaImage|DisplayImage)[^"]*"[^>]*src="([^"]+)"/i) 
+      || html.match(/https:\/\/[^"'\\<>\s]+(?:fbcdn\.net|cdninstagram\.com)[^"'\\<>\s]+?\.(?:jpg|jpeg)[^"'\\<>\s]*/i);
+    if (match) {
+      const rawUrl = match[1] || match[0];
+      return rawUrl.replace(/&amp;/g, '&');
+    }
+  } catch (_) {}
+  return null;
+}
+
 /** Save one content item. Returns media references this change stopped using (deleted after commit). */
 async function saveContent(c, uid, b, settings) {
   const type = b.type;
@@ -846,7 +862,10 @@ async function saveContent(c, uid, b, settings) {
       if (!media || media.visibility !== 'public') throw badRequest('invalid_post_url', 'Use an instagram.com link or an uploaded video');
     }
     const title = text(b.customer_name ? `${b.customer_name}: ${b.title || ''}` : b.title, { max: 160, field: 'title' }) || '';
-    const image = b.image_url ? mediaUrl(b.image_url, { field: 'image_url' }) : '';
+    let image = b.image_url ? mediaUrl(b.image_url, { field: 'image_url' }) : '';
+    if (!image && /^https:\/\/(www\.)?instagram\.com\//i.test(postUrl)) {
+      image = (await extractInstagramCover(postUrl)) || '';
+    }
     if (b.id) await c.query('UPDATE instagram_content SET title = $1, post_url = $2, image_url = $3, sort_order = COALESCE($5, sort_order) WHERE id = $4', [title, postUrl, image, uuid(b.id), b.sort_order ?? null]);
     else await c.query('INSERT INTO instagram_content (title, post_url, image_url, sort_order, active) VALUES ($1,$2,$3,$4,true)', [title, postUrl, image, Number(b.sort_order) || 0]);
   } else if (type === 'video' || type === 'video_status') {

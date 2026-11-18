@@ -253,6 +253,7 @@ export function startBackgroundJobs() {
     let lock = null;
     try {
       lock = await pool.connect();
+      lock.on('error', (err) => log.error('jobs.client_error', { message: err.message }));
       if (!(await lock.query('SELECT pg_try_advisory_lock($1) AS ok', [JOBS_LOCK_KEY])).rows[0].ok) return;
       try {
         await sweepExpiredOrders().catch((err) => log.error('jobs.sweep_failed', { message: err.message }));
@@ -275,6 +276,15 @@ export function startBackgroundJobs() {
   timer.unref();
   return timer;
 }
+
+process.on('uncaughtException', (err) => {
+  if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.message?.includes('ECONNRESET')) {
+    log.warn('process.network_connection_reset', { message: err.message });
+    return;
+  }
+  log.error('process.uncaught_exception', { message: err.message, stack: err.stack });
+  process.exit(1);
+});
 
 const samePath = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 const isMain = process.argv[1] && samePath(path.resolve(process.argv[1]), fileURLToPath(import.meta.url));

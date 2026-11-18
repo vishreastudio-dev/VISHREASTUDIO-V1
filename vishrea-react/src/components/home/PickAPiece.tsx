@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArcEngine } from './ArcEngine';
 import type { PickAPieceProps, CategoryItem } from './types';
+import { readLikes, toggleLike } from '../../lib/likes';
 import './home-sections.css';
 
 // Bold solid colors specified in the prompt: maroon, purple, mustard, crimson, gold, green
@@ -308,8 +309,33 @@ export const PickAPiece: React.FC<PickAPieceProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(1);
-  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>(() => {
+    const map = readLikes();
+    const res: Record<string, boolean> = {};
+    Object.keys(map).forEach((k) => {
+      res[k] = true;
+    });
+    return res;
+  });
   const [springingMap, setSpringingMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const updateFromStorage = () => {
+      const map = readLikes();
+      const res: Record<string, boolean> = {};
+      Object.keys(map).forEach((k) => {
+        res[k] = true;
+      });
+      setLikedMap(res);
+    };
+
+    window.addEventListener('vishrea_likes_changed', updateFromStorage);
+    window.addEventListener('storage', updateFromStorage);
+    return () => {
+      window.removeEventListener('vishrea_likes_changed', updateFromStorage);
+      window.removeEventListener('storage', updateFromStorage);
+    };
+  }, []);
 
   const items = useMemo(() => {
     return categories.map((cat, idx) => {
@@ -394,7 +420,11 @@ export const PickAPiece: React.FC<PickAPieceProps> = ({
             isActive={isActive}
             isLiked={Boolean(likedMap[item.slug])}
             isSpringing={Boolean(springingMap[item.slug])}
-            onToggleHeart={() => setLikedMap((prev) => ({ ...prev, [item.slug]: !prev[item.slug] }))}
+            onToggleHeart={() => {
+              const willLike = !likedMap[item.slug];
+              setLikedMap((prev) => ({ ...prev, [item.slug]: willLike }));
+              toggleLike({ id: item.slug, name: item.name, category: 'Category', image_url: item.image_url, slug: `catalogue/${item.slug}` });
+            }}
             onNavigate={() => handleNavigate(item.category)}
           />
         )}

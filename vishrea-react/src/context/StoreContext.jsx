@@ -118,6 +118,19 @@ export const StoreProvider = ({ children }) => {
       setUser(d?.user || null);
       if (d?.user) {
         refreshSizeProfiles().catch(() => {});
+        try {
+          const raw = localStorage.getItem('vishrea_likes');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const items = Array.isArray(parsed) ? parsed : Object.values(parsed);
+            items.forEach((item) => {
+              const prodId = item?.product_id || item?.id;
+              if (prodId && /^[0-9a-f-]{36}$/i.test(String(prodId))) {
+                api('/api/wardrobe', { method: 'POST', body: { action: 'save', product_id: prodId } }).catch(() => {});
+              }
+            });
+          }
+        } catch {}
       } else {
         setSizeProfiles([]);
         setActiveSizeProfile(null);

@@ -94,11 +94,12 @@ function HomeHero() {
 }
 
 export const Home = () => {
-  const { addToCart } = useStore();
-  const featuredReq = useApi('/api/catalogue?new_arrivals=true&limit=10', { maxAge: 15_000 });
+  const { addToCart, user } = useStore();
+  const featuredReq = useApi('/api/catalogue?new_arrivals=true&limit=24', { maxAge: 15_000 });
   const contentReq = useApi('/api/content', { maxAge: 60_000 });
   const featured = featuredReq.data?.products || [];
   const videos = contentReq.data?.feedback_videos || [];
+  const instagram = contentReq.data?.instagram || [];
 
   const homeSchemas = [
     organizationSchema(),
@@ -169,6 +170,7 @@ export const Home = () => {
         {/* 2. JUST IN · STYLED HEAD TO TOE (Shared Arc Engine) */}
         <TryTheLook
           products={featured}
+          user={user}
           onAddToBag={handleAddToBag}
           onAddFullLook={handleAddFullLook}
         />
@@ -200,14 +202,16 @@ export const Home = () => {
           />
         </section>
 
-        {/* 6. ABOUT THE STUDIO · BENGALURU (Storefront image in gold frame, Scrolling photo stream) */}
+        {/* 6. ABOUT THE STUDIO · BENGALURU (Storefront drone video tour in gold frame, Scrolling photo stream) */}
         <FeelTheDrape
+          videoUrl="/assets/vishrea-drone.mp4"
           imageUrl="/assets/studio-storefront.jpg"
         />
 
-        {/* 7. WORN BY OUR CUSTOMERS (3D Reel Arc, Autoplay 4s, Fullscreen Player) */}
+        {/* 7. WORN BY OUR CUSTOMERS / STORIES FROM OUR WARDROBE (3D Reel Arc, Autoplay 4s, Fullscreen Player) */}
         <StyleInMotion
           videos={videos}
+          instagram={instagram}
         />
 
         {/* 8. FREQUENTLY ASKED QUESTIONS (Compact Accordion UI) */}

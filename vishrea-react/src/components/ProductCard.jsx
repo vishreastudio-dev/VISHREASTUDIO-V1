@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { imageFor, srcSetFor } from '../lib/imageFor';
 import { formatINR } from '../lib/api';
 import { useStore } from '../context/StoreContext';
+import { useLikes, toggleLike } from '../lib/likes';
 
 export const priceLabel = (p) => {
   if (p?.price_inr === null || p?.price_inr === undefined) return 'Price on request';
@@ -12,17 +13,15 @@ export const priceLabel = (p) => {
 const altFor = (p) => [p.name, p.color && `in ${p.color.toLowerCase()}`].filter(Boolean).join(' ');
 
 export const ProductCard = ({ product: p, className = 'product-card', showAvailability = false, eager = false }) => {
-  const { activeSizeProfile } = useStore();
+  const { user, activeSizeProfile } = useStore();
+  const { isLiked } = useLikes();
+  const liked = Boolean(isLiked(p.id) || isLiked(p.slug));
 
-  // Check if product matches the active profile
-  const isMatch = p.fits_profile || (activeSizeProfile && (
-    p.sizes?.some((s) => {
-      const target = (activeSizeProfile.category_sizes?.[p.category_slug] || activeSizeProfile.clothing_size || 'M').toUpperCase();
-      return String(s).toUpperCase() === target;
-    })
-  ));
-
-  const matchSizeLabel = p.matching_size || (activeSizeProfile ? (activeSizeProfile.category_sizes?.[p.category_slug] || activeSizeProfile.clothing_size) : null);
+  const handleHeartClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleLike(p, user);
+  };
 
   return (
     <Link className={`${className}${p.available === false ? ' is-sold' : ''}`} to={`/product/${encodeURIComponent(p.slug || p.id)}`}>
@@ -37,6 +36,18 @@ export const ProductCard = ({ product: p, className = 'product-card', showAvaila
           width="400"
           height="500"
         />
+        {/* Floating Heart / Like Button for quick saving */}
+        <button
+          type="button"
+          className={`product-card-heart ${liked ? 'is-liked' : ''}`}
+          onClick={handleHeartClick}
+          aria-label={liked ? `Remove ${p.name} from Likes` : `Save ${p.name} to Likes`}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill={liked ? '#7B1426' : 'rgba(255,255,255,0.9)'} stroke={liked ? '#7B1426' : '#1a1719'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
+
         {p.available === false ? (
           <span className="product-badge is-sold-out">Gone to a new home</span>
         ) : p.badge ? (

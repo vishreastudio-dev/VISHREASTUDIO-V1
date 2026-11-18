@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArcEngine } from './ArcEngine';
-import type { TryTheLookProps, LookItem, LookPiece } from './types';
+import type { TryTheLookProps, LookItem, LookPiece, CatalogueProduct } from './types';
+import { readLikes, toggleLike, likeAllInLook } from '../../lib/likes';
 import './home-sections.css';
 
 // SVG Icons (Strictly SVG icons only, no emojis)
@@ -51,7 +52,7 @@ const MODEL_LOOK_PHOTOS = [
   'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=800&q=85',
   'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=800&q=85',
   'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=800&q=85',
-  'https://images.unsplash.com/photo-1550614000-4895a10e1bfd?auto=format&fit=crop&w=800&q=85',
+  '/assets/occasion-look.jpg',
   'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=85',
 ];
 
@@ -66,7 +67,109 @@ const LOOK_NAMES = [
   'Sculpted Modernist',
 ];
 
-const DEFAULT_PIECE_ROLES = ['Top', 'Trousers', 'Jacket', 'Bag', 'Earrings', 'Shoes'];
+// Fallback real products from Vishrea Studio catalogue if remote query is empty or loading
+const FALLBACK_NEW_ARRIVALS: CatalogueProduct[] = [
+  {
+    id: 'prod-dress-1',
+    name: 'After Hours Dress',
+    slug: 'after-hours-dress',
+    category: 'Party Dresses',
+    price_inr: 3990,
+    image_url: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=600&q=80',
+    color: '#7B1426',
+    available: true,
+  },
+  {
+    id: 'prod-top-1',
+    name: 'Sculpted Everyday Top',
+    slug: 'sculpted-everyday-top',
+    category: 'Tops',
+    price_inr: 2190,
+    image_url: '/assets/tops.jpg',
+    color: '#1a1719',
+    available: true,
+  },
+  {
+    id: 'prod-coord-1',
+    name: 'Soft Structure Coord',
+    slug: 'soft-structure-coord',
+    category: 'Coord Sets',
+    price_inr: 4290,
+    image_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=600&q=80',
+    color: '#b89560',
+    available: true,
+  },
+  {
+    id: 'prod-dress-2',
+    name: 'The Wine Slip Dress',
+    slug: 'the-wine-slip-dress',
+    category: 'Dresses',
+    price_inr: 3490,
+    image_url: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=600&q=80',
+    color: '#7B1426',
+    available: true,
+  },
+  {
+    id: 'prod-knit-1',
+    name: 'Fluffy Bunny Appliqué Knit',
+    slug: 'fluffy-bunny-applique-knit',
+    category: 'Sweaters',
+    price_inr: 2990,
+    image_url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80',
+    color: '#f6f1e7',
+    available: true,
+  },
+  {
+    id: 'prod-top-2',
+    name: 'Everyday Crop Top',
+    slug: 'everyday-crop-top',
+    category: 'Crop Tops',
+    price_inr: 1590,
+    image_url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80',
+    color: '#ffffff',
+    available: true,
+  },
+  {
+    id: 'prod-pant-1',
+    name: 'Tailored Wide-Leg Pant',
+    slug: 'tailored-wide-leg-pant',
+    category: 'Pants',
+    price_inr: 2790,
+    image_url: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&w=600&q=80',
+    color: '#2a0a12',
+    available: true,
+  },
+  {
+    id: 'prod-cardigan-1',
+    name: 'Relaxed Knit Cardigan',
+    slug: 'relaxed-knit-cardigan',
+    category: 'Cardigans',
+    price_inr: 2490,
+    image_url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=600&q=80',
+    color: '#b45309',
+    available: true,
+  },
+  {
+    id: 'prod-shrug-1',
+    name: 'Longline Shrug',
+    slug: 'longline-shrug',
+    category: 'Long Coats & Shrugs',
+    price_inr: 3290,
+    image_url: 'https://images.unsplash.com/photo-1550614000-4895a10e1bfd?auto=format&fit=crop&w=600&q=80',
+    color: '#166534',
+    available: true,
+  },
+  {
+    id: 'prod-dress-3',
+    name: 'Fluffy Bunny',
+    slug: 'fluffy-bunny',
+    category: 'Dresses',
+    price_inr: 1999,
+    image_url: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&w=600&q=80',
+    color: '#fdf5f6',
+    available: true,
+  },
+];
 
 function formatINR(val?: number | null): string {
   if (val === null || val === undefined) return '';
@@ -80,36 +183,74 @@ function formatINR(val?: number | null): string {
 export const TryTheLook: React.FC<TryTheLookProps> = ({
   looks: customLooks,
   products = [],
+  user,
   onAddToBag,
   onAddFullLook,
   onToggleHeart,
   onSelectPiece,
 }) => {
+  const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
-  const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [likedMap, setLikedMap] = useState<Record<string, boolean>>(() => {
+    const map = readLikes();
+    const res: Record<string, boolean> = {};
+    Object.keys(map).forEach((k) => {
+      res[k] = true;
+    });
+    return res;
+  });
   const [addedLookup, setAddedLookup] = useState<Record<string, boolean>>({});
   const [fullLookAdded, setFullLookAdded] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string>('');
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Generate 8 curated looks bound to the data layer products
+  // Sync likes with localStorage changes across components/tabs
+  useEffect(() => {
+    const updateFromStorage = () => {
+      const map = readLikes();
+      const res: Record<string, boolean> = {};
+      Object.keys(map).forEach((k) => {
+        res[k] = true;
+      });
+      setLikedMap(res);
+    };
+
+    window.addEventListener('vishrea_likes_changed', updateFromStorage);
+    window.addEventListener('storage', updateFromStorage);
+    return () => {
+      window.removeEventListener('vishrea_likes_changed', updateFromStorage);
+      window.removeEventListener('storage', updateFromStorage);
+    };
+  }, []);
+
+  const showFeedback = (msg: string) => {
+    setToastMsg(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMsg(''), 2400);
+  };
+
+  // Generate 8 curated looks bound to REAL data layer products in New Arrivals
   const looks: LookItem[] = useMemo(() => {
     if (customLooks && customLooks.length >= 8) {
       return customLooks.slice(0, 8);
     }
 
+    const availableProducts = products && products.length > 0 ? products : FALLBACK_NEW_ARRIVALS;
+    const piecesPerLook = Math.min(6, availableProducts.length);
+
     return LOOK_NAMES.map((name, lookIdx) => {
-      // Map products from the data layer into the pieces list for each look
-      const pieces: LookPiece[] = DEFAULT_PIECE_ROLES.map((role, roleIdx) => {
-        const prodIndex = (lookIdx * 2 + roleIdx) % Math.max(1, products.length);
-        const prod = products[prodIndex];
+      // Pick distinct real products from New Arrivals for each curated look
+      const pieces: LookPiece[] = Array.from({ length: piecesPerLook }, (_, pieceOffset) => {
+        const prodIndex = (lookIdx * 2 + pieceOffset) % availableProducts.length;
+        const prod = availableProducts[prodIndex];
 
         return {
-          id: prod ? `prod-${prod.id}-${roleIdx}` : `look-${lookIdx}-piece-${roleIdx}`,
-          name: prod?.name || `${name} ${role}`,
-          role,
-          category: prod?.category || 'Vishrea Studio',
-          price_inr: prod?.price_inr || 2490 + ((lookIdx + roleIdx) % 5) * 600,
-          image_url: prod?.image_url || prod?.images?.[0] || null,
-          color: prod?.color || '#7B1426',
+          id: String(prod.id),
+          name: prod.name,
+          category: prod.category || 'Vishrea Studio',
+          price_inr: prod.price_inr ?? null,
+          image_url: prod.image_url || (Array.isArray(prod.images) ? prod.images[0] : null) || null,
+          color: prod.color || '#7B1426',
           product: prod,
         };
       });
@@ -126,9 +267,45 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
 
   const currentLook = looks[activeIdx] || looks[0];
 
-  const toggleHeart = (id: string, piece?: LookPiece) => {
-    setLikedMap((prev) => ({ ...prev, [id]: !prev[id] }));
-    onToggleHeart?.(id, piece);
+  const toggleHeart = async (id: string, piece?: LookPiece) => {
+    const target = piece || currentLook.pieces.find((p) => p.id === id);
+    if (!target) return;
+
+    const willLike = !likedMap[id];
+    setLikedMap((prev) => ({ ...prev, [id]: willLike }));
+
+    try {
+      await toggleLike(target, user);
+      showFeedback(willLike ? `Saved "${target.name}" to Likes` : `Removed "${target.name}" from Likes`);
+      onToggleHeart?.(id, target);
+    } catch {
+      // Revert if error
+      setLikedMap((prev) => ({ ...prev, [id]: !willLike }));
+    }
+  };
+
+  const handleToggleLookHeart = async () => {
+    const lookId = currentLook.id;
+    const isLookLiked = Boolean(likedMap[lookId]);
+
+    if (isLookLiked) {
+      const next = { ...likedMap };
+      delete next[lookId];
+      for (const piece of currentLook.pieces) {
+        delete next[piece.id];
+        await toggleLike(piece, user);
+      }
+      setLikedMap(next);
+      showFeedback(`Removed "${currentLook.name}" look from Likes`);
+    } else {
+      const next = { ...likedMap, [lookId]: true };
+      for (const piece of currentLook.pieces) {
+        next[piece.id] = true;
+      }
+      setLikedMap(next);
+      await likeAllInLook(currentLook.pieces, user);
+      showFeedback(`Saved all pieces in "${currentLook.name}" to Likes & Wardrobe`);
+    }
   };
 
   const handleAddPiece = (piece: LookPiece, e: React.MouseEvent) => {
@@ -142,22 +319,47 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
     }, 1200);
   };
 
-  const handleAddFullLook = (e: React.MouseEvent) => {
+  const handleShopLook = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onAddFullLook) {
-      onAddFullLook(currentLook.pieces, e);
-    } else if (onAddToBag) {
-      currentLook.pieces.forEach((piece) => onAddToBag(piece, e));
+    const heroPiece = currentLook.pieces[0];
+    if (heroPiece?.product?.slug) {
+      navigate(`/product/${encodeURIComponent(heroPiece.product.slug)}`);
+    } else {
+      navigate('/catalogue?sort=newest');
     }
-
-    setFullLookAdded(true);
-    setTimeout(() => {
-      setFullLookAdded(false);
-    }, 1800);
   };
 
   return (
     <section className="vishrea-section" id="shop" aria-labelledby="try-the-look-heading">
+      {/* Toast Notification for Likes & Bag */}
+      {toastMsg && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#1a1719',
+            color: '#ffffff',
+            padding: '12px 22px',
+            borderRadius: '9999px',
+            fontSize: '0.82rem',
+            fontWeight: 500,
+            letterSpacing: '0.04em',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.28)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            border: '1px solid rgba(201, 152, 74, 0.4)',
+          }}
+        >
+          <HeartIcon filled={true} />
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
       {/* Section Head matching Render "Just in" content with new UI */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px', marginBottom: '36px' }}>
         <div>
@@ -300,7 +502,7 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
           </div>
         </div>
 
-        {/* Right Column: "In this look" Panel */}
+        {/* Right Column: "In this look" Panel with REAL PRODUCTS in New Arrivals */}
         <div className="vishrea-look-panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
@@ -315,42 +517,61 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
             {currentLook.pieces.map((piece) => {
               const isLiked = Boolean(likedMap[piece.id]);
               const isAdded = Boolean(addedLookup[piece.id]);
+              const productSlug = piece.product?.slug || '';
+              const productHref = productSlug ? `/product/${encodeURIComponent(productSlug)}` : '/catalogue';
 
               return (
                 <li key={piece.id} className="vishrea-piece-item" onClick={() => onSelectPiece?.(piece)}>
-                  {/* Thumbnail */}
-                  <div
+                  {/* Real Product Thumbnail linking to PDP */}
+                  <Link
+                    to={productHref}
                     className="vishrea-piece-thumb"
                     style={{
                       backgroundImage: piece.image_url ? `url(${piece.image_url})` : undefined,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       backgroundColor: piece.image_url ? undefined : 'rgba(123, 20, 38, 0.08)',
+                      display: 'block',
+                      textDecoration: 'none',
                     }}
+                    aria-label={`View ${piece.name}`}
                   />
 
-                  {/* Piece info */}
+                  {/* Real Piece info linking to PDP */}
                   <div className="vishrea-piece-info">
                     <small className="vishrea-piece-eyebrow">
-                      VISHRÉA · {piece.role?.toUpperCase() || piece.category?.toUpperCase() || 'STUDIO'}
+                      VISHRÉA · {piece.category?.toUpperCase() || 'STUDIO'}
                     </small>
-                    <div className="vishrea-piece-title">{piece.name}</div>
+                    <Link
+                      to={productHref}
+                      className="vishrea-piece-title"
+                      style={{ textDecoration: 'none', display: 'block', color: 'inherit' }}
+                      title={piece.name}
+                    >
+                      {piece.name}
+                    </Link>
                     {piece.price_inr !== undefined && piece.price_inr !== null && (
                       <div className="vishrea-piece-price">{formatINR(piece.price_inr)}</div>
                     )}
                   </div>
 
-                  {/* Actions: Heart + Plus */}
+                  {/* Actions: Heart (Stores in Likes) + Plus (Adds to Bag) */}
                   <div className="vishrea-piece-actions">
                     <button
                       type="button"
                       className={`vishrea-ic-btn ${isLiked ? 'active-heart' : ''}`}
-                      style={{ width: '36px', height: '36px' }}
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        color: isLiked ? '#7B1426' : undefined,
+                        borderColor: isLiked ? '#7B1426' : undefined,
+                        backgroundColor: isLiked ? '#fdf5f6' : undefined,
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleHeart(piece.id, piece);
                       }}
-                      aria-label={isLiked ? `Remove ${piece.name} from wishlist` : `Wishlist ${piece.name}`}
+                      aria-label={isLiked ? `Remove ${piece.name} from Likes` : `Save ${piece.name} to Likes`}
                     >
                       <HeartIcon filled={isLiked} />
                     </button>
@@ -376,23 +597,29 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
             })}
           </ul>
 
-          {/* Bottom Actions: "Add full look to Wardrobe Bag" pill + Heart */}
+          {/* Bottom Actions: "Shop this look" pill + Wishlist Look Heart */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--vishrea-line)' }}>
             <button
               type="button"
               className="vishrea-pill-btn"
               style={{ flex: 1, minHeight: '48px' }}
-              onClick={handleAddFullLook}
+              onClick={handleShopLook}
             >
               <BagIcon />
-              <span>{fullLookAdded ? 'LOOK ADDED TO BAG' : 'ADD FULL LOOK TO WARDROBE BAG'}</span>
+              <span>SHOP THIS LOOK</span>
             </button>
 
             <button
               type="button"
               className={`vishrea-ic-btn ${likedMap[currentLook.id] ? 'active-heart' : ''}`}
-              style={{ width: '48px', height: '48px' }}
-              onClick={() => toggleHeart(currentLook.id)}
+              style={{
+                width: '48px',
+                height: '48px',
+                color: likedMap[currentLook.id] ? '#7B1426' : undefined,
+                borderColor: likedMap[currentLook.id] ? '#7B1426' : undefined,
+                backgroundColor: likedMap[currentLook.id] ? '#fdf5f6' : undefined,
+              }}
+              onClick={handleToggleLookHeart}
               aria-label="Wishlist entire look"
             >
               <HeartIcon filled={Boolean(likedMap[currentLook.id])} />

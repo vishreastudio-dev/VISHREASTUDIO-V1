@@ -82,6 +82,7 @@ export interface ArcEngineProps<T> {
 export interface TryTheLookProps {
   looks?: LookItem[];
   products?: CatalogueProduct[];
+  user?: any;
   onAddToBag?: (piece: LookPiece | CatalogueProduct, e?: React.MouseEvent) => void;
   onAddFullLook?: (pieces: LookPiece[], e?: React.MouseEvent) => void;
   onToggleHeart?: (id: string, piece?: LookPiece) => void;
@@ -129,6 +130,9 @@ export interface ReelItem {
   duration?: string;
   videoUrl?: string;
   thumbnailUrl: string;
+  postUrl?: string;
+  embedUrl?: string;
+  isInstagram?: boolean;
 }
 
 export interface StyleInMotionProps {
@@ -139,6 +143,12 @@ export interface StyleInMotionProps {
     customer_name?: string;
     video_url?: string;
     duration_seconds?: number;
+  }>;
+  instagram?: Array<{
+    id: string;
+    title?: string;
+    post_url?: string;
+    image_url?: string;
   }>;
 }
 
