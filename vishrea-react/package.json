@@ -15,16 +15,20 @@
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-fade": "8.6.0",
     "embla-carousel-react": "8.6.0",
+    "framer-motion": "^14.14.0",
     "lucide-react": "^1.59.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
     "vite": "^8.3.0"
   }
 }
