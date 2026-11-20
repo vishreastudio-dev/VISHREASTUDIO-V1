@@ -548,157 +548,374 @@
 }
 
 /* ==============================================================================
-   Section 4: Feel the drape
+   Section 4: Feel the drape — Editorial Asymmetric Layout
    ============================================================================== */
-.vishrea-film-grid {
+
+/* Section wrapper */
+.vsh-editorial-section {
+  background-color: #FAF8F5;
+  color: #1C1917;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 88px 6vw 80px;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .vsh-editorial-section {
+    padding: 64px 5vw 56px;
+  }
+
+}
+
+/* ── Top centered header ── */
+.vsh-editorial-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 60px;
+}
+
+.vsh-editorial-eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #57534E;
+  font-weight: 500;
+  margin: 0 0 18px;
+}
+
+.vsh-editorial-h1 {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: clamp(1.6rem, 2.8vw, 2.6rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: #1C1917;
+  margin: 0 0 20px;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .vsh-editorial-h1 {
+    white-space: normal;
+    font-size: clamp(1.5rem, 6vw, 2.2rem);
+  }
+}
+
+.vsh-editorial-h1 em {
+  font-style: italic;
+  color: #7C202D;
+}
+
+.vsh-editorial-subtitle {
+  font-size: 0.93rem;
+  line-height: 1.72;
+  color: #57534E;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ── Two-column body ── */
+.vsh-editorial-body {
   display: grid;
-  grid-template-columns: 1fr minmax(0, 880px) 1fr;
-  gap: 32px;
-  align-items: center;
+  grid-template-columns: 57fr 43fr;
+  gap: 52px;
+  align-items: start;
+  max-width: 1160px;
+  margin: 0 auto;
 }
 
-@media (max-width: 980px) {
-  .vishrea-film-grid {
+@media (max-width: 960px) {
+  .vsh-editorial-body {
     grid-template-columns: 1fr;
+    gap: 40px;
   }
-  .vishrea-photo-col {
-    display: none !important;
-  }
+
 }
 
-.vishrea-photo-col {
-  height: 560px;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000000 15%, #000000 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000000 15%, #000000 85%, transparent 100%);
-}
-
-.vishrea-photo-stream {
+/* ── LEFT column ── */
+.vsh-editorial-left {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  animation: vishrea-scroll-up 28s linear infinite;
-  will-change: transform;
+  gap: 0;
 }
 
-.vishrea-photo-col.is-reversed .vishrea-photo-stream {
-  animation-direction: reverse;
-}
-
-.vishrea-photo-card {
-  display: block;
-  aspect-ratio: 3/4;
-  width: 100%;
-  border-radius: 20px;
-  background-size: cover;
-  background-position: center;
-  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.14);
-  flex-shrink: 0;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-@keyframes vishrea-scroll-up {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(-50%);
-  }
-}
-
-/* Thin Gold Frame with Corner Brackets */
-.vishrea-gold-frame {
+/* Frame container */
+.vsh-frame {
   position: relative;
-  border: 1px solid #C9984A;
-  padding: 12px;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.12);
+  border: 1px solid #E6E0D6;
+  border-radius: 6px;
+  background: #FAF8F5;
+  overflow: visible;
 }
 
-.vishrea-gold-bracket {
+/* Corner brackets — thin brass/muted lines */
+.vsh-bracket {
   position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 2.5px solid #C9984A;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #B8A98A;
   pointer-events: none;
   z-index: 5;
 }
 
-.vishrea-gold-bracket.top-left {
-  top: -3px;
-  left: -3px;
+.vsh-bracket--tl {
+  top: -4px;
+  left: -4px;
   border-right: none;
   border-bottom: none;
 }
 
-.vishrea-gold-bracket.top-right {
-  top: -3px;
-  right: -3px;
+.vsh-bracket--tr {
+  top: -4px;
+  right: -4px;
   border-left: none;
   border-bottom: none;
 }
 
-.vishrea-gold-bracket.bottom-left {
-  bottom: -3px;
-  left: -3px;
+.vsh-bracket--bl {
+  bottom: -4px;
+  left: -4px;
   border-right: none;
   border-top: none;
 }
 
-.vishrea-gold-bracket.bottom-right {
-  bottom: -3px;
-  right: -3px;
+.vsh-bracket--br {
+  bottom: -4px;
+  right: -4px;
   border-left: none;
   border-top: none;
 }
 
-.vishrea-film-box {
-  aspect-ratio: 16/9;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #3d2f23, #15110d);
+/* Atelier pill label (top-left inside frame) */
+.vsh-atelier-pill {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  background: rgba(250, 248, 245, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(184, 169, 138, 0.5);
+  border-radius: 9999px;
+  padding: 5px 13px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #57534E;
+  pointer-events: none;
+}
+
+/* Media area */
+.vsh-frame-media {
   position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 4px;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #1C1917;
 }
 
-.vishrea-film-video {
+.vsh-frame-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
-.vishrea-sound-pill {
+/* Sound toggle pill — bottom center */
+.vsh-sound-toggle {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: 16px;
   transform: translateX(-50%);
-  background: rgba(20, 16, 16, 0.65);
+  background: rgba(28, 25, 23, 0.68);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 9999px;
-  padding: 8px 20px;
+  padding: 7px 18px;
   color: #ffffff;
   letter-spacing: 0.16em;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.25s ease;
+  transition: all 0.22s ease;
+  white-space: nowrap;
 }
 
-.vishrea-sound-pill:hover {
-  background: rgba(123, 20, 38, 0.85);
-  border-color: #C9984A;
-  transform: translateX(-50%) scale(1.05);
+.vsh-sound-toggle:hover {
+  background: rgba(124, 32, 45, 0.82);
+  border-color: rgba(184, 169, 138, 0.6);
+  transform: translateX(-50%) scale(1.04);
+}
+
+/* Below-frame captions */
+.vsh-frame-captions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 11px;
+  padding: 0 2px;
+}
+
+.vsh-caption-left,
+.vsh-caption-right {
+  font-size: 0.69rem;
+  color: #A8A29E;
+  letter-spacing: 0.03em;
+}
+
+.vsh-caption-right em {
+  font-style: italic;
+}
+
+/* ── RIGHT column ── */
+.vsh-editorial-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-top: 10px;
+}
+
+/* "— BESPOKE CURATION" label */
+.vsh-curation-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #7C202D;
+  margin-bottom: 24px;
+}
+
+.vsh-curation-line {
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: #7C202D;
+  flex-shrink: 0;
+}
+
+/* Primary editorial serif paragraph */
+.vsh-primary-para {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: clamp(1rem, 1.3vw, 1.13rem);
+  line-height: 1.78;
+  color: #1C1917;
+  margin: 0 0 22px;
+  font-weight: 400;
+}
+
+/* Secondary sans paragraph */
+.vsh-secondary-para {
+  font-size: 0.88rem;
+  line-height: 1.75;
+  color: #57534E;
+  margin: 0 0 32px;
+  font-weight: 400;
+}
+
+/* Two-column metadata strip */
+.vsh-meta-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+  border-top: 1px solid #E6E0D6;
+  padding-top: 20px;
+  margin-bottom: 28px;
+}
+
+.vsh-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vsh-meta-label {
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #57534E;
+}
+
+.vsh-meta-value {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #1C1917;
+}
+
+/* Action links row */
+.vsh-action-links {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-top: 1px solid #E6E0D6;
+  padding-top: 22px;
+  flex-wrap: nowrap;
+}
+
+.vsh-action-link {
+  font-size: 0.69rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7C202D;
+  text-decoration: none;
+  padding: 2px 0;
+  transition: opacity 0.2s ease;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.vsh-action-link:hover {
+  opacity: 0.65;
+}
+
+.vsh-action-divider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: #D0C8BE;
+  margin: 0 18px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 680px) {
+  .vsh-action-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .vsh-action-link {
+    white-space: normal;
+  }
+  .vsh-action-divider {
+    display: none;
+  }
+}
+
+/* Keep old classes referenced by other sections intact */
+.vishrea-film-grid,
+.vishrea-photo-col,
+.vishrea-photo-stream,
+.vishrea-photo-card,
+.vishrea-gold-frame,
+.vishrea-gold-bracket,
+.vishrea-film-box,
+.vishrea-film-video,
+.vishrea-sound-pill {
+  display: none;
 }
 
 /* ==============================================================================

@@ -135,7 +135,7 @@ export const Home = () => {
           const d = await api(`/api/product?slug=${encodeURIComponent(product.slug)}`);
           const fullProd = d?.product || product;
           targetVariant = fullProd?.variants?.find((v) => v.stock_quantity > 0 || v.in_stock) || fullProd?.variants?.[0];
-        } catch {}
+        } catch { }
       }
 
       if (!targetVariant) {

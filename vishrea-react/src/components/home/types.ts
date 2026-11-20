@@ -77,6 +77,7 @@ export interface ArcEngineProps<T> {
   className?: string;
   onItemClick?: (item: T, index: number) => void;
   ariaLabel?: string;
+  autoPlayInterval?: number;
 }
 
 export interface TryTheLookProps {

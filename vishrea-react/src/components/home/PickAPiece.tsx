@@ -470,27 +470,6 @@ export const PickAPiece: React.FC<PickAPieceProps> = ({
         </button>
       </div>
 
-      {/* Category Footer Banner matching Render */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '16px',
-          marginTop: '48px',
-          paddingTop: '20px',
-          borderTop: '1px solid var(--vishrea-line)',
-          fontSize: '0.72rem',
-          letterSpacing: '0.24em',
-          textTransform: 'uppercase',
-          color: 'var(--vishrea-soft)',
-        }}
-        aria-hidden="true"
-      >
-        <span style={{ color: '#C9984A' }}>✦</span>
-        <span>FASHION FOR EVERY YOU</span>
-        <span style={{ color: '#C9984A' }}>✦</span>
-      </div>
     </section>
   );
 };

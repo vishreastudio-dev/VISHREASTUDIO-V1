@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { ArcEngineProps } from './types';
 
@@ -19,13 +19,17 @@ export function ArcEngine<T>({
   className = '',
   onItemClick,
   ariaLabel = 'Interactive carousel',
+  autoPlayInterval = 4000,
 }: ArcEngineProps<T>) {
   const prefersReduced = useReducedMotion();
   const total = items.length;
 
   // Swipe / Drag handling
   const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
   const isDraggingRef = useRef<boolean>(false);
+  const isInteractingRef = useRef<boolean>(false);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
 
   const go = useCallback(
@@ -40,27 +44,59 @@ export function ArcEngine<T>({
   const goPrev = useCallback(() => go(activeIndex - 1), [go, activeIndex]);
   const goNext = useCallback(() => go(activeIndex + 1), [go, activeIndex]);
 
-  // Pointer drag listeners
-  const handlePointerDown = (e: React.PointerEvent) => {
-    // Only primary button
-    if (e.button !== 0) return;
-    startXRef.current = e.clientX;
-    isDraggingRef.current = false;
-  };
+  // Auto-scroll every autoPlayInterval ms (defaults to 4 seconds)
+  useEffect(() => {
+    if (!autoPlayInterval || autoPlayInterval <= 0 || prefersReduced || total <= 1) return;
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (startXRef.current !== null) {
-      if (Math.abs(e.clientX - startXRef.current) > 8) {
-        isDraggingRef.current = true;
+    const intervalId = setInterval(() => {
+      if (!isInteractingRef.current && !isDraggingRef.current) {
+        goNext();
       }
+    }, autoPlayInterval);
+
+    return () => clearInterval(intervalId);
+  }, [autoPlayInterval, prefersReduced, total, goNext]);
+
+  const pauseInteraction = () => {
+    isInteractingRef.current = true;
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
     }
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const resumeInteractionLater = (delayMs = 3500) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      isInteractingRef.current = false;
+    }, delayMs);
+  };
+
+  // Drag start
+  const handleDragStart = (clientX: number, clientY: number) => {
+    pauseInteraction();
+    startXRef.current = clientX;
+    startYRef.current = clientY;
+    isDraggingRef.current = false;
+  };
+
+  // Drag move
+  const handleDragMove = (clientX: number, clientY: number) => {
+    if (startXRef.current === null) return;
+    const diffX = clientX - startXRef.current;
+    const diffY = clientY - (startYRef.current ?? clientY);
+
+    if (Math.abs(diffX) > 8 && Math.abs(diffX) > Math.abs(diffY)) {
+      isDraggingRef.current = true;
+    }
+  };
+
+  // Drag end / Swipe trigger
+  const handleDragEnd = (clientX: number) => {
     if (startXRef.current !== null) {
-      const diff = e.clientX - startXRef.current;
-      if (Math.abs(diff) > 40) {
-        if (diff > 0) {
+      const diffX = clientX - startXRef.current;
+      if (Math.abs(diffX) > 35) {
+        if (diffX > 0) {
           goPrev();
         } else {
           goNext();
@@ -68,9 +104,53 @@ export function ArcEngine<T>({
       }
     }
     startXRef.current = null;
+    startYRef.current = null;
     setTimeout(() => {
       isDraggingRef.current = false;
-    }, 50);
+      resumeInteractionLater(4000);
+    }, 60);
+  };
+
+  // Pointer drag listeners (desktop mouse & pointer)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    handleDragStart(e.clientX, e.clientY);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    handleDragMove(e.clientX, e.clientY);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    handleDragEnd(e.clientX);
+  };
+
+  const handlePointerCancel = () => {
+    startXRef.current = null;
+    startYRef.current = null;
+    isDraggingRef.current = false;
+    resumeInteractionLater(1000);
+  };
+
+  // Native touch listeners for mobile finger drag
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.changedTouches.length > 0) {
+      handleDragEnd(e.changedTouches[0].clientX);
+    } else {
+      handlePointerCancel();
+    }
   };
 
   // Keyboard navigation
@@ -94,14 +174,20 @@ export function ArcEngine<T>({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        startXRef.current = null;
-        isDraggingRef.current = false;
-      }}
+      onPointerCancel={handlePointerCancel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handlePointerCancel}
+      onMouseEnter={pauseInteraction}
+      onMouseLeave={() => resumeInteractionLater(1500)}
       className={`vishrea-arc-stage ${className}`}
       style={{
         height: typeof stageHeight === 'number' ? `${stageHeight}px` : stageHeight,
         perspective: '1400px',
+        touchAction: 'pan-y',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     >
       {items.map((item, k) => {
