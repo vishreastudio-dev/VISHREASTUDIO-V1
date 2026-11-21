@@ -169,6 +169,32 @@ export const StoreProvider = ({ children }) => {
     ['vishrea_react_user', 'vishrea_react_products', 'vishrea_react_categories', 'vishrea_react_orders', 'vishrea_react_cart', 'vishrea_react_membership', 'vishrea_react_colour_profile'].forEach((k) =>
       localStorage.removeItem(k)
     );
+
+    // Listen to Supabase auth events (e.g. magic link redirects or URL hash tokens)
+    let unsub = null;
+    import('../lib/supabase.js').then(({ getSupabase }) => {
+      getSupabase().then((sb) => {
+        if (!sb) return;
+        const { data } = sb.auth.onAuthStateChange(async (event, session) => {
+          if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.access_token) {
+            try {
+              const res = await api('/api/auth/session-exchange', {
+                method: 'POST',
+                body: { access_token: session.access_token },
+              });
+              if (res?.user) setUser(res.user);
+            } catch (err) {
+              console.warn('[Auth] Auto-exchange from Supabase session failed:', err);
+            }
+          }
+        });
+        unsub = data?.subscription;
+      });
+    });
+
+    return () => {
+      unsub?.unsubscribe();
+    };
   }, [refreshSession]);
 
   useEffect(() => onUnauthorized(() => setUser(null)), []);
@@ -238,10 +264,47 @@ export const StoreProvider = ({ children }) => {
     refreshCart().catch(() => {});
   }, [userId, refreshCart]);
 
-  const startLogin = useCallback((email) => api('/api/auth/start-login', { method: 'POST', body: { email } }), []);
+  const startLogin = useCallback(async (email) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    try {
+      const { sendOtpEmail, isSupabaseAvailable } = await import('../lib/supabase.js');
+      if (isSupabaseAvailable()) {
+        await sendOtpEmail(normalizedEmail);
+        return {
+          ok: true,
+          provider: 'supabase',
+          message: 'If this email can receive mail, a 6-digit code is on its way.',
+        };
+      }
+    } catch (sbErr) {
+      console.warn('[Auth] Supabase client OTP request failed, falling back to server:', sbErr);
+    }
+    return api('/api/auth/start-login', { method: 'POST', body: { email: normalizedEmail } });
+  }, []);
 
   const verifyCode = useCallback(async (email, code) => {
-    const d = await api('/api/auth/verify-code', { method: 'POST', body: { email, code } });
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const cleanCode = String(code || '').trim();
+
+    try {
+      const { verifyEmailOtp, isSupabaseAvailable } = await import('../lib/supabase.js');
+      if (isSupabaseAvailable()) {
+        const sbData = await verifyEmailOtp(normalizedEmail, cleanCode);
+        const accessToken = sbData?.session?.access_token;
+        if (accessToken) {
+          const res = await api('/api/auth/session-exchange', {
+            method: 'POST',
+            body: { access_token: accessToken },
+          });
+          setUser(res.user);
+          return res;
+        }
+      }
+    } catch (sbErr) {
+      console.warn('[Auth] Supabase client OTP verify failed, falling back to server verify:', sbErr);
+    }
+
+    const d = await api('/api/auth/verify-code', { method: 'POST', body: { email: normalizedEmail, code: cleanCode } });
     setUser(d.user);
     return d;
   }, []);
@@ -265,12 +328,17 @@ export const StoreProvider = ({ children }) => {
 
   const signOut = useCallback(async () => {
     try {
+      const { signOutSupabase } = await import('../lib/supabase.js');
+      await signOutSupabase().catch(() => {});
+    } catch {}
+    try {
       await api('/api/auth/signout', { method: 'POST', body: {} });
     } finally {
       setUser(null);
       setGuestCart([]);
       setSizeProfiles([]);
       setActiveSizeProfile(null);
+      setServerCart({ items: [], estimate: null, membership: null });
     }
   }, []);
 

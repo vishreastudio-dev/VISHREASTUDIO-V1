@@ -64,13 +64,16 @@ export const Login = () => {
 
   const submitCode = async (e) => {
     e.preventDefault();
-    if (busy || code.length !== 6) return;
+    if (busy || code.length < 6 || code.length > 8) return;
     setBusy(true);
     setMsg({ tone: 'info', text: '' });
     try {
-      await verifyCode(email.trim(), code);
+      const res = await verifyCode(email.trim(), code);
+      setMsg({ tone: 'success', text: 'Verification successful. Redirecting…' });
+      const dest = next || res?.redirect_to || (res?.user?.is_admin ? '/admin' : '/account');
+      navigate(dest, { replace: true });
     } catch (err) {
-      setMsg({ tone: 'error', text: err.message });
+      setMsg({ tone: 'error', text: err.message || 'Invalid or expired code. Please try again.' });
       setCode('');
     } finally {
       setBusy(false);
@@ -117,15 +120,15 @@ export const Login = () => {
                 id="login-code"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                pattern="\d{6}"
-                maxLength={6}
+                pattern="\d{6,8}"
+                maxLength={8}
                 required
-                placeholder="6-digit code"
+                placeholder="Verification code"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 style={{ padding: '14px', border: '1px solid var(--line)', fontSize: '18px', textAlign: 'center', letterSpacing: '0.3em' }}
               />
-              <button type="submit" disabled={busy || code.length !== 6} className="button button-dark" style={{ padding: '14px', fontSize: '11px', textTransform: 'uppercase' }}>
+              <button type="submit" disabled={busy || code.length < 6} className="button button-dark" style={{ padding: '14px', fontSize: '11px', textTransform: 'uppercase' }}>
                 {busy ? 'Verifying…' : 'Sign in'}
               </button>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>

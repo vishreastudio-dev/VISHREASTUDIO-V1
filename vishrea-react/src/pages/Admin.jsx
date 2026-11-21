@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, useCallback } from 'react';
+import { Fragment, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, Navigate, NavLink, useParams, useLocation } from 'react-router-dom';
 import { api, uploadFile } from '../lib/api';
 import { usePageSeo } from '../lib/usePageSeo';
@@ -250,17 +250,20 @@ const LIST_FILTERS = {
 };
 
 function ListFilter({ section, categories, onApply, busy }) {
-  const config = LIST_FILTERS[section];
-  if (!config) return null;
   const location = useLocation();
-  const toggleKeys = new Set((config.toggles || []).map(([k]) => k));
-  const empty = { q: '', ...Object.fromEntries([...config.selects, ...(config.toggles || [])].map(([k]) => [k, toggleKeys.has(k) ? false : ''])) };
+  const config = LIST_FILTERS[section];
+  const toggleKeys = useMemo(() => new Set((config?.toggles || []).map(([k]) => k)), [config]);
+  const empty = useMemo(() => {
+    if (!config) return {};
+    return { q: '', ...Object.fromEntries([...config.selects, ...(config.toggles || [])].map(([k]) => [k, toggleKeys.has(k) ? false : ''])) };
+  }, [config, toggleKeys]);
 
   const readValuesFromUrl = useCallback(() => {
+    if (!config) return {};
     const sp = new URLSearchParams(location.search);
     const res = { ...empty };
     if (sp.has('q')) res.q = sp.get('q') || '';
-    for (const [k] of config.selects) {
+    for (const [k] of config.selects || []) {
       if (sp.has(k)) res[k] = sp.get(k) || '';
     }
     for (const [k] of config.toggles || []) {
@@ -270,13 +273,15 @@ function ListFilter({ section, categories, onApply, busy }) {
       }
     }
     return res;
-  }, [config, location.search]);
+  }, [config, location.search, empty]);
 
   const [values, setValues] = useState(readValuesFromUrl);
 
   useEffect(() => {
     setValues(readValuesFromUrl());
   }, [readValuesFromUrl]);
+
+  if (!config) return null;
 
   const apply = (next) => {
     const params = new URLSearchParams();
