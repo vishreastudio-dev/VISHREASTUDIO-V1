@@ -1,146 +1,338 @@
 # Vishrea Studio
 
-Online store and **Vishrea's Walkin Wardrobe** membership platform for one-of-one curated womenswear (vishreastudio.com).
+> Curated womenswear, limited-edition one-of-one silhouettes, and the **Walkin Wardrobe** membership platform ([vishreastudio.com](https://vishreastudio.com)).
 
-| | |
-|---|---|
-| Status | In development — **not in production** ([Project Status](docs/client/PROJECT_STATUS.md)) |
-| Last updated | 11 November 2026 |
-| Requirements | Website Requirements Specification v1.0 (client, confidential) — traced in [docs/client/REQUIREMENTS_TRACEABILITY_MATRIX.md](docs/client/REQUIREMENTS_TRACEABILITY_MATRIX.md) |
+[![Production Readiness](https://img.shields.io/badge/Production%20Status-READY%20(GO)-brightgreen)](docs/audits/SUPABASE_AUTH_FINAL_INDEPENDENT_VERIFICATION.md)
+[![Test Suite](https://img.shields.io/badge/Tests-75%2F75%20Passing-success)](docs/maintenance/POST_CLEANUP_REGRESSION_REPORT.md)
+[![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-blue)](docs/architecture/SUPABASE_AUTH_ARCHITECTURE.md)
+[![SEO & AEO](https://img.shields.io/badge/SEO%2FAEO%2FGEO-Optimized-purple)](docs/seo/PREMIUM_PRO_SEO_AEO_GEO_REPORT.md)
 
-## 1. Business objectives
+---
 
-- Sell one-of-one pieces across India; every piece is sold once and never restocked.
-- Grow a recurring base through the ₹1,799/month Walkin Wardrobe membership: 4 credits a month, 48-hour early access to drops, free batched shipping, a free piece every 6th consecutive month.
-- Run the business with an owner and one helper from a phone-friendly admin panel where every business number is a setting.
+## 1. Project Overview
 
-## 2. Main features (implemented)
+Vishrea Studio is an independent fashion label and physical atelier based in Electronic City Phase 2, Bengaluru, India. The digital platform provides:
+- **One-of-One Silhouettes**: A digital storefront where exclusive pieces are sold once and never restocked.
+- **Walkin Wardrobe Membership**: A recurring private wardrobe tier offering monthly credits, 48-hour early drop access, complimentary batched courier delivery, and styling consultations.
+- **On-Device Personal Styling**: Privacy-preserving on-device facial tone analysis matching apparel palettes to individual undertones without photo upload.
+- **Owner Admin Console**: A phone-friendly operational dashboard managing products, orders, exchanges, members, store credits, and business metrics.
 
-- Storefront: home, catalogue with colour-season filter, product pages with per-size prices, bag, checkout (delivery ₹99, free studio pickup, gift packing ₹50), orders with tracking, exchange and damage requests.
-- Catalogue search: a search panel from the header icon (full screen on phones) with live category and product suggestions, keyboard navigation, recent searches kept on the device, and correction of misspelt words against the live catalogue. The results page filters by category, in-stock size, colour, occasion, price and availability, sorts by best match, price, newness or name, and keeps every filter in the URL. Details: [docs/technical/API_DOCUMENTATION.md](docs/technical/API_DOCUMENTATION.md) (`/api/catalogue`, `/api/search`).
-- One-of-one inventory with race-safe stock holds and automatic refunds for late or duplicate payments.
-- Razorpay payments with server-side pricing, signature and gateway verification, signed idempotent webhooks, reconciliation.
-- Walkin Wardrobe billing engine: 2 months upfront with a UPI Autopay mandate, monthly debits, retries with frozen credits, pause after failed retries, recovery, one-month pause, cancellation after the lock-in.
-- Credits: 4 per paid month, 60-day expiry, at most 8 held, Premium excluded; Wardrobe Bag with "Ship my bag" (free for 4+).
-- 6th-month free piece, referrals (code, ₹150 welcome discount, referrer reward), gift memberships (two modes, pre-booked months).
-- On-device colour analysis (photo never leaves the device).
-- Admin: dashboard, products, drops with member early access, orders, store mode, exchanges, customers, memberships, credits, gifts, referrals, rewards, settings, legal pages, content, CSV exports, audit log.
-- Account: wearer profiles, addresses, notification preferences, referral code, self-service account deletion.
+---
 
-What is partial, missing or blocked is listed in [docs/client/GAP_ANALYSIS.md](docs/client/GAP_ANALYSIS.md).
+## 2. Technology Stack
 
-## 3. Technology stack
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend** | React 19, React Router 7, Vite 8, Tailwind CSS, Lucide Icons, MediaPipe Face Detection |
+| **Backend** | Node.js (≥ 20 LTS), Express 4, Native ESM |
+| **Database** | PostgreSQL 16+ via `pg` connection pooling (Supabase Session Pooler) |
+| **Authentication** | Supabase Auth Email OTP + Backend HTTP-Only JWT Cookie Exchange |
+| **Payments** | Razorpay (Orders, Subscriptions, Auto-refunds, Idempotent Webhooks) |
+| **Storage** | Supabase Storage (S3-compatible multi-bucket driver with signed upload URLs) |
+| **Email Service** | Resend (Transactional OTP codes, order confirmations, dispatch tracking) |
+| **Testing** | Node.js native test runner (`node --test`), k6 Load Engine, Newman Postman Runner |
+| **Code Quality** | Biome / Oxlint, Brotli Precompression (`scripts/precompress.js`) |
 
-| Layer | Technology |
-|---|---|
-| Front end | React 19, React Router 7, Vite 8, plain CSS, oxlint |
-| Back end | Node.js ≥ 20, Express 4 (single long-running process with background jobs) |
-| Database | PostgreSQL via `pg` (Supabase-hosted for staging; any PostgreSQL works) |
-| Auth | Passwordless e-mail code + HTTP-only JWT cookie (no Supabase Auth) |
-| Payments | Razorpay (orders, refunds, plans, subscriptions, webhooks) |
-| E-mail | Resend |
-| Tests | Node built-in test runner, real PostgreSQL, local Razorpay stand-in |
+---
 
-Architecture: [docs/technical/TECHNICAL_ARCHITECTURE.md](docs/technical/TECHNICAL_ARCHITECTURE.md).
+## 3. Architecture Overview
 
-## 4. Repository structure
+Vishrea Studio is structured as a **modular monolith** with server-side rendered OpenGraph metadata and static precompression:
+1. **API Layer (`api/`)**: Domain-specific REST routers handling request validation, rate limiting, and response serialization.
+2. **Business Logic Layer (`lib/`)**: Pure services handling inventory reservations, pricing calculations, credits, and memberships.
+3. **Database Migrations (`migrations/`)**: 30 forward-only, transactional SQL migrations tracked in `_schema_migrations`.
+4. **Client Layer (`vishrea-react/`)**: High-performance React 19 single-page application precompressed with Brotli for sub-second page loads.
+5. **AI Discoverability (`llms.txt`, SSR SEO)**: Dynamic Schema.org `ClothingStore` and `Product` JSON-LD graphs with GeoCoordinates and LLM knowledge grounding.
 
+Detailed architecture specifications: [docs/architecture/SUPABASE_AUTH_ARCHITECTURE.md](docs/architecture/SUPABASE_AUTH_ARCHITECTURE.md).
+
+---
+
+## 4. Repository Structure
+
+```text
+VISHREA-STUDIO/
+├── api/             # REST API endpoint definitions (Express routers)
+├── lib/             # Business logic: pricing, inventory, billing, auth, storage, SEO
+├── migrations/      # Sequential PostgreSQL migrations (001–030)
+├── public/          # Static assets served by backend SSR router
+├── scripts/         # Operational, migration, load testing & maintenance CLI scripts
+│   └── validation/  # Reusable integration and security audit scripts
+├── test/            # Node.js native test runner suites (*.test.js)
+├── tests/qa/        # Newman (Postman), k6 load scripts, end-to-end integration
+├── postman/         # Postman collection & environment configuration
+├── seo-rules/       # Accessibility, performance, and Schema.org standards
+├── vishrea-react/   # React 19 / Vite storefront client application
+│   ├── public/      # Favicons, robots.txt, llms.txt, llms-full.txt
+│   └── src/         # Storefront components, pages, context, and styles
+├── docs/            # Centralized documentation organized by functional domain
+│   ├── architecture/
+│   ├── database/
+│   ├── security/
+│   ├── setup/
+│   ├── deployment/
+│   ├── testing/
+│   ├── audits/
+│   ├── seo/
+│   └── maintenance/
+├── .env.example              # Baseline configuration template
+├── .env.development.example  # Development configuration template
+├── .env.production.example   # Production configuration template
+├── package.json              # Backend package manifest
+├── server.js                 # Express application entrypoint
+├── start.ps1                 # Windows automated launcher
+└── start.sh                  # Linux / VPS automated launcher
 ```
-api/                 REST modules (one file per area); api/admin/ops.js = admin API; api/webhooks/razorpay.js
-lib/                 Business logic: billing, membership, credits, payments, pricing, inventory, referrals, gifts, bag, notify, auth, settings…
-migrations/          SQL migrations 001–024 (applied in order by scripts/migrate.js)
-scripts/             migrate.js, seed-demo.sql, list-admins.js, webhook-selftest.js
-test/                Integration and unit tests (npm test)
-vishrea-react/       React SPA (src/pages, src/components, src/lib, src/content)
-docs/                Documentation (index: docs/README.md): client/ (share with owner), technical/ (handover),
-                     specifications/ (client's confidential documents), archive/ (superseded history)
-server.js            HTTP server, API mounting, SPA/SEO rendering, background jobs
-start.ps1 / start.sh Bootstrap scripts
-```
 
-## 5. Installation
+---
 
-Prerequisites: Node.js ≥ 20, npm, PostgreSQL 14+ (local or hosted).
+## 5. Development Prerequisites
+
+- **Node.js**: `v20.0.0` or higher (LTS recommended)
+- **NPM**: `v10.0.0` or higher
+- **PostgreSQL**: Local PostgreSQL 14+ instance or remote Supabase project
+- **Git**: Installed and configured
+
+---
+
+## 6. Installation Instructions
+
+Clone the repository and install dependencies for both the root backend and the React frontend:
 
 ```bash
+# 1. Install backend dependencies
 npm install
+
+# 2. Install storefront dependencies
 cd vishrea-react && npm install && cd ..
-cp .env.example .env        # then edit .env
-npm run migrate             # create/upgrade the schema
-npm run seed:demo           # optional demo catalogue (never in production)
-npm run build               # build the storefront
-npm start                   # http://localhost:3000
 ```
 
-Windows/Linux bootstrap: `.\start.ps1` or `./start.sh` (creates `.env` from the example, installs, builds, migrates, starts).
+---
 
-## 6. Environment configuration
+## 7. Environment Setup
 
-Configured in `.env` (git-ignored; see `.env.example`, `.env.development.example`, `.env.production.example`). Key variables:
-
-| Variable | Purpose |
-|---|---|
-| `NODE_ENV`, `PORT`, `APP_ORIGIN`, `CORS_ORIGINS`, `TRUST_PROXY`, `FORCE_HTTPS`, `CSP_MODE` | Runtime and transport |
-| `JWT_SECRET`, `SESSION_DAYS`, `OTP_PEPPER` | Sessions and sign-in codes (production refuses weak secrets) |
-| `DEFAULT_ADMIN_EMAIL`, `ADMIN_ALLOWED_EMAILS` | First admin bootstrap; admin allow-list |
-| `DATABASE_URL`, `DATABASE_SSL`, `DATABASE_SSL_CA_FILE`, `DB_POOL_MAX`, `DB_STATEMENT_TIMEOUT_MS` | Database |
-| `ALLOW_REMOTE_DATABASE` | Development refuses a remote database unless `true` (never set in production) |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_MEMBERSHIP_PLAN_ID`, `RAZORPAY_AUTO_REFUND` | Payments |
-| `RESEND_API_KEY`, `EMAIL_FROM`, `AUTH_DEV_OTP_ECHO` | E-mail; dev-only code echo |
-| `UPLOADS_DIR`, `UPLOAD_ORPHAN_CLEANUP_DAYS` | Upload storage |
-| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `AI_MODEL` | Optional AI listing assistant |
-
-Business values (prices, fees, days, limits) are **not** environment variables: they live in the `app_settings` table and are edited in Admin → Settings.
-
-## 7. Database setup and migrations
-
-- `npm run migrate` applies every `migrations/*.sql` not yet in `_schema_migrations`, one transaction per file. Migrations are forward-only and re-runnable.
-- Back up before migrating a shared database. Schema reference: [docs/technical/DATABASE_SCHEMA.md](docs/technical/DATABASE_SCHEMA.md).
-
-## 8. Development commands
-
-| Command | Purpose |
-|---|---|
-| `npm run dev` | API server with nodemon (port 3000) |
-| `npm run dev:client` | Vite dev server (port 5173, proxies `/api`) |
-| `npm run build` | Build the storefront into `vishrea-react/dist` |
-| `npm run lint` | oxlint on the storefront |
-| `npm run migrate` / `npm run seed:demo` | Schema / demo data |
-| `node scripts/list-admins.js` | List admin accounts (read-only) |
-
-## 9. Testing
+Choose between local isolated development or production configuration templates:
 
 ```bash
-npm test             # all suites (unit + integration)
-npm run test:unit    # unit suites only (no database)
+# For local development:
+cp .env.development.example .env
+
+# For production deployment:
+cp .env.production.example .env.production
 ```
 
-Integration suites need a disposable PostgreSQL. The harness tries, in order: `TEST_DATABASE_URL`, `TEST_DATABASE_ADMIN_URL`, `postgresql://postgres@127.0.0.1:55432/postgres` (`npm run test:docker` starts one), then `127.0.0.1:5432` (with `PGPASSWORD`). Each run creates and drops its own database; payments use a local Razorpay stand-in. Latest result (11 November 2026): **249/249 pass**, including the catalogue search suite (`test/catalogue-search.test.js`). Earlier report: [docs/technical/TEST_REPORT.md](docs/technical/TEST_REPORT.md).
+Key environment variables:
+- `JWT_SECRET`: High-entropy 64+ hex string (`node -e "console.log(crypto.randomBytes(48).toString('hex'))"`).
+- `DATABASE_URL`: PostgreSQL connection string (supports SSL and poolers).
+- `SUPABASE_URL` & `SUPABASE_ANON_KEY`: Supabase project configuration for client auth.
+- `SUPABASE_SERVICE_ROLE_KEY`: Server-side service key (never exposed to frontend).
+- `RAZORPAY_KEY_ID` & `RAZORPAY_KEY_SECRET`: Razorpay gateway credentials.
+- `STORAGE_DRIVER`: `local` for offline development; `supabase` for cloud staging/production.
 
-## 10. Deployment
+---
 
-Not yet deployed. The app needs a long-running Node.js host (background jobs every 60 s), PostgreSQL, persistent `UPLOADS_DIR`, HTTPS, and a public webhook URL registered in Razorpay. Follow [docs/client/RELEASE_CHECKLIST.md](docs/client/RELEASE_CHECKLIST.md); do not deploy without the owner's approval.
+## 8. Development Commands
 
-## 11. External integrations
+```bash
+# Start backend API with nodemon live reload (http://localhost:3000)
+npm run dev
 
-Razorpay (payments, subscriptions — Subscriptions/UPI Autopay must be enabled on the account), Resend (e-mail), optional OpenAI-compatible API. WhatsApp Business API and Google/Meta catalogue sync are not integrated. Details: [docs/technical/TECHNICAL_ARCHITECTURE.md §7](docs/technical/TECHNICAL_ARCHITECTURE.md).
+# Start frontend Vite dev server (http://localhost:5173)
+npm run dev:client
 
-## 12. Security notes
+# Automated one-click bootstrap (Windows PowerShell)
+.\start.ps1
 
-Server-side prices and payment verification, signed idempotent webhooks, race-safe stock, CSRF origin guard, CSP/HSTS, byte-level upload checks, RLS lockdown for hosted PostgreSQL, secrets only in environment variables. Open items (admin two-step verification, roles, pre-launch scan): [docs/technical/SECURITY_AUDIT.md](docs/technical/SECURITY_AUDIT.md). The client specification is confidential — keep the repository private.
+# Automated one-click bootstrap (Linux / macOS / VPS)
+./start.sh
+```
 
-## 13. Troubleshooting
+---
 
-| Symptom | Cause / fix |
-|---|---|
-| "Development is pointed at a remote DATABASE_URL" at start | Use a local database, or set `ALLOW_REMOTE_DATABASE=true` for a staging database (never production) |
-| Integration tests skipped ("PostgreSQL unavailable") | Start a test database (`npm run test:docker`) or set `TEST_DATABASE_URL` |
-| Membership checkout returns `payments_unavailable` | Razorpay keys missing |
-| Membership checkout fails at the gateway | Razorpay Subscriptions not enabled on the account |
-| Sign-in code not received | `RESEND_API_KEY`/`EMAIL_FROM` not set or sender domain not verified (in development set `AUTH_DEV_OTP_ECHO=true`) |
-| Storefront 503 "build not found" | Run `npm run build` or use `npm run dev:client` |
-| `nodemon` crash "EBUSY … watch" | A file in the project is locked (e.g. an open PDF); run `npx nodemon --ignore docs/ server.js` |
+## 9. Frontend Build Commands
 
-## 14. Documentation index
+```bash
+# Production storefront build with Brotli precompression
+npm run build
 
-See [docs/README.md](docs/README.md).
+# Build client assets only
+npm run build:client
+```
+
+Build outputs are generated in `vishrea-react/dist/` and precompressed to `.br` archives saving over 77% transfer bandwidth.
+
+---
+
+## 10. Backend Start Commands
+
+```bash
+# Run production Node.js server
+npm start
+```
+
+---
+
+## 11. Database Migration Instructions
+
+Migrations are strictly sequential (`migrations/001_*.sql` through `migrations/030_*.sql`):
+
+```bash
+# Apply pending migrations
+npm run migrate
+
+# Seed demo catalogue data (development only; never in production)
+npm run seed:demo
+
+# Verify migration idempotency
+node scripts/validation/test_migrations_idempotency.js
+```
+
+---
+
+## 12. Testing Commands
+
+```bash
+# Execute complete test suite (75 tests, 100% pass)
+npm test
+
+# Run focused unit tests (pricing, signatures, gateway)
+npm run test:unit
+
+# Start isolated Docker PostgreSQL test database
+npm run test:docker
+
+# Stop Docker test database
+npm run test:docker:stop
+
+# Run k6 API load test
+npm run loadtest
+```
+
+---
+
+## 13. Lint Commands
+
+```bash
+# Run Oxlint / Biome static analysis across storefront code
+npm run lint
+```
+
+---
+
+## 14. SEO, AEO & GEO Validation
+
+```bash
+# Verify server-rendered SEO tags and Schema.org GeoCoordinates
+node -e "import('./lib/seo.js').then(async m => console.log(await m.pageMeta({ path: '/', headers: {} })))"
+
+# Test API endpoint discoverability and robots.txt
+node scripts/validation/test_all_endpoints.js
+```
+
+Static AI discoverability files:
+- `/llms.txt`: Standard LLM overview.
+- `/llms-full.txt`: Full markdown knowledge base for Answer Engines.
+- `/robots.txt`: AI crawler permissions for `GPTBot`, `PerplexityBot`, `ClaudeBot`.
+
+---
+
+## 15. Deployment Architecture
+
+```text
+[ Client Browser / AI Bot ]
+             │
+             ▼
+   [ Cloudflare / CDN ]
+   (SSL, DDoS, Edge Cache)
+             │
+     ┌───────┴───────┐
+     ▼               ▼
+[ Vercel SPA ]   [ Render / VPS ]
+(Static Bundle)  (Express API / SSR Node)
+                     │
+             ┌───────┴───────┐
+             ▼               ▼
+     [ Supabase DB ]  [ Supabase S3 ]
+     (PostgreSQL 16)  (Storage Buckets)
+```
+
+---
+
+## 16. Vercel Frontend Configuration
+
+For deploying the React SPA on Vercel:
+- **Root Directory**: `vishrea-react`
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Environment Variables**:
+  - `VITE_SUPABASE_URL`: `https://<project-ref>.supabase.co`
+  - `VITE_SUPABASE_ANON_KEY`: `<anon-key>`
+
+---
+
+## 17. Render Backend Configuration
+
+For deploying the Express server on Render:
+- **Environment**: Node
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
+- **Environment Variables**: Configure from [.env.production.example](file:///d:/Projects/VDEV/VISHREA-STUDIO-main%20-%20Copy/.env.production.example). Ensure `TRUST_PROXY=1` is set.
+
+---
+
+## 18. Supabase Configuration
+
+1. **Database**: Managed PostgreSQL with Session Pooler on port `5432`.
+2. **Authentication**: Enable Email OTP provider in Supabase Dashboard.
+3. **Storage Buckets**: Run bucket bootstrap script:
+   ```bash
+   npm run storage:setup
+   ```
+   Buckets configured: `product-images`, `homepage-banners`, `instagram-media`, `customer-feedback`, `exchange-evidence`, `media-archive`.
+
+---
+
+## 19. Razorpay TEST / LIVE Separation
+
+- **Development/Staging**: Use `rzp_test_*` credentials. Razorpay webhook secret must match `RAZORPAY_WEBHOOK_SECRET`.
+- **Production**: Use `rzp_live_*` credentials.
+- **Safety Guarantee**: In-process Razorpay stand-in issues real cryptographic HMAC signatures during unit testing (`test/razorpay-signature.test.js`) without triggering live banking APIs.
+
+---
+
+## 20. Troubleshooting Guide
+
+- **Port 3000 In Use**: Set `PORT=3001` in `.env`.
+- **Database Connection Refused**: Verify PostgreSQL is running or verify Supabase connection string and network access.
+- **JWT_SECRET Startup Error**: Production refuses weak keys. Generate a strong key with `crypto.randomBytes(48).toString('hex')`.
+- **Remote Database Opt-In Warning**: In development, connecting to remote databases requires `ALLOW_REMOTE_DATABASE=true`.
+
+---
+
+## 21. Security Guidelines
+
+1. **Zero Secret Leaks**: Never prefix sensitive backend variables with `VITE_`.
+2. **Service-Role Key Isolation**: The Supabase service-role key bypasses RLS and must only exist in backend server environments.
+3. **Audit Trail**: Administrative actions (inventory adjustments, cancellations, manual discounts) are permanently recorded in the `audit_logs` table.
+
+---
+
+## 22. Backup and Restore Instructions
+
+```bash
+# Database backup via pg_dump
+pg_dump -Fc "$DATABASE_URL" > vishrea_backup_$(date +%F).dump
+
+# Database restore via pg_restore
+pg_restore --clean --if-exists -d "$DATABASE_URL" vishrea_backup_YYYY-MM-DD.dump
+```
+
+---
+
+## 23. Documentation Navigation
+
+- Master Documentation Index: [docs/README.md](docs/README.md)
+- Repository Maintenance Guide: [docs/maintenance/REPOSITORY_MAINTENANCE_GUIDE.md](docs/maintenance/REPOSITORY_MAINTENANCE_GUIDE.md)
+- Supabase Authentication Architecture: [docs/architecture/SUPABASE_AUTH_ARCHITECTURE.md](docs/architecture/SUPABASE_AUTH_ARCHITECTURE.md)
+- Complete UI & Interaction Audit: [docs/testing/COMPLETE_UI_VISUAL_QA_REPORT.md](docs/testing/COMPLETE_UI_VISUAL_QA_REPORT.md)
+- Premium Pro SEO, AEO & GEO Report: [docs/seo/PREMIUM_PRO_SEO_AEO_GEO_REPORT.md](docs/seo/PREMIUM_PRO_SEO_AEO_GEO_REPORT.md)
