@@ -207,11 +207,15 @@ router.post(
       log.warn('auth.otp_delivery_failed_fallback_dev', { email, error: err.message });
     }
     log.info('auth.otp_sent', { email_domain: email.split('@')[1], delivered: emailDelivered });
-    if (!config.isProd) {
-      console.log(`\n[DEV AUTH] Sign-in code for ${email}: ${code}\n`);
+    const devAdminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'vishreastudio.admin@gmail.com').trim().toLowerCase();
+    const devCustEmail = (process.env.DEV_TEST_CUSTOMER_EMAIL || 'vaishalmaluk@gmail.com').trim().toLowerCase();
+    const isDesignatedDevAccount = email.toLowerCase() === devAdminEmail || email.toLowerCase() === devCustEmail;
+
+    if (!config.isProd && isDesignatedDevAccount) {
+      console.log(`\n[DEV AUTH] Sign-in code for designated test account ${email}: ${code}\n`);
     }
-    // In development, echo the code when devOtpEcho is enabled or if live delivery wasn't possible.
-    const echo = !config.isProd && (config.devOtpEcho || !emailDelivered || process.env.NODE_ENV === 'test');
+    // In development, ONLY echo the code for the 1 designated admin and 1 designated customer account.
+    const echo = !config.isProd && isDesignatedDevAccount && (config.devOtpEcho || !emailDelivered || process.env.NODE_ENV === 'test');
     res.json({
       ok: true,
       message: 'If this email can receive mail, a 6-digit code is on its way.',
@@ -229,15 +233,19 @@ router.post(
     const code = text(req.body?.code, { max: 12, field: 'code', required: true });
     if (!/^\d{6,8}$/.test(code)) throw new AppError(400, 'invalid_code', 'Enter the verification code from your email.');
 
-    const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@vishrea.com').trim().toLowerCase();
+    const devAdminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'vishreastudio.admin@gmail.com').trim().toLowerCase();
+    const devCustEmail = (process.env.DEV_TEST_CUSTOMER_EMAIL || 'vaishalmaluk@gmail.com').trim().toLowerCase();
     const testAdminCode = process.env.ADMIN_TEST_OTP || '123456';
-    const isTestAdmin = (email.toLowerCase() === adminEmail || !config.isProd) && (code === testAdminCode || code === '123456');
+
+    // Allow 123456 strictly for 1 admin and 1 customer test account in local development only
+    const isDesignatedDevAccount = email.toLowerCase() === devAdminEmail || email.toLowerCase() === devCustEmail;
+    const isTestDevBypass = !config.isProd && isDesignatedDevAccount && (code === testAdminCode || code === '123456');
 
     let verifiedBy = null;
     let supabaseUserId = null;
 
-    if (isTestAdmin) {
-      verifiedBy = 'test_admin';
+    if (isTestDevBypass) {
+      verifiedBy = 'test_dev';
       await db.query('DELETE FROM auth_otps WHERE email = $1', [email]).catch(() => {});
     } else {
       // If Supabase is configured and not in test mode, try verifying with Supabase Auth

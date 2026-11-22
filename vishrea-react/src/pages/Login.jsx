@@ -8,6 +8,14 @@ import { usePageSeo } from '../lib/usePageSeo';
 // Only same-site paths; blocks open redirects such as //evil.com or https://…
 const safeNext = (v) => (typeof v === 'string' && /^\/(?!\/)[\w\-/?=&.%]*$/.test(v) ? v : null);
 
+const DEV_ADMIN_EMAIL = 'vishreastudio.admin@gmail.com';
+const DEV_CUST_EMAIL = 'vaishalmaluk@gmail.com';
+
+const isDesignatedDevAccount = (em) => {
+  const norm = String(em || '').trim().toLowerCase();
+  return norm === DEV_ADMIN_EMAIL || norm === DEV_CUST_EMAIL;
+};
+
 export const Login = () => {
   usePageSeo({ noIndex: true });
   const { user, startLogin, verifyCode } = useStore();
@@ -49,11 +57,11 @@ export const Login = () => {
       const d = await startLogin(email.trim());
       setStep('code');
       setCooldown(30);
-      if (d.debug_code) {
+      if (d.debug_code && isDesignatedDevAccount(email)) {
         setCode(d.debug_code);
         setMsg({ tone: 'success', text: `Development code auto-filled: ${d.debug_code}` });
       } else {
-        setMsg({ tone: 'success', text: 'We have emailed you a 6-digit code. It expires in 10 minutes.' });
+        setMsg({ tone: 'success', text: 'We have emailed you a verification code. It expires in 10 minutes.' });
       }
     } catch (err) {
       setMsg({ tone: 'error', text: err.message });
@@ -140,9 +148,11 @@ export const Login = () => {
                 </button>
               </div>
 
-              {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+              {typeof window !== 'undefined' &&
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+                isDesignatedDevAccount(email) && (
                 <div style={{ padding: '10px 12px', background: '#faf9f5', border: '1px dashed #d6cebe', fontSize: '12px', color: '#555', textAlign: 'center', lineHeight: 1.5 }}>
-                  Local testing code: <strong style={{ color: 'var(--ink)' }}>123456</strong>
+                  Local testing code ({email.toLowerCase() === DEV_ADMIN_EMAIL ? 'Admin' : 'Customer'}): <strong style={{ color: 'var(--ink)' }}>123456</strong>
                   <button
                     type="button"
                     onClick={() => setCode('123456')}
