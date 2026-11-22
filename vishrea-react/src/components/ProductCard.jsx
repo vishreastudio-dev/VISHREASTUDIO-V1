@@ -13,7 +13,7 @@ export const priceLabel = (p) => {
 const altFor = (p) => [p.name, p.color && `in ${p.color.toLowerCase()}`].filter(Boolean).join(' ');
 
 export const ProductCard = ({ product: p, className = 'product-card', showAvailability = false, eager = false }) => {
-  const { user, activeSizeProfile } = useStore();
+  const { user } = useStore();
   const { isLiked } = useLikes();
   const liked = Boolean(isLiked(p.id) || isLiked(p.slug));
 

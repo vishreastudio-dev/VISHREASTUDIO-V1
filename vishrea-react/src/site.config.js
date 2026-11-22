@@ -24,6 +24,14 @@ export const SITE = {
     postalCode: '560100',
     country: 'IN',
   },
+  geo: {
+    latitude: 12.8368,
+    longitude: 77.6833,
+    region: 'IN-KA',
+    placename: 'Bengaluru, Hebbagodi, Electronic City Phase 2',
+    position: '12.8368;77.6833',
+  },
+  hasMap: 'https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5',
   openingHours: 'Mo-Su 10:30-20:30',
   priceRange: '₹₹',
   rating: {

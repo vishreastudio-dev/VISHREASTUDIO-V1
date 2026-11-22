@@ -3,7 +3,6 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { ShoppingProfileSwitcher } from './ShoppingProfileSwitcher';
 import { WhatsAppFloatingButton } from './WhatsAppFloatingButton';
-import { SITE } from '../site.config.js';
 import { useLikes } from '../lib/likes';
 
 // The search panel loads on first use; hovering or focusing the button fetches it early. If it

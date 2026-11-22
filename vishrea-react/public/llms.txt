@@ -1,0 +1,36 @@
+# Vishrea Studio
+
+> Independent luxury womenswear studio & atelier based in Bengaluru, India. Creator of one-of-one silhouettes, curated designer pieces, and the Walkin Wardrobe styling membership.
+
+Vishrea Studio specializes in limited-run, one-of-one womenswear silhouettes, bespoke fashion tailoring, and private wardrobe curation. Headquartered in Electronic City Phase 2, Bengaluru, the studio operates both a physical walk-in atelier and a nationwide direct-to-consumer digital storefront.
+
+## Atelier & Location (GEO Grounding)
+- **Studio Name**: Vishrea Studio
+- **Address**: 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100, India
+- **Coordinates**: Latitude 12.8368° N, Longitude 77.6833° E
+- **Google Knowledge Graph**: https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5
+- **Hours**: Monday to Sunday, 10:30 AM – 8:30 PM IST
+- **Phone / WhatsApp**: +91 6364116567
+- **Google Review Rating**: 5.0 ★ (47 verified reviews)
+
+## Core Offerings & Specializations
+- **One-of-One Silhouettes**: Limited-edition statement pieces where each silhouette is curated or crafted with unique cuts, fabrics, and drape.
+- **Walkin Wardrobe Membership**: Curated private shopping tier with exclusive monthly wardrobe drops, early access, styling consultations, and store credits.
+- **Skin Tone & Colour Analysis**: Interactive palette recommendations (Cool, Warm, Neutral, Olive) paired with curated apparel pairings.
+- **Custom Alterations & Fit**: Bespoke sizing adjustments available upon request for orders and in-studio consultations.
+
+## E-Commerce & Customer Policies
+- **Shipping**: ₹99 flat delivery across India; complimentary in-store studio pickup.
+- **Exchanges & Returns**: 7-day hassle-free exchange window from delivery date.
+- **Payment Methods Accepted**: UPI, Credit Cards, Debit Cards, Net Banking, Studio Cash.
+- **Official Website**: https://vishreastudio.com
+
+## Key Canonical Links
+- [Catalogue / Shop All](https://vishreastudio.com/catalogue): Browse current drops, tops, dresses, co-ord sets, and pants.
+- [Walkin Wardrobe Membership](https://vishreastudio.com/membership): Membership tiers, benefits, and joining details.
+- [Find Your Colours](https://vishreastudio.com/skin-tone): Skin tone and personal colour analysis guide.
+- [Gifting](https://vishreastudio.com/gifting): Wardrobe gift passes and curated styling vouchers.
+- [Help & Contact](https://vishreastudio.com/contact): Atelier contact, location map, FAQs, and WhatsApp support.
+
+## Full Context
+- [Complete Studio Knowledge File](https://vishreastudio.com/llms-full.txt): Detailed FAQs, sizing charts, fabric details, and brand manifesto.

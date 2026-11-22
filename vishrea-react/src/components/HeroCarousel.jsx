@@ -334,11 +334,11 @@ export function HeroCarousel({ slides, settings, device, firstHeadingLevel = 2, 
   };
   const onClickCapture = onPreviewLink
     ? (e) => {
-        const a = e.target.closest('a');
-        if (!a) return;
-        e.preventDefault();
-        onPreviewLink(a.getAttribute('href'));
-      }
+      const a = e.target.closest('a');
+      if (!a) return;
+      e.preventDefault();
+      onPreviewLink(a.getAttribute('href'));
+    }
     : undefined;
 
   if (!count) return null;

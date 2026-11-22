@@ -212,7 +212,22 @@ export async function createApp() {
     res.type('text/plain');
     if (!config.isProd && process.env.SITE_ENV !== 'production') return res.send('User-agent: *\nDisallow: /\n');
     const disallow = ['/api/', '/admin', '/account', '/cart', '/checkout', '/orders', '/login'].map((p) => `Disallow: ${p}`).join('\n');
-    res.send(`User-agent: *\nAllow: /\n${disallow}\n\nSitemap: ${config.publicSiteUrl}/sitemap.xml\n`);
+    const aiBots = ['GPTBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot', 'Google-Extended', 'Applebot-Extended', 'Amazonbot']
+      .map((bot) => `User-agent: ${bot}\nAllow: /\n${disallow}`)
+      .join('\n\n');
+    res.send(`User-agent: *\nAllow: /\n${disallow}\n\n# AI Answer Engines & LLM Bots (AEO/GEO)\n${aiBots}\n\nSitemap: ${config.publicSiteUrl}/sitemap.xml\n`);
+  });
+
+  app.get(['/llms.txt', '/llms-full.txt'], (req, res, next) => {
+    const filename = req.path.endsWith('full.txt') ? 'llms-full.txt' : 'llms.txt';
+    const filePath = path.join(reactDistPath, filename);
+    const publicPath = path.join(path.resolve('vishrea-react/public'), filename);
+    const target = fs.existsSync(filePath) ? filePath : fs.existsSync(publicPath) ? publicPath : null;
+    if (target) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.type('text/markdown; charset=utf-8').sendFile(target);
+    }
+    next();
   });
 
   app.get('/sitemap.xml', h(async (req, res) => {

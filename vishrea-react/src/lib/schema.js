@@ -40,6 +40,14 @@ export function organizationSchema() {
       postalCode: SITE.address.postalCode,
       addressCountry: SITE.address.country,
     },
+    geo: SITE.geo
+      ? {
+          '@type': 'GeoCoordinates',
+          latitude: SITE.geo.latitude,
+          longitude: SITE.geo.longitude,
+        }
+      : undefined,
+    hasMap: SITE.hasMap || undefined,
     openingHours: SITE.openingHours,
     priceRange: SITE.priceRange,
     aggregateRating: SITE.rating
@@ -52,8 +60,25 @@ export function organizationSchema() {
         }
       : undefined,
     currenciesAccepted: 'INR',
-    paymentAccepted: 'UPI, Credit Card, Debit Card, Net Banking',
-    areaServed: 'IN',
+    paymentAccepted: 'UPI, Credit Card, Debit Card, Net Banking, Cash',
+    areaServed: [
+      {
+        '@type': 'City',
+        name: 'Bengaluru',
+      },
+      {
+        '@type': 'Country',
+        name: 'India',
+      },
+    ],
+    knowsAbout: [
+      'Womenswear',
+      'One-of-one silhouettes',
+      'Bespoke fashion tailoring',
+      'Walkin Wardrobe membership',
+      'Personal styling & colour analysis',
+      'Curated fashion studio',
+    ],
     sameAs: SITE.sameAs,
   });
 }
