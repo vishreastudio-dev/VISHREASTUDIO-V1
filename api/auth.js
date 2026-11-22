@@ -155,8 +155,8 @@ router.post(
 
 router.post(
   '/start-login',
-  rateLimit({ name: 'otp_ip', windowMs: 15 * 60_000, max: 20 }),
-  rateLimit({ name: 'otp_email', windowMs: 15 * 60_000, max: 5, key: emailKey }),
+  rateLimit({ name: 'otp_ip', windowMs: 15 * 60_000, max: config.isProd ? 20 : 100 }),
+  rateLimit({ name: 'otp_email', windowMs: 15 * 60_000, max: config.isProd ? 5 : 50, key: emailKey }),
   h(async (req, res) => {
     const email = validEmail(req.body?.email);
 
@@ -181,6 +181,7 @@ router.post(
 
     const code = generateOtp();
     // One active code per email; resend throttled to once per 30s and 5 per 15 minutes.
+    const maxSendCount = config.isProd ? 5 : 50;
     const r = await db.query(
       `INSERT INTO auth_otps (email, code_hash, expires_at, attempts, send_count, window_started_at, last_sent_at)
        VALUES ($1, $2, now() + make_interval(mins => $3), 0, 1, now(), now())
@@ -189,9 +190,9 @@ router.post(
          send_count = CASE WHEN auth_otps.window_started_at < now() - interval '15 minutes' THEN 1 ELSE auth_otps.send_count + 1 END,
          window_started_at = CASE WHEN auth_otps.window_started_at < now() - interval '15 minutes' THEN now() ELSE auth_otps.window_started_at END
        WHERE auth_otps.last_sent_at < now() - interval '30 seconds'
-         AND (auth_otps.window_started_at < now() - interval '15 minutes' OR auth_otps.send_count < 5)
+         AND (auth_otps.window_started_at < now() - interval '15 minutes' OR auth_otps.send_count < $4)
        RETURNING email`,
-      [email, hashOtp(email, code), OTP_TTL_MINUTES]
+      [email, hashOtp(email, code), OTP_TTL_MINUTES, maxSendCount]
     );
     if (!r.rows[0]) {
       throw new AppError(429, 'otp_throttled', 'A code was sent recently. Please wait before requesting another.');
