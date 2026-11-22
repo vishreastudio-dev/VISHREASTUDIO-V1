@@ -153,7 +153,7 @@ function Slide({ slide, index, count, selected, device, load, headingLevel }) {
           <div className="hc-scrim" aria-hidden="true" style={{ '--scrim-d': scrim(o.desktop, o.panel_color, o.panel_opacity), '--scrim-m': scrim(o.mobile, o.panel_color, o.panel_opacity) }} />
         )}
         {showText && (
-          <div className="hc-overlay" style={overlayVars}>
+          <div className="hc-overlay" style={{ ...overlayVars, ...card }}>
             <div className={`hc-copy${o.panel === 'card' ? ' is-card' : ''}`} style={card}>
               {v.heading && slide.heading && <Heading className="hc-text hc-heading" style={textStyle(slide.heading_style)}>{slide.heading}</Heading>}
               {v.subtitle && slide.subtitle && <p className="hc-text hc-subtitle" style={textStyle(slide.subtitle_style)}>{slide.subtitle}</p>}
