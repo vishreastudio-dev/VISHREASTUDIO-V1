@@ -387,7 +387,7 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
 
       <div className="vishrea-look-grid">
         {/* Left Column: Arc Stage with 8 Model Cutouts */}
-        <div>
+        <div className="vishrea-look-stage-col">
           <ArcEngine
             items={looks}
             activeIndex={activeIdx}
@@ -445,18 +445,9 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
           />
 
           {/* Controls: Counter, Navigation Arrows, Hint */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-              marginTop: '20px',
-              padding: '0 8px',
-            }}
-          >
+          <div className="vishrea-look-controls">
             {/* Arrows */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <button
                 type="button"
                 className="vishrea-ic-btn"
@@ -476,27 +467,12 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
             </div>
 
             {/* Counter: "3 of 8 · Look name" */}
-            <div
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: 'var(--vishrea-ink)',
-                letterSpacing: '0.04em',
-                textAlign: 'center',
-              }}
-            >
+            <div className="vishrea-look-counter">
               {activeIdx + 1} of {looks.length} · {currentLook.name}
             </div>
 
             {/* Hint */}
-            <div
-              style={{
-                fontSize: '0.75rem',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--vishrea-soft)',
-              }}
-            >
+            <div className="vishrea-look-hint">
               Scroll or drag
             </div>
           </div>
@@ -504,11 +480,11 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
 
         {/* Right Column: "In this look" Panel with REAL PRODUCTS in New Arrivals */}
         <div className="vishrea-look-panel">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
+            <h3 className="vishrea-look-panel-title">
               In this look
             </h3>
-            <span style={{ fontSize: '0.75rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9984A', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.75rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9984A', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
               {currentLook.pieces.length} Pieces
             </span>
           </div>
