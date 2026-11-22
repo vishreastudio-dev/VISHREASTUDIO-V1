@@ -166,34 +166,66 @@ function ProductThumb({ images, name, size = 48, onOpen }) {
   );
 }
 
+const NAV_GROUPS = [
+  {
+    id: 'catalog_stock',
+    label: 'CATALOG & STOCK',
+    items: [
+      ['products', 'Inventory & Pieces'],
+      ['categories', 'Categories'],
+      ['drops', 'Drops'],
+      ['sourcing', 'Sourcing Batches'],
+      ['vendors', 'Vendors'],
+    ],
+  },
+  {
+    id: 'sales_orders',
+    label: 'SALES & ORDERS',
+    items: [
+      ['orders', 'Online Orders'],
+      ['store', 'Counter Sales & POS'],
+      ['procurement', 'Procurement & POS'],
+      ['couriers', 'Couriers'],
+      ['exchanges', 'Exchanges'],
+      ['invoices', 'Invoices'],
+    ],
+  },
+  {
+    id: 'customers_growth',
+    label: 'CUSTOMERS & GROWTH',
+    items: [
+      ['customers', 'Customers & CRM'],
+      ['memberships', 'Membership'],
+      ['credits', 'Credits'],
+      ['rewards', 'Rewards'],
+      ['referrals', 'Referrals'],
+      ['loyalty', 'Offers & Loyalty'],
+      ['gift_enquiries', 'Gift Enquiries'],
+    ],
+  },
+  {
+    id: 'studio_system',
+    label: 'STUDIO & SYSTEM',
+    items: [
+      ['ai_studio', 'Vishrea AI Studio'],
+      ['homepage', 'Homepage'],
+      ['content', 'Content & Legal'],
+      ['administrators', 'Administrators'],
+      ['audit', 'Audit Log'],
+      ['settings', 'Settings'],
+    ],
+  },
+];
+
 const SECTIONS = [
   ['dashboard', 'Overview'],
-  ['products', 'Inventory & Pieces'],
-  ['categories', 'Categories'],
-  ['orders', 'Online Orders'],
-  ['store', 'Counter Sales & POS'],
-  ['customers', 'Customers & CRM'],
-  ['procurement', 'Procurement & POs'],
-  ['vendors', 'Vendors'],
-  ['ai_studio', 'Vishrea AI Studio'],
-  ['couriers', 'Couriers'],
-  ['memberships', 'Membership'],
-  ['credits', 'Credits'],
-  ['rewards', 'Rewards'],
-  ['referrals', 'Referrals'],
-  ['gift_enquiries', 'Gift Enquiries'],
-  ['exchanges', 'Exchanges'],
-  ['loyalty', 'Offers & Loyalty'],
-  ['drops', 'Drops'],
-  ['sourcing', 'Sourcing Batches'],
-  ['homepage', 'Homepage'],
-  ['content', 'Content & Legal'],
-  ['invoices', 'Invoices'],
-  ['settings', 'Settings'],
-  ['administrators', 'Administrators'],
-  ['audit', 'Audit Log'],
+  ...NAV_GROUPS.flatMap((g) => g.items),
 ];
 const SECTION_LABELS = new Map(SECTIONS);
+
+const findGroupForSection = (sec) => {
+  return NAV_GROUPS.find((g) => g.items.some(([k]) => k === sec))?.id || null;
+};
 const PAYMENT_REASON = {
   payment_window_expired: 'Checkout not completed (hold expired)',
   superseded_by_new_checkout: 'Replaced by a newer checkout',
@@ -359,6 +391,18 @@ function AdminStudio({ section }) {
   const [toastMsg, setToastMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [adminNavOpen, setAdminNavOpen] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState(() => findGroupForSection(section));
+
+  useEffect(() => {
+    const matchingGroup = findGroupForSection(section);
+    if (matchingGroup) {
+      setOpenAccordion(matchingGroup);
+    }
+  }, [section]);
+
+  const toggleAccordion = (groupId) => {
+    setOpenAccordion((prev) => (prev === groupId ? null : groupId));
+  };
 
   useEffect(() => {
     setAdminNavOpen(false);
@@ -756,11 +800,49 @@ function AdminStudio({ section }) {
         </div>
         <div className="admin-kicker">Operations</div>
         <nav className="nav" aria-label="Admin sections">
-          {SECTIONS.map(([k, v]) => (
-            <NavLink key={k} to={sectionPath(k)} end onClick={() => setAdminNavOpen(false)}>
-              {v}
-            </NavLink>
-          ))}
+          <NavLink
+            to={sectionPath('dashboard')}
+            end
+            className={({ isActive }) => `nav-standalone-link ${isActive || section === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setAdminNavOpen(false)}
+          >
+            Overview
+          </NavLink>
+
+          {NAV_GROUPS.map((group) => {
+            const isOpen = openAccordion === group.id;
+            const hasActiveChild = group.items.some(([k]) => k === section);
+
+            return (
+              <div key={group.id} className={`nav-accordion-group ${isOpen ? 'is-open' : ''} ${hasActiveChild ? 'has-active' : ''}`}>
+                <button
+                  type="button"
+                  className={`nav-accordion-header ${isOpen ? 'is-open' : ''} ${hasActiveChild ? 'has-active' : ''}`}
+                  onClick={() => toggleAccordion(group.id)}
+                  aria-expanded={isOpen}
+                >
+                  <span className="nav-accordion-title">{group.label}</span>
+                  <span className="nav-chevron" aria-hidden="true">{isOpen ? '⌄' : '›'}</span>
+                </button>
+
+                <div className={`nav-accordion-body ${isOpen ? 'is-open' : ''}`}>
+                  <div className="nav-accordion-subitems">
+                    {group.items.map(([k, label]) => (
+                      <NavLink
+                        key={k}
+                        to={sectionPath(k)}
+                        end
+                        className={({ isActive }) => `nav-sub-link ${isActive || k === section ? 'active' : ''}`}
+                        onClick={() => setAdminNavOpen(false)}
+                      >
+                        {label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className="side-foot">
           Owner / studio team<br />
