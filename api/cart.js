@@ -57,13 +57,18 @@ export async function addLine(client, cartId, input) {
 }
 
 export async function cartView(uid, offerCode = null) {
-  const [lines, settings, membership, rewards, orderCount] = await Promise.all([
+  const [lines, settings, membership, rewards, orderCount, cartRow] = await Promise.all([
     loadCartLines(db, uid),
     getSettings(),
     db.query('SELECT status, credits_balance FROM memberships WHERE auth_user_id = $1', [uid]).then((r) => r.rows[0] || null),
     db.query("SELECT id, kind FROM reward_entitlements WHERE auth_user_id = $1 AND status = 'available' ORDER BY created_at", [uid]).then((r) => r.rows),
     db.query("SELECT count(*)::int AS count FROM orders WHERE auth_user_id = $1 AND payment_status = 'paid'", [uid]).then((r) => Number(r.rows[0]?.count || 0)),
+    db.query('SELECT applied_promo_code FROM carts WHERE auth_user_id = $1', [uid]).then((r) => r.rows[0] || null),
   ]);
+
+  if (!offerCode && cartRow?.applied_promo_code) {
+    offerCode = cartRow.applied_promo_code;
+  }
 
   let offer = null;
   if (offerCode) {
@@ -96,7 +101,15 @@ export async function cartView(uid, offerCode = null) {
 
       if (isAllowed && redeemed.rows.length === 0) {
         offer = candidate;
+        // Keep synced on cart record
+        await db.query('UPDATE carts SET applied_promo_code = $1 WHERE auth_user_id = $2', [candidate.code, uid]).catch(() => {});
+      } else {
+        // Ineligible or already redeemed: clear from cart
+        await db.query('UPDATE carts SET applied_promo_code = NULL WHERE auth_user_id = $1', [uid]).catch(() => {});
       }
+    } else {
+      // Inactive, stopped by admin, or expired: clear from cart
+      await db.query('UPDATE carts SET applied_promo_code = NULL WHERE auth_user_id = $1', [uid]).catch(() => {});
     }
   }
 
@@ -171,6 +184,10 @@ export default async function cart(req, res) {
   const b = req.body || {};
 
   if (req.method === 'POST') {
+    if (b.action === 'remove_promo') {
+      await db.query('UPDATE carts SET applied_promo_code = NULL WHERE auth_user_id = $1', [uid]);
+      return res.json(await cartView(uid, ''));
+    }
     await db.tx(async (c) => {
       const cartId = await getOrCreateCartId(c, uid);
       if (b.action === 'merge') {
@@ -213,6 +230,10 @@ export default async function cart(req, res) {
       await db.tx((c) => setLineReward(c, uid, line, b.reward_entitlement_id || null));
     }
   } else if (req.method === 'DELETE') {
+    if (b.action === 'remove_promo') {
+      await db.query('UPDATE carts SET applied_promo_code = NULL WHERE auth_user_id = $1', [uid]);
+      return res.json(await cartView(uid, ''));
+    }
     const where = b.item_id ? ['ci.id = $2', uuid(b.item_id, 'item_id')] : b.variant_id ? ['ci.variant_id = $2', uuid(b.variant_id, 'variant_id')] : b.product_id ? ['ci.product_id = $2', uuid(b.product_id, 'product_id')] : null;
     if (where) {
       await db.query(`DELETE FROM cart_items ci USING carts c WHERE c.id = ci.cart_id AND c.auth_user_id = $1 AND ${where[0]}`, [uid, where[1]]);
@@ -223,6 +244,6 @@ export default async function cart(req, res) {
     }
   }
 
-  const offerCode = req.query.code || b.code || b.promo_code || null;
+  const offerCode = req.query.code !== undefined ? req.query.code : (b.code || b.promo_code || null);
   res.json(await cartView(uid, offerCode));
 }

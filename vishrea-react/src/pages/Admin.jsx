@@ -2359,88 +2359,217 @@ function AdminStudio({ section }) {
 
         {/* 10. Loyalty */}
         {section === 'loyalty' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Loyalty & Offers Builder</h2>
-                <p>Rules are data, not developer changes. Keep the profit guard before activation.</p>
+          <>
+            <section className="panel" style={{ marginBottom: 24 }}>
+              <div className="panel-head">
+                <div>
+                  <h2>Distributed VIP Offers & Promo Codes</h2>
+                  <p>Manage bespoke customer promo codes and studio offers. You can pause or stop any active offer instantly, or permanently revoke it.</p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    onClick={() => {
+                      const code = `VIP${Math.floor(100 + Math.random() * 900)}`;
+                      setActiveItem({
+                        target_type: 'top_spenders',
+                        code,
+                        title: 'Private Atelier VIP Privilege',
+                        description: 'Exclusive bespoke atelier discount applied to your private wardrobe.',
+                        discount_type: 'percentage',
+                        discount_value: 20,
+                        valid_days: 30,
+                      });
+                      setModalType('distribute_offer');
+                    }}
+                  >
+                    + Distribute VIP Offer
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy}
-                  title="Scan customer tenures (6 mo, 8 mo, etc.) and auto-grant anniversary rewards"
-                  onClick={() => {
-                    mutate(
-                      () => post('run_loyalty_triggers', {}),
-                      {
-                        success: (d) => `Automated tenure triggers executed: ${d?.triggered_count ?? 0} customer(s) rewarded!`,
-                        reload: 'loyalty',
-                      }
-                    );
-                  }}
-                >
-                  Run Automated Tenure Triggers
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    setActiveItem({
-                      name: '6-Month Tenure Loyalty Perk',
-                      trigger_config: { event: 'tenure_6_months', months: 6 },
-                      reward_config: { discount: '20% OFF' },
-                      active: true,
-                      estimated_monthly_cost: 1500,
-                    });
-                    setModalType('loyalty');
-                  }}
-                >
-                  + Create Offer Rule
-                </button>
-              </div>
-            </div>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 44, textAlign: 'center' }}>#</th>
-                    <th>Rule</th>
-                    <th>Trigger</th>
-                    <th>Reward</th>
-                    <th>Status</th>
-                    <th style={{ minWidth: 120, textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!(cache.rules || []).length && <tr><td colSpan="6" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
-                  {(cache.rules || []).map((r, idx) => (
-                    <tr key={r.id}>
-                      <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
-                      <td><strong>{r.name}</strong></td>
-                      <td><code>{typeof r.trigger_config === 'object' ? JSON.stringify(r.trigger_config) : r.trigger_config}</code></td>
-                      <td><code>{typeof r.reward_config === 'object' ? JSON.stringify(r.reward_config) : r.reward_config}</code></td>
-                      <td>
-                        <span className={`status ${r.active ? 'good' : 'bad'}`}>{r.active ? 'Live' : 'Paused'}</span>
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                        <div className="table-actions">
-                          <button
-                            type="button"
-                            className="btn-action"
-                            disabled={busy}
-                            onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
-                          >
-                            {r.active ? 'Pause' : 'Activate'}
-                          </button>
-                        </div>
-                      </td>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                      <th>Offer Code</th>
+                      <th>Title & Description</th>
+                      <th>Discount</th>
+                      <th>Redemptions</th>
+                      <th>Validity</th>
+                      <th>Status</th>
+                      <th style={{ minWidth: 160, textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody>
+                    {!(cache.offers || []).length && (
+                      <tr>
+                        <td colSpan="8" className="empty">No VIP offers or promo codes generated yet. Use the "Distribute VIP Offer" button or the customer table to grant an offer.</td>
+                      </tr>
+                    )}
+                    {(cache.offers || []).map((off, idx) => {
+                      const isExpired = off.ends_at && new Date(off.ends_at) < new Date();
+                      const statusClass = !off.active ? 'bad' : isExpired ? 'warn' : 'good';
+                      const statusLabel = !off.active ? 'Stopped' : isExpired ? 'Expired' : 'Active';
+                      return (
+                        <tr key={off.id}>
+                          <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                          <td>
+                            <strong style={{ letterSpacing: '0.08em', fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: 4 }}>
+                              {off.code}
+                            </strong>
+                          </td>
+                          <td>
+                            <strong>{off.title}</strong>
+                            {off.description && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{off.description}</div>}
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600 }}>
+                              {off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value} OFF`}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: 13 }}>
+                              <strong>{off.redeemed_count || 0}</strong> / {off.distributed_count ? off.distributed_count : 'Universal'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                            {off.ends_at ? `Until ${new Date(off.ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No Expiry'}
+                          </td>
+                          <td>
+                            <span className={`status ${statusClass}`}>{statusLabel}</span>
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                            <div className="table-actions" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                              {off.active ? (
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
+                                  disabled={busy}
+                                  title="Immediately stop this offer so no customer can redeem it"
+                                  onClick={() => mutate(() => post('toggle_offer', { id: off.id, active: false }), { success: `Offer "${off.code}" stopped!`, reload: 'loyalty' })}
+                                >
+                                  Stop Offer
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  style={{ color: '#15803d', borderColor: '#86efac' }}
+                                  disabled={busy}
+                                  title="Resume and activate this offer"
+                                  onClick={() => mutate(() => post('toggle_offer', { id: off.id, active: true }), { success: `Offer "${off.code}" activated!`, reload: 'loyalty' })}
+                                >
+                                  Activate
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="btn-action danger"
+                                disabled={busy}
+                                title="Permanently delete and revoke this offer"
+                                onClick={() => {
+                                  if (!window.confirm(`Permanently revoke offer code "${off.code}"? Customers will no longer be able to use it.`)) return;
+                                  mutate(() => post('delete_offer', { id: off.id }), { success: `Offer "${off.code}" revoked and deleted!`, reload: 'loyalty' });
+                                }}
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>Loyalty & Tenure Automation Rules</h2>
+                  <p>Rules are data, not developer changes. Keep the profit guard before activation.</p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy}
+                    title="Scan customer tenures (6 mo, 8 mo, etc.) and auto-grant anniversary rewards"
+                    onClick={() => {
+                      mutate(
+                        () => post('run_loyalty_triggers', {}),
+                        {
+                          success: (d) => `Automated tenure triggers executed: ${d?.triggered_count ?? 0} customer(s) rewarded!`,
+                          reload: 'loyalty',
+                        }
+                      );
+                    }}
+                  >
+                    Run Automated Tenure Triggers
+                  </button>
+                  <button
+                    className="btn primary"
+                    onClick={() => {
+                      setActiveItem({
+                        name: '6-Month Tenure Loyalty Perk',
+                        trigger_config: { event: 'tenure_6_months', months: 6 },
+                        reward_config: { discount: '20% OFF' },
+                        active: true,
+                        estimated_monthly_cost: 1500,
+                      });
+                      setModalType('loyalty');
+                    }}
+                  >
+                    + Create Offer Rule
+                  </button>
+                </div>
+              </div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 44, textAlign: 'center' }}>#</th>
+                      <th>Rule</th>
+                      <th>Trigger</th>
+                      <th>Reward</th>
+                      <th>Status</th>
+                      <th style={{ minWidth: 120, textAlign: 'right', whiteSpace: 'nowrap' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!(cache.rules || []).length && <tr><td colSpan="6" className="empty">No offer rules yet. Rules are recorded for planning; checkout pricing does not apply them automatically.</td></tr>}
+                    {(cache.rules || []).map((r, idx) => (
+                      <tr key={r.id}>
+                        <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{idx + 1}</td>
+                        <td><strong>{r.name}</strong></td>
+                        <td><code>{typeof r.trigger_config === 'object' ? JSON.stringify(r.trigger_config) : r.trigger_config}</code></td>
+                        <td><code>{typeof r.reward_config === 'object' ? JSON.stringify(r.reward_config) : r.reward_config}</code></td>
+                        <td>
+                          <span className={`status ${r.active ? 'good' : 'bad'}`}>{r.active ? 'Live' : 'Paused'}</span>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                          <div className="table-actions">
+                            <button
+                              type="button"
+                              className="btn-action"
+                              disabled={busy}
+                              onClick={() => mutate(() => post('loyalty', { ...r, active: !r.active }), { success: `Rule ${r.active ? 'paused' : 'activated'}`, reload: 'loyalty' })}
+                            >
+                              {r.active ? 'Pause' : 'Activate'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
         )}
 
         {/* 11. Drops */}
@@ -4084,7 +4213,7 @@ function AdminStudio({ section }) {
                   () => post('distribute_offer', payload),
                   {
                     success: (d) => `Special offer "${activeItem.code}" successfully distributed to ${d?.count ?? 1} customer(s)!`,
-                    reload: 'customers',
+                    reload: section === 'loyalty' ? 'loyalty' : 'customers',
                     close: true,
                   }
                 );

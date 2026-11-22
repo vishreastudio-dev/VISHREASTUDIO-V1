@@ -80,6 +80,7 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold integer DEFAUL
 -- 5. Extend customer_profiles for notes and tags
 ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS notes text;
 ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS tags jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE carts ADD COLUMN IF NOT EXISTS applied_promo_code text;
 
 -- 6. Extend orders for in-studio counter sales & financial tracking
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS amount_paid numeric(12,2) DEFAULT 0;

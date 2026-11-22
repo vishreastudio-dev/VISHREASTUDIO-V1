@@ -134,8 +134,14 @@ async function startCheckout(req, res) {
     if (!lines.length) throw badRequest('cart_empty', 'Your bag is empty');
 
     let offer = null;
-    if (promoCode) {
-      const cleanCode = promoCode.trim().toUpperCase();
+    let codeToUse = promoCode;
+    if (!codeToUse) {
+      const cartRow = (await c.query('SELECT applied_promo_code FROM carts WHERE auth_user_id = $1', [user.id])).rows[0];
+      if (cartRow?.applied_promo_code) codeToUse = cartRow.applied_promo_code;
+    }
+
+    if (codeToUse) {
+      const cleanCode = codeToUse.trim().toUpperCase();
       const offRes = await c.query(
         `SELECT * FROM offers
          WHERE upper(code) = $1 AND active = true
@@ -287,6 +293,7 @@ async function startCheckout(req, res) {
         [user.id, price.offer_discount, JSON.stringify({ code: offer.code, order_id: order.id, discount_amount: price.offer_discount })]
       );
     }
+    await c.query('UPDATE carts SET applied_promo_code = NULL WHERE auth_user_id = $1', [user.id]);
 
     await audit(c, { actor: user.id, action: 'checkout_started', entityType: 'order', entityId: order.id, details: { total: price.total, credits_used: price.credits_used, offer_code: offer?.code || null, offer_discount: price.offer_discount || 0, lines: price.lines.length } });
     return { order };

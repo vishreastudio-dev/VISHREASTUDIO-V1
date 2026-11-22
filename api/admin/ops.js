@@ -364,7 +364,23 @@ async function handleGet(req, res) {
       const [rules, events, offers] = await Promise.all([
         rows('SELECT * FROM loyalty_rules ORDER BY created_at DESC LIMIT 200'),
         rows('SELECT le.*, lr.name AS rule_name FROM loyalty_events le LEFT JOIN loyalty_rules lr ON lr.id = le.rule_id ORDER BY le.created_at DESC LIMIT 100'),
-        rows('SELECT * FROM offers ORDER BY created_at DESC LIMIT 50'),
+        rows(`
+          SELECT o.*,
+            COALESCE(dist.dist_count, 0)::int AS distributed_count,
+            COALESCE(red.red_count, 0)::int AS redeemed_count
+          FROM offers o
+          LEFT JOIN (
+            SELECT upper(details->>'code') AS code, count(*)::int AS dist_count
+            FROM loyalty_events WHERE event_type = 'special_offer_distributed'
+            GROUP BY upper(details->>'code')
+          ) dist ON dist.code = upper(o.code)
+          LEFT JOIN (
+            SELECT upper(details->>'code') AS code, count(*)::int AS red_count
+            FROM loyalty_events WHERE event_type = 'special_offer_redeemed'
+            GROUP BY upper(details->>'code')
+          ) red ON red.code = upper(o.code)
+          ORDER BY o.created_at DESC LIMIT 100
+        `),
       ]);
       return res.json({ rules, events, offers });
     }
@@ -1170,6 +1186,39 @@ async function handleWrite(req, res) {
     });
 
     return res.json({ ok: true, count: customerIds.length, code });
+  }
+
+  if (section === 'toggle_offer') {
+    const offerId = uuid(b.id, 'id');
+    const active = Boolean(b.active);
+    const r = await db.query(
+      'UPDATE offers SET active = $2 WHERE id = $1 RETURNING *',
+      [offerId, active]
+    );
+    if (!r.rows[0]) throw notFound('offer_not_found', 'Offer not found');
+    await audit(db, {
+      actor: uid,
+      action: active ? 'activate_offer' : 'stop_offer',
+      entityType: 'offer',
+      entityId: r.rows[0].code,
+      details: { active, id: offerId },
+    });
+    return res.json({ ok: true, offer: r.rows[0] });
+  }
+
+  if (section === 'delete_offer') {
+    const offerId = uuid(b.id, 'id');
+    const deleted = (await db.query('DELETE FROM offers WHERE id = $1 RETURNING code', [offerId])).rows[0];
+    if (deleted) {
+      await audit(db, {
+        actor: uid,
+        action: 'delete_offer',
+        entityType: 'offer',
+        entityId: deleted.code,
+        details: { id: offerId },
+      });
+    }
+    return res.json({ ok: true });
   }
 
   if (section === 'run_loyalty_triggers') {

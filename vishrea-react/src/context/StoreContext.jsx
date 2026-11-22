@@ -171,7 +171,16 @@ export const StoreProvider = ({ children }) => {
       membership: d?.membership ?? null,
       rewards_available: Array.isArray(d?.rewards_available) ? d.rewards_available : [],
     };
-    if (seq === cartSeq.current) setServerCart(next);
+    if (seq === cartSeq.current) {
+      setServerCart(next);
+      if (next.estimate?.special_offer) {
+        setAppliedOffer(next.estimate.special_offer);
+        localStorage.setItem('vishrea_applied_offer', JSON.stringify(next.estimate.special_offer));
+      } else if (localStorage.getItem('vishrea_applied_offer')) {
+        setAppliedOffer(null);
+        localStorage.removeItem('vishrea_applied_offer');
+      }
+    }
     return d;
   }, []);
 
@@ -205,6 +214,7 @@ export const StoreProvider = ({ children }) => {
     localStorage.removeItem('vishrea_applied_offer');
     invalidateCached();
     if (user) {
+      await api('/api/cart', { method: 'POST', body: { action: 'remove_promo' } }).catch(() => {});
       await refreshCart('');
     }
     window.dispatchEvent(new CustomEvent('vishrea_toast', { detail: 'Offer code removed' }));
