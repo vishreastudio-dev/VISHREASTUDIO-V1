@@ -235,18 +235,32 @@ export const Footer = () => (
           VISHREA <span>STUDIO</span>
         </Link>
         <p>Vishrea Studio is a boutique womenswear studio in Bengaluru creating one-of-one pieces and timeless designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.</p>
-        <div style={{ marginTop: 14, fontSize: 13, color: 'var(--muted, #666)', lineHeight: 1.6 }}>
-          <strong style={{ color: 'var(--ink, #1a1a1a)', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
+        <div style={{ marginTop: 14, fontSize: 13, color: '#b8adaf', lineHeight: 1.6 }}>
+          <strong style={{ color: '#ffffff', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
           <span>16, 4th Cross, Kammasandra Rd, Hebbagodi,</span><br />
           <span>Electronic City Phase 2, Bengaluru, KA 560100</span><br />
-          <span>Hours: Mon – Sun, 10:30 AM – 8:30 PM</span><br />
+          <span style={{ color: '#ded6d9' }}>Hours: Mon – Sun, 10:30 AM – 8:30 PM</span><br />
           <a
             href="https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--wine, #681d31)', fontWeight: 500, display: 'inline-block', marginTop: 4 }}
+            style={{
+              color: '#e5c583',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: 6,
+              textDecoration: 'none',
+              borderBottom: '1px solid rgba(229, 197, 131, 0.45)',
+              paddingBottom: 2,
+              transition: 'all 0.2s ease',
+            }}
           >
-            5.0 ★ (47 Google Reviews) · Open in Google Maps ↗
+            <span style={{ color: '#f59e0b', fontWeight: 600 }}>5.0 ★</span>
+            <span style={{ color: '#f3ecee' }}>(47 Google Reviews)</span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>·</span>
+            <span style={{ color: '#e5c583' }}>Open in Google Maps ↗</span>
           </a>
         </div>
       </div>
