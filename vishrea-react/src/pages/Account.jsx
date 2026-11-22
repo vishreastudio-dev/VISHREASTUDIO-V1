@@ -244,9 +244,95 @@ function DeleteAccount({ onDeleted }) {
   );
 }
 
+function StudioOffers({ offers, onApplyCode }) {
+  const [copied, setCopied] = useState(null);
+
+  const copyCode = (code) => {
+    navigator.clipboard?.writeText(code);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2500);
+  };
+
+  return (
+    <div className="account-panel" id="studio-offers" style={{ borderLeft: '3px solid #d4af37' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        <div>
+          <span style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#b38b2d', fontWeight: 600 }}>PRIVATE ATELIER CLIENT PRIVILEGES</span>
+          <h2 style={{ margin: '4px 0 0', fontFamily: 'Georgia, serif' }}>Studio Offers &amp; VIP Access</h2>
+        </div>
+        {offers.length > 0 && (
+          <span style={{ fontSize: 11, background: '#f5f0ea', color: '#684523', padding: '4px 10px', borderRadius: 12, fontWeight: 500 }}>
+            {offers.length} active {offers.length === 1 ? 'privilege' : 'privileges'}
+          </span>
+        )}
+      </div>
+
+      {offers.length === 0 ? (
+        <p className="fine" style={{ margin: 0 }}>
+          Special offers, private showroom discounts and bespoke promotions are distributed directly to clients by our concierge. When granted, your private codes appear here.
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gap: 14 }}>
+          {offers.map((off) => {
+            const endsAt = off.ends_at ? new Date(off.ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+            const discountLabel = off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value} OFF`;
+            return (
+              <div
+                key={off.id || off.code}
+                style={{
+                  background: '#faf8f5',
+                  border: '1px solid #ebd9c8',
+                  padding: '16px 20px',
+                  borderRadius: 4,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, letterSpacing: '0.1em', color: '#1c1b1a', background: '#fff', padding: '3px 8px', border: '1px dashed #d4af37' }}>
+                      {off.code}
+                    </span>
+                    <strong style={{ color: '#8c2438', fontSize: 14 }}>{discountLabel}</strong>
+                  </div>
+                  <h4 style={{ margin: '4px 0 2px', fontSize: 14, fontWeight: 600, color: '#2c2523' }}>{off.title || 'Exclusive Studio Offer'}</h4>
+                  {off.description && <p style={{ margin: '2px 0 4px', fontSize: 12, color: '#6e655f' }}>{off.description}</p>}
+                  {endsAt && <span style={{ fontSize: 11, color: '#887d77' }}>Valid until {endsAt}</span>}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => copyCode(off.code)}
+                    className="button button-outline"
+                    style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                  >
+                    {copied === off.code ? 'Copied ✓' : 'Copy Code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onApplyCode(off.code)}
+                    className="button button-dark"
+                    style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                  >
+                    Apply &amp; Shop →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const Account = () => {
   usePageSeo({ noIndex: true });
-  const { user, signOut } = useStore();
+  const { user, signOut, myOffers = [], applyOffer, cartCount } = useStore();
   const navigate = useNavigate();
   const account = useApi('/api/account');
   const orders = useApi('/api/orders?limit=1');
@@ -254,6 +340,19 @@ export const Account = () => {
   const membership = account.data?.membership || { status: 'inactive', credits_balance: 0 };
   const colour = account.data?.colour_profile;
   const rewards = account.data?.rewards || { available: 0, redeemed: 0 };
+
+  const handleApplyOffer = async (code) => {
+    try {
+      await applyOffer(code);
+      if (cartCount > 0) {
+        navigate('/checkout');
+      } else {
+        navigate('/catalogue');
+      }
+    } catch (err) {
+      alert(err.message || 'Could not apply code');
+    }
+  };
 
   return (
     <div>
@@ -280,6 +379,7 @@ export const Account = () => {
                 <Card label="Free-piece rewards" value={rewards.available}><Link to="/wardrobe" className="text-link">Wardrobe Bag →</Link></Card>
                 <Card label="Orders" value={orders.data?.total ?? '—'}><Link to="/orders" className="text-link">View order history →</Link></Card>
               </div>
+              <StudioOffers offers={myOffers} onApplyCode={handleApplyOffer} />
               <ProfileForm profile={account.data?.profile} user={user} notifications={account.data?.notifications} onSaved={account.reload} />
               <SizeProfilesSection />
               <Wearers wearers={account.data?.wearers || []} max={account.data?.max_wearers || 5} onChange={account.reload} />

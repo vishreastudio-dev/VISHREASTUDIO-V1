@@ -56,7 +56,7 @@ export async function addLine(client, cartId, input) {
   );
 }
 
-export async function cartView(uid) {
+export async function cartView(uid, offerCode = null) {
   const [lines, settings, membership, rewards, orderCount] = await Promise.all([
     loadCartLines(db, uid),
     getSettings(),
@@ -64,8 +64,18 @@ export async function cartView(uid) {
     db.query("SELECT id, kind FROM reward_entitlements WHERE auth_user_id = $1 AND status = 'available' ORDER BY created_at", [uid]).then((r) => r.rows),
     db.query("SELECT count(*)::int AS count FROM orders WHERE auth_user_id = $1 AND payment_status = 'paid'", [uid]).then((r) => Number(r.rows[0]?.count || 0)),
   ]);
+
+  let offer = null;
+  if (offerCode) {
+    const offRes = await db.query(
+      `SELECT * FROM offers WHERE upper(code) = upper($1) AND active = true AND (ends_at IS NULL OR ends_at > now())`,
+      [String(offerCode).trim()]
+    );
+    offer = offRes.rows[0] || null;
+  }
+
   const priceable = lines.filter((l) => !l.issue);
-  const estimate = calculateCartPrice({ lines: priceable, method: 'delivery', membership, settings, orderCount });
+  const estimate = calculateCartPrice({ lines: priceable, method: 'delivery', membership, settings, orderCount, offer });
   return {
     items: lines.map((l) => ({
       id: l.id,
@@ -94,12 +104,23 @@ export async function cartView(uid) {
       credit_discount: estimate.credit_discount,
       reward_discount: estimate.reward_discount,
       loyalty_discount: estimate.loyalty_discount || 0,
+      offer_discount: estimate.offer_discount || 0,
+      offer_code: estimate.offer_code || null,
       is_sixth_order: estimate.is_sixth_order || false,
       shipping: estimate.shipping,
       tax_included: estimate.tax_amount,
       total: estimate.total,
       note: 'Final amount is confirmed at checkout. Studio pickup is free.',
     },
+    applied_offer: offer
+      ? {
+          code: offer.code,
+          title: offer.title,
+          discount_type: offer.discount_type,
+          discount_value: Number(offer.discount_value),
+          discount_amount: estimate.offer_discount || 0,
+        }
+      : null,
     membership: membership ? { status: membership.status, credits_balance: membership.credits_balance } : null,
     rewards_available: rewards.filter((r) => !lines.some((l) => l.reward_entitlement_id === r.id)),
   };
@@ -176,5 +197,6 @@ export default async function cart(req, res) {
     }
   }
 
-  res.json(await cartView(uid));
+  const offerCode = req.query.code || b.code || b.promo_code || null;
+  res.json(await cartView(uid, offerCode));
 }

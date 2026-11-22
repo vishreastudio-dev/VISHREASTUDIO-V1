@@ -48,7 +48,7 @@ const FOOTER_CATEGORIES = [
 ];
 
 export const Header = () => {
-  const { cartCount, user } = useStore();
+  const { cartCount, user, myOffers } = useStore();
   const { count: likesCount } = useLikes();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -57,7 +57,8 @@ export const Header = () => {
 
   useEffect(() => {
     const onToast = (e) => {
-      setToast(e.detail);
+      const payload = typeof e.detail === 'object' && e.detail !== null ? e.detail : { text: String(e.detail) };
+      setToast(payload);
       const timer = setTimeout(() => setToast(null), 2500);
       return () => clearTimeout(timer);
     };
@@ -83,7 +84,14 @@ export const Header = () => {
   return (
     <>
       <a href="#main-content" className="skip-to-content">Skip to main content</a>
-      <div className="announcement">Free studio pickup in Bengaluru · ₹99 delivery across India</div>
+      {user && myOffers?.length > 0 ? (
+        <div className="announcement" style={{ background: '#1c1b1a', color: '#e8ded2', letterSpacing: '0.06em' }}>
+          <span style={{ color: '#d4af37', fontWeight: 600, marginRight: 6 }}>✦ STUDIO PRIVILEGE</span>
+          Use code <strong style={{ color: '#fff', letterSpacing: '0.1em', padding: '0 4px', textDecoration: 'underline' }}>{myOffers[0].code}</strong> for {myOffers[0].discount_type === 'percentage' ? `${myOffers[0].discount_value}% OFF` : `₹${myOffers[0].discount_value} OFF`} · <Link to="/account#studio-offers" style={{ color: '#d4af37', textDecoration: 'underline', marginLeft: 4 }}>View Offer Details →</Link>
+        </div>
+      ) : (
+        <div className="announcement">Free studio pickup in Bengaluru · ₹99 delivery across India</div>
+      )}
       <header className="site-header">
         <button
           type="button"

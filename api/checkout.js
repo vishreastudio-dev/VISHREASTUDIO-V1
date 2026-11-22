@@ -49,7 +49,8 @@ function paymentPayload(order, user) {
     expires_at: order.payment_expires_at,
     totals: {
       subtotal: order.subtotal,
-      credit_discount: Number(order.subtotal) + Number(order.shipping_fee) + Number(order.gift_packing_fee || 0) - Number(order.total),
+      credit_discount: Math.max(0, Math.round((Number(order.subtotal) + Number(order.shipping_fee) + Number(order.gift_packing_fee || 0) - Number(order.total) - Number(order.discount_amount || 0)) * 100) / 100),
+      discount_amount: order.discount_amount || 0,
       shipping: order.shipping_fee,
       gift_fee: order.gift_packing_fee,
       taxable_amount: order.taxable_amount,
@@ -97,6 +98,7 @@ async function startCheckout(req, res) {
   const gift = method !== 'bag' && bool(b.gift);
   const giftMessage = gift ? text(b.gift_message, { max: 300, field: 'gift_message' }) : null;
   const buyerGstin = bool(b.gst_invoice_requested) ? gstin(b.buyer_gstin) : null;
+  const promoCode = text(b.promo_code || b.offer_code, { max: 40, field: 'promo_code' });
   const idemKey = text(b.idempotency_key || req.headers['idempotency-key'], { max: 80, field: 'idempotency_key' });
 
   if (idemKey) {
@@ -131,9 +133,21 @@ async function startCheckout(req, res) {
     let lines = await loadCartLines(c, user.id);
     if (!lines.length) throw badRequest('cart_empty', 'Your bag is empty');
 
+    let offer = null;
+    if (promoCode) {
+      const offRes = await c.query(
+        `SELECT * FROM offers WHERE upper(code) = upper($1) AND active = true AND (ends_at IS NULL OR ends_at > now())`,
+        [promoCode.trim()]
+      );
+      offer = offRes.rows[0] || null;
+      if (!offer) {
+        throw badRequest('invalid_offer_code', 'The promo code entered is invalid or has expired');
+      }
+    }
+
     const fingerprint = crypto
       .createHash('sha256')
-      .update(JSON.stringify({ l: lines.map((l) => [l.variant_id, l.quantity, l.use_credit, l.reward_entitlement_id || null]).sort(), method, placeOfSupply, gift }))
+      .update(JSON.stringify({ l: lines.map((l) => [l.variant_id, l.quantity, l.use_credit, l.reward_entitlement_id || null]).sort(), method, placeOfSupply, gift, promo: offer?.code || null }))
       .digest('hex');
 
     // Refresh / retry of the same bag: hand back the open payment instead of holding stock twice.
@@ -183,7 +197,7 @@ async function startCheckout(req, res) {
       (await c.query("SELECT count(*)::int AS count FROM orders WHERE auth_user_id = $1 AND payment_status = 'paid'", [user.id])).rows[0]?.count || 0
     );
     // Server prices only. Client total, amount, and unit-price fields are ignored.
-    const price = calculateCartPrice({ lines, method, gift, placeOfSupply, membership, settings, orderCount });
+    const price = calculateCartPrice({ lines, method, gift, placeOfSupply, membership, settings, orderCount, offer });
     if (price.credits_used && !creditsUsable(membership)) {
       throw badRequest('membership_not_active', creditsBlockedMessage(membership));
     }
@@ -196,7 +210,7 @@ async function startCheckout(req, res) {
     }
 
     const reservationMinutes = Math.min(60, Math.max(5, Number(settings.reservation_minutes) || 15));
-    const discountAmount = Math.round(((price.reward_discount || 0) + (price.loyalty_discount || 0)) * 100) / 100;
+    const discountAmount = Math.round(((price.reward_discount || 0) + (price.loyalty_discount || 0) + (price.offer_discount || 0)) * 100) / 100;
     const orderNumber = await nextHumanId(c, ID_PREFIXES.ORDER);
     const ins = await c.query(
       `INSERT INTO orders (auth_user_id, status, payment_status, subtotal, shipping_fee, total, shipping_address, gst_invoice_requested,

@@ -12,9 +12,13 @@ const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-$
 
 export const Checkout = () => {
   usePageSeo({ noIndex: true });
-  const { cart, cartEstimate, user, refreshCart } = useStore();
+  const { cart, cartEstimate, user, refreshCart, myOffers = [], appliedOffer, applyOffer, removeOffer } = useStore();
   const navigate = useNavigate();
   const idemKey = useRef(newKey());
+
+  const [promoInput, setPromoInput] = useState('');
+  const [offerMsg, setOfferMsg] = useState({ tone: 'info', text: '' });
+  const [applyingOffer, setApplyingOffer] = useState(false);
 
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -48,11 +52,28 @@ export const Checkout = () => {
   const busy = ['creating', 'paying', 'verifying'].includes(phase);
   // Label only: the server prices the order. Credits/rewards covering every piece, plus pickup
   // (or free delivery) and no gift packing, means nothing is charged.
+  const handleApplyPromo = async (codeToApply) => {
+    const code = (codeToApply || promoInput).trim();
+    if (!code) return;
+    setApplyingOffer(true);
+    setOfferMsg({ tone: 'info', text: '' });
+    try {
+      const off = await applyOffer(code);
+      setPromoInput('');
+      setOfferMsg({ tone: 'success', text: `Offer "${off.code}" applied!` });
+    } catch (err) {
+      setOfferMsg({ tone: 'error', text: err.message || 'Invalid promo code' });
+    } finally {
+      setApplyingOffer(false);
+    }
+  };
+
   const goodsDue = cartEstimate
     ? Number(cartEstimate.subtotal) -
       Number(cartEstimate.credit_discount || 0) -
       Number(cartEstimate.reward_discount || 0) -
-      Number(cartEstimate.loyalty_discount || 0)
+      Number(cartEstimate.loyalty_discount || 0) -
+      Number(cartEstimate.offer_discount || 0)
     : null;
   // Credit and free-piece picks can wait in the Wardrobe Bag and ship later together (MEM-06).
   const allPicks = cart.length > 0 && cart.every((c) => c.use_credit || c.reward_entitlement_id);
@@ -133,6 +154,7 @@ export const Checkout = () => {
         gift_message: form.gift ? form.gift_message : undefined,
         gst_invoice_requested: form.gst,
         buyer_gstin: form.gst ? form.gstin : undefined,
+        promo_code: appliedOffer?.code || undefined,
       };
       const checkout = await api('/api/checkout', { method: 'POST', body, timeoutMs: 30000 });
       setPending(checkout);
@@ -278,11 +300,95 @@ export const Checkout = () => {
               </div>
             ))}
           </div>
+
+          {/* Studio Privilege / Promo Code Section */}
+          <div style={{ borderBottom: '1px solid var(--line)', paddingBottom: '16px', marginBottom: '16px' }}>
+            <small style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', fontWeight: 600 }}>
+              Studio Privilege / Offer Code
+            </small>
+
+            {appliedOffer ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f8f5', border: '1px solid #c3e6cb', padding: '8px 12px', borderRadius: 4, marginTop: 8 }}>
+                <div>
+                  <strong style={{ color: '#155724', fontSize: 13, fontFamily: 'monospace' }}>✓ {appliedOffer.code}</strong>
+                  <span style={{ fontSize: 11, color: '#155724', marginLeft: 6 }}>
+                    ({appliedOffer.discount_type === 'percentage' ? `${appliedOffer.discount_value}% OFF` : `₹${appliedOffer.discount_value} OFF`})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeOffer}
+                  style={{ background: 'none', border: 'none', color: '#721c24', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="text"
+                    placeholder="Enter VIP / Promo code"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    style={{ flex: 1, padding: '8px 10px', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase', border: '1px solid var(--line)' }}
+                  />
+                  <button
+                    type="button"
+                    disabled={applyingOffer || !promoInput.trim()}
+                    onClick={() => handleApplyPromo()}
+                    className="button button-dark"
+                    style={{ padding: '8px 14px', fontSize: 11, textTransform: 'uppercase' }}
+                  >
+                    {applyingOffer ? '…' : 'Apply'}
+                  </button>
+                </div>
+
+                {offerMsg.text && (
+                  <p style={{ fontSize: 11, color: offerMsg.tone === 'error' ? '#9a2d2d' : '#28a745', margin: '6px 0 0' }}>
+                    {offerMsg.text}
+                  </p>
+                )}
+
+                {myOffers.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ fontSize: 10, color: '#b38b2d', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                      ✦ Privileges granted to you:
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                      {myOffers.map((off) => (
+                        <button
+                          key={off.code}
+                          type="button"
+                          onClick={() => handleApplyPromo(off.code)}
+                          style={{
+                            background: '#faf8f5',
+                            border: '1px dashed #d4af37',
+                            padding: '4px 8px',
+                            borderRadius: 3,
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                          }}
+                        >
+                          <strong style={{ fontFamily: 'monospace' }}>{off.code}</strong> · {off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {totals ? (
             <>
               <Row label="Subtotal" value={formatINR(totals.subtotal)} />
               {Number(totals.credit_discount) > 0 && <Row label="Credits & rewards" value={`−${formatINR(totals.credit_discount)}`} />}
               {Number(totals.loyalty_discount) > 0 && <Row label="6th Order Reward (50% off)" value={`−${formatINR(totals.loyalty_discount)}`} />}
+              {Number(totals.discount_amount) > 0 && (
+                <Row label={`Special Offer (${appliedOffer?.code || 'VIP'})`} value={`−${formatINR(totals.discount_amount)}`} />
+              )}
               <Row label="Shipping" value={formatINR(totals.shipping)} />
               {Number(totals.gift_fee) > 0 && <Row label="Gift packing" value={formatINR(totals.gift_fee)} />}
               <Row label={Number(totals.igst) > 0 ? 'Includes IGST' : 'Includes CGST + SGST'} value={formatINR(totals.tax_amount)} muted />
@@ -291,7 +397,12 @@ export const Checkout = () => {
           ) : (
             <>
               <Row label="Subtotal" value={formatINR(cartEstimate?.subtotal)} />
+              {Number(cartEstimate?.credit_discount) > 0 && <Row label="Wardrobe credits" value={`−${formatINR(cartEstimate.credit_discount)}`} />}
+              {Number(cartEstimate?.reward_discount) > 0 && <Row label="Free-piece reward" value={`−${formatINR(cartEstimate.reward_discount)}`} />}
               {Number(cartEstimate?.loyalty_discount) > 0 && <Row label="6th Order Reward (50% off)" value={`−${formatINR(cartEstimate.loyalty_discount)}`} />}
+              {Number(cartEstimate?.offer_discount) > 0 && (
+                <Row label={`Special Offer (${appliedOffer?.code || cartEstimate.offer_code})`} value={`−${formatINR(cartEstimate.offer_discount)}`} />
+              )}
               <Row label="Shipping" value={formatINR(method === 'pickup' ? 0 : cartEstimate?.shipping ?? 99)} />
               <Row label="Estimated total" value={formatINR((cartEstimate?.total ?? 0) - (method === 'pickup' ? cartEstimate?.shipping ?? 0 : 0))} strong />
               <p style={{ fontSize: 11, color: 'var(--muted)' }}>Prices include GST. The exact amount is calculated securely before payment.</p>

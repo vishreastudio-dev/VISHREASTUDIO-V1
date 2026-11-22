@@ -18,7 +18,7 @@ const ISSUE_COPY = {
 
 export const Cart = () => {
   usePageSeo({ noIndex: true });
-  const { user, cart, cartEstimate, cartMembership, cartRewards, cartBusy, removeFromCart, updateCartItem, refreshCart } = useStore();
+  const { user, cart, cartEstimate, cartMembership, cartRewards, cartBusy, removeFromCart, updateCartItem, refreshCart, appliedOffer } = useStore();
   const navigate = useNavigate();
   const [msg, setMsg] = useState('');
 
@@ -142,6 +142,12 @@ export const Cart = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0', fontSize: '14px' }}>
                 <span>Wardrobe credits</span>
                 <strong>−{formatINR(cartEstimate.credit_discount)}</strong>
+              </div>
+            )}
+            {cartEstimate?.offer_discount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0', fontSize: '14px', color: '#155724' }}>
+                <span>Special Offer ({appliedOffer?.code || cartEstimate.offer_code})</span>
+                <strong>−{formatINR(cartEstimate.offer_discount)}</strong>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0 16px', fontSize: '14px' }}>

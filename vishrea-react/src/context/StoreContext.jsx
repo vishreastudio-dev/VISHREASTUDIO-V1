@@ -34,6 +34,8 @@ export const StoreProvider = ({ children }) => {
   const [activeSizeProfile, setActiveSizeProfile] = useState(null);
   const [fitPreferences, setFitPreferences] = useState([]);
   const [sizeFilterEnabled, setSizeFilterEnabledState] = useState(() => readJson(SIZE_FILTER_KEY, true));
+  const [myOffers, setMyOffers] = useState([]);
+  const [appliedOffer, setAppliedOffer] = useState(() => readJson('vishrea_applied_offer', null));
 
   const setSizeFilterEnabled = useCallback((enabled) => {
     setSizeFilterEnabledState(enabled);
@@ -112,12 +114,26 @@ export const StoreProvider = ({ children }) => {
     else localStorage.removeItem(COLOUR_KEY);
   }, []);
 
+  const refreshMyOffers = useCallback(async () => {
+    try {
+      const d = await api('/api/offers/my-offers');
+      if (Array.isArray(d?.offers)) {
+        setMyOffers(d.offers);
+        return d.offers;
+      }
+    } catch {
+      setMyOffers([]);
+    }
+    return [];
+  }, []);
+
   const refreshSession = useCallback(async () => {
     try {
       const d = await cachedGet('/api/auth/session');
       setUser(d?.user || null);
       if (d?.user) {
         refreshSizeProfiles().catch(() => {});
+        refreshMyOffers().catch(() => {});
         try {
           const raw = localStorage.getItem('vishrea_likes');
           if (raw) {
@@ -134,17 +150,19 @@ export const StoreProvider = ({ children }) => {
       } else {
         setSizeProfiles([]);
         setActiveSizeProfile(null);
+        setMyOffers([]);
       }
       return d?.user || null;
     } catch {
       setUser(null);
       setSizeProfiles([]);
       setActiveSizeProfile(null);
+      setMyOffers([]);
       return null;
     } finally {
       setAuthReady(true);
     }
-  }, [refreshSizeProfiles]);
+  }, [refreshSizeProfiles, refreshMyOffers]);
 
   const applyCart = useCallback((d, seq) => {
     const next = {
@@ -157,11 +175,40 @@ export const StoreProvider = ({ children }) => {
     return d;
   }, []);
 
-  const refreshCart = useCallback(async () => {
+  const refreshCart = useCallback(async (codeOverride) => {
     if (mergePromise.current) await mergePromise.current;
     const seq = ++cartSeq.current;
-    return applyCart(await cachedGet('/api/cart'), seq);
-  }, [applyCart]);
+    const code = codeOverride !== undefined ? codeOverride : (appliedOffer?.code || '');
+    const url = code ? `/api/cart?code=${encodeURIComponent(code)}` : '/api/cart';
+    return applyCart(await cachedGet(url), seq);
+  }, [applyCart, appliedOffer]);
+
+  const applyOffer = useCallback(async (code) => {
+    if (!code || !String(code).trim()) throw new Error('Please enter a promo code');
+    const clean = String(code).trim().toUpperCase();
+    const res = await api('/api/offers/validate', { method: 'POST', body: { code: clean } });
+    if (!res?.valid || !res?.offer) {
+      throw new Error(res?.message || 'Invalid or expired offer code');
+    }
+    setAppliedOffer(res.offer);
+    localStorage.setItem('vishrea_applied_offer', JSON.stringify(res.offer));
+    invalidateCached();
+    if (user) {
+      await refreshCart(res.offer.code);
+    }
+    window.dispatchEvent(new CustomEvent('vishrea_toast', { detail: `Special offer "${res.offer.code}" applied!` }));
+    return res.offer;
+  }, [user, refreshCart]);
+
+  const removeOffer = useCallback(async () => {
+    setAppliedOffer(null);
+    localStorage.removeItem('vishrea_applied_offer');
+    invalidateCached();
+    if (user) {
+      await refreshCart('');
+    }
+    window.dispatchEvent(new CustomEvent('vishrea_toast', { detail: 'Offer code removed' }));
+  }, [user, refreshCart]);
 
   useEffect(() => {
     refreshSession();
@@ -375,6 +422,9 @@ export const StoreProvider = ({ children }) => {
       setGuestCart([]);
       setSizeProfiles([]);
       setActiveSizeProfile(null);
+      setMyOffers([]);
+      setAppliedOffer(null);
+      localStorage.removeItem('vishrea_applied_offer');
       setServerCart({ items: [], estimate: null, membership: null });
     }
   }, []);
@@ -486,8 +536,13 @@ export const StoreProvider = ({ children }) => {
       switchActiveProfile,
       saveSizeProfile,
       deleteSizeProfile,
+      myOffers,
+      appliedOffer,
+      applyOffer,
+      removeOffer,
+      refreshMyOffers,
     }),
-    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral, sizeProfiles, activeSizeProfile, fitPreferences, sizeFilterEnabled, setSizeFilterEnabled, refreshSizeProfiles, switchActiveProfile, saveSizeProfile, deleteSizeProfile]
+    [user, authReady, refreshSession, startLogin, verifyCode, completeProfile, completeOnboarding, signOut, bag, serverCart, cartBusy, refreshCart, addToCart, updateCartItem, removeFromCart, colourProfile, setColourProfile, referral, sizeProfiles, activeSizeProfile, fitPreferences, sizeFilterEnabled, setSizeFilterEnabled, refreshSizeProfiles, switchActiveProfile, saveSizeProfile, deleteSizeProfile, myOffers, appliedOffer, applyOffer, removeOffer, refreshMyOffers]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
