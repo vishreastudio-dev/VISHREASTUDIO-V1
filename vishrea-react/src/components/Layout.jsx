@@ -81,13 +81,15 @@ export const Header = () => {
     };
   }, [menuOpen]);
 
+  const activeOffers = (myOffers || []).filter((o) => !o.is_redeemed);
+
   return (
     <>
       <a href="#main-content" className="skip-to-content">Skip to main content</a>
-      {user && myOffers?.length > 0 ? (
+      {user && activeOffers.length > 0 ? (
         <div className="announcement" style={{ background: '#1c1b1a', color: '#e8ded2', letterSpacing: '0.06em' }}>
           <span style={{ color: '#d4af37', fontWeight: 600, marginRight: 6 }}>✦ STUDIO PRIVILEGE</span>
-          Use code <strong style={{ color: '#fff', letterSpacing: '0.1em', padding: '0 4px', textDecoration: 'underline' }}>{myOffers[0].code}</strong> for {myOffers[0].discount_type === 'percentage' ? `${myOffers[0].discount_value}% OFF` : `₹${myOffers[0].discount_value} OFF`} · <Link to="/account#studio-offers" style={{ color: '#d4af37', textDecoration: 'underline', marginLeft: 4 }}>View Offer Details →</Link>
+          Use code <strong style={{ color: '#fff', letterSpacing: '0.1em', padding: '0 4px', textDecoration: 'underline' }}>{activeOffers[0].code}</strong> for {activeOffers[0].discount_type === 'percentage' ? `${activeOffers[0].discount_value}% OFF` : `₹${activeOffers[0].discount_value} OFF`} · <Link to="/account#studio-offers" style={{ color: '#d4af37', textDecoration: 'underline', marginLeft: 4 }}>View Offer Details →</Link>
         </div>
       ) : (
         <div className="announcement">Free studio pickup in Bengaluru · ₹99 delivery across India</div>

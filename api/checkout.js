@@ -135,13 +135,43 @@ async function startCheckout(req, res) {
 
     let offer = null;
     if (promoCode) {
+      const cleanCode = promoCode.trim().toUpperCase();
       const offRes = await c.query(
-        `SELECT * FROM offers WHERE upper(code) = upper($1) AND active = true AND (ends_at IS NULL OR ends_at > now())`,
-        [promoCode.trim()]
+        `SELECT * FROM offers
+         WHERE upper(code) = $1 AND active = true
+           AND (ends_at IS NULL OR ends_at > now())
+           AND (starts_at IS NULL OR starts_at <= now())`,
+        [cleanCode]
       );
       offer = offRes.rows[0] || null;
       if (!offer) {
         throw badRequest('invalid_offer_code', 'The promo code entered is invalid or has expired');
+      }
+
+      // Check if targeted to specific customers
+      const targeted = await c.query(
+        `SELECT auth_user_id FROM loyalty_events
+         WHERE event_type = 'special_offer_distributed' AND upper(details->>'code') = $1
+         LIMIT 20`,
+        [cleanCode]
+      );
+      if (targeted.rows.length > 0 && !targeted.rows.some((r) => r.auth_user_id === user.id)) {
+        throw badRequest('exclusive_offer', 'This exclusive studio privilege is reserved for another client account');
+      }
+
+      // Check if already redeemed on a completed order
+      const redeemed = await c.query(
+        `SELECT le.id FROM loyalty_events le
+         LEFT JOIN orders o ON o.id::text = (le.details->>'order_id')
+         WHERE le.auth_user_id = $1
+           AND le.event_type = 'special_offer_redeemed'
+           AND upper(le.details->>'code') = $2
+           AND (o.id IS NULL OR o.payment_status = 'paid')
+         LIMIT 1`,
+        [user.id, cleanCode]
+      );
+      if (redeemed.rows.length > 0) {
+        throw badRequest('offer_already_redeemed', 'You have already redeemed this studio privilege on a previous order');
       }
     }
 
@@ -250,7 +280,15 @@ async function startCheckout(req, res) {
       ]);
     }
 
-    await audit(c, { actor: user.id, action: 'checkout_started', entityType: 'order', entityId: order.id, details: { total: price.total, credits_used: price.credits_used, lines: price.lines.length } });
+    if (offer && price.offer_discount > 0) {
+      await c.query(
+        `INSERT INTO loyalty_events (auth_user_id, event_type, reward_value, details)
+         VALUES ($1, 'special_offer_redeemed', $2, $3)`,
+        [user.id, price.offer_discount, JSON.stringify({ code: offer.code, order_id: order.id, discount_amount: price.offer_discount })]
+      );
+    }
+
+    await audit(c, { actor: user.id, action: 'checkout_started', entityType: 'order', entityId: order.id, details: { total: price.total, credits_used: price.credits_used, offer_code: offer?.code || null, offer_discount: price.offer_discount || 0, lines: price.lines.length } });
     return { order };
   });
 

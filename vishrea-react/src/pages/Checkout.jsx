@@ -350,33 +350,37 @@ export const Checkout = () => {
                   </p>
                 )}
 
-                {myOffers.length > 0 && (
-                  <div style={{ marginTop: 10 }}>
-                    <span style={{ fontSize: 10, color: '#b38b2d', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-                      ✦ Privileges granted to you:
-                    </span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                      {myOffers.map((off) => (
-                        <button
-                          key={off.code}
-                          type="button"
-                          onClick={() => handleApplyPromo(off.code)}
-                          style={{
-                            background: '#faf8f5',
-                            border: '1px dashed #d4af37',
-                            padding: '4px 8px',
-                            borderRadius: 3,
-                            fontSize: 11,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                          }}
-                        >
-                          <strong style={{ fontFamily: 'monospace' }}>{off.code}</strong> · {off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value}`}
-                        </button>
-                      ))}
+                {(() => {
+                  const availableOffers = myOffers.filter((off) => !off.is_redeemed);
+                  if (!availableOffers.length) return null;
+                  return (
+                    <div style={{ marginTop: 10 }}>
+                      <span style={{ fontSize: 10, color: '#b38b2d', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                        ✦ Privileges granted to you:
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                        {availableOffers.map((off) => (
+                          <button
+                            key={off.code}
+                            type="button"
+                            onClick={() => handleApplyPromo(off.code)}
+                            style={{
+                              background: '#faf8f5',
+                              border: '1px dashed #d4af37',
+                              padding: '4px 8px',
+                              borderRadius: 3,
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                            }}
+                          >
+                            <strong style={{ fontFamily: 'monospace' }}>{off.code}</strong> · {off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value}`}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
           </div>

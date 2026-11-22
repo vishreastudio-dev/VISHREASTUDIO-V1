@@ -67,11 +67,37 @@ export async function cartView(uid, offerCode = null) {
 
   let offer = null;
   if (offerCode) {
+    const clean = String(offerCode).trim().toUpperCase();
     const offRes = await db.query(
-      `SELECT * FROM offers WHERE upper(code) = upper($1) AND active = true AND (ends_at IS NULL OR ends_at > now())`,
-      [String(offerCode).trim()]
+      `SELECT * FROM offers
+       WHERE upper(code) = $1 AND active = true
+         AND (ends_at IS NULL OR ends_at > now())
+         AND (starts_at IS NULL OR starts_at <= now())`,
+      [clean]
     );
-    offer = offRes.rows[0] || null;
+    const candidate = offRes.rows[0] || null;
+    if (candidate) {
+      // Check if targeted to specific customers
+      const targeted = await db.query(
+        `SELECT auth_user_id FROM loyalty_events
+         WHERE event_type = 'special_offer_distributed' AND upper(details->>'code') = $1
+         LIMIT 20`,
+        [clean]
+      );
+      const isAllowed = targeted.rows.length === 0 || targeted.rows.some((r) => r.auth_user_id === uid);
+
+      // Check if already redeemed
+      const redeemed = await db.query(
+        `SELECT 1 FROM loyalty_events
+         WHERE auth_user_id = $1 AND event_type = 'special_offer_redeemed' AND upper(details->>'code') = $2
+         LIMIT 1`,
+        [uid, clean]
+      );
+
+      if (isAllowed && redeemed.rows.length === 0) {
+        offer = candidate;
+      }
+    }
   }
 
   const priceable = lines.filter((l) => !l.issue);

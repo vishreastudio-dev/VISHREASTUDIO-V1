@@ -253,6 +253,8 @@ function StudioOffers({ offers, onApplyCode }) {
     setTimeout(() => setCopied(null), 2500);
   };
 
+  const activeCount = offers.filter((o) => !o.is_redeemed).length;
+
   return (
     <div className="account-panel" id="studio-offers" style={{ borderLeft: '3px solid #d4af37' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -262,7 +264,7 @@ function StudioOffers({ offers, onApplyCode }) {
         </div>
         {offers.length > 0 && (
           <span style={{ fontSize: 11, background: '#f5f0ea', color: '#684523', padding: '4px 10px', borderRadius: 12, fontWeight: 500 }}>
-            {offers.length} active {offers.length === 1 ? 'privilege' : 'privileges'}
+            {activeCount} active {activeCount === 1 ? 'privilege' : 'privileges'}
           </span>
         )}
       </div>
@@ -276,12 +278,14 @@ function StudioOffers({ offers, onApplyCode }) {
           {offers.map((off) => {
             const endsAt = off.ends_at ? new Date(off.ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
             const discountLabel = off.discount_type === 'percentage' ? `${off.discount_value}% OFF` : `₹${off.discount_value} OFF`;
+            const isRedeemed = Boolean(off.is_redeemed);
             return (
               <div
                 key={off.id || off.code}
                 style={{
-                  background: '#faf8f5',
-                  border: '1px solid #ebd9c8',
+                  background: isRedeemed ? '#f9f9f9' : '#faf8f5',
+                  border: isRedeemed ? '1px solid #e0e0e0' : '1px solid #ebd9c8',
+                  opacity: isRedeemed ? 0.75 : 1,
                   padding: '16px 20px',
                   borderRadius: 4,
                   display: 'flex',
@@ -293,33 +297,42 @@ function StudioOffers({ offers, onApplyCode }) {
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, letterSpacing: '0.1em', color: '#1c1b1a', background: '#fff', padding: '3px 8px', border: '1px dashed #d4af37' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, letterSpacing: '0.1em', color: '#1c1b1a', background: '#fff', padding: '3px 8px', border: isRedeemed ? '1px dashed #bbb' : '1px dashed #d4af37' }}>
                       {off.code}
                     </span>
-                    <strong style={{ color: '#8c2438', fontSize: 14 }}>{discountLabel}</strong>
+                    <strong style={{ color: isRedeemed ? '#888' : '#8c2438', fontSize: 14 }}>{discountLabel}</strong>
+                    {isRedeemed && (
+                      <span style={{ fontSize: 10, background: '#e2e2e2', color: '#555', padding: '2px 8px', borderRadius: 10, fontWeight: 600, letterSpacing: '0.05em' }}>
+                        REDEEMED ✓
+                      </span>
+                    )}
                   </div>
-                  <h4 style={{ margin: '4px 0 2px', fontSize: 14, fontWeight: 600, color: '#2c2523' }}>{off.title || 'Exclusive Studio Offer'}</h4>
+                  <h4 style={{ margin: '4px 0 2px', fontSize: 14, fontWeight: 600, color: isRedeemed ? '#777' : '#2c2523' }}>{off.title || 'Exclusive Studio Offer'}</h4>
                   {off.description && <p style={{ margin: '2px 0 4px', fontSize: 12, color: '#6e655f' }}>{off.description}</p>}
-                  {endsAt && <span style={{ fontSize: 11, color: '#887d77' }}>Valid until {endsAt}</span>}
+                  {endsAt && <span style={{ fontSize: 11, color: '#887d77' }}>{isRedeemed ? 'Used on previous order' : `Valid until ${endsAt}`}</span>}
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => copyCode(off.code)}
-                    className="button button-outline"
-                    style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-                  >
-                    {copied === off.code ? 'Copied ✓' : 'Copy Code'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onApplyCode(off.code)}
-                    className="button button-dark"
-                    style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-                  >
-                    Apply &amp; Shop →
-                  </button>
+                  {!isRedeemed && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => copyCode(off.code)}
+                        className="button button-outline"
+                        style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                      >
+                        {copied === off.code ? 'Copied ✓' : 'Copy Code'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onApplyCode(off.code)}
+                        className="button button-dark"
+                        style={{ fontSize: 11, padding: '8px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                      >
+                        Apply &amp; Shop →
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             );
