@@ -165,11 +165,11 @@ const TiltableCategoryCard: React.FC<CardItemProps> = ({
       <h3
         style={{
           position: 'absolute',
-          inset: '16px 10px auto',
-          textAlign: 'center',
+          inset: '16px 54px auto 14px',
+          textAlign: 'left',
           fontFamily: 'Inter, sans-serif',
           fontWeight: 800,
-          fontSize: 'clamp(2rem, 3.8vw, 2.5rem)',
+          fontSize: 'clamp(1.75rem, 3.8vw, 2.3rem)',
           lineHeight: 0.88,
           letterSpacing: '-0.04em',
           textTransform: 'uppercase',
@@ -204,14 +204,22 @@ const TiltableCategoryCard: React.FC<CardItemProps> = ({
       {/* Heart top-right */}
       <button
         type="button"
+        className="vishrea-ic-btn"
         style={{
           position: 'absolute',
           right: '14px',
           top: '14px',
           width: '36px',
           height: '36px',
+          minWidth: '36px',
+          minHeight: '36px',
+          maxWidth: '36px',
+          maxHeight: '36px',
+          aspectRatio: '1 / 1',
           borderRadius: '50%',
-          background: isLiked ? 'rgba(123, 20, 38, 0.8)' : 'rgba(0, 0, 0, 0.28)',
+          flexShrink: 0,
+          padding: 0,
+          background: isLiked ? 'rgba(123, 20, 38, 0.88)' : 'rgba(0, 0, 0, 0.28)',
           backdropFilter: 'blur(6px)',
           border: '1px solid rgba(255, 255, 255, 0.4)',
           color: '#ffffff',
@@ -259,13 +267,21 @@ const TiltableCategoryCard: React.FC<CardItemProps> = ({
       {/* Round black button with arrow bottom-right that drops the piece / navigates with a spring */}
       <motion.button
         type="button"
+        className="vishrea-ic-btn"
         style={{
           position: 'absolute',
           right: '14px',
           bottom: '14px',
           width: '42px',
           height: '42px',
+          minWidth: '42px',
+          minHeight: '42px',
+          maxWidth: '42px',
+          maxHeight: '42px',
+          aspectRatio: '1 / 1',
           borderRadius: '50%',
+          flexShrink: 0,
+          padding: 0,
           backgroundColor: '#000000',
           color: '#ffffff',
           border: '2px solid #ffffff',

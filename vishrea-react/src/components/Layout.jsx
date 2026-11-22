@@ -87,9 +87,17 @@ export const Header = () => {
     <>
       <a href="#main-content" className="skip-to-content">Skip to main content</a>
       {user && activeOffers.length > 0 ? (
-        <div className="announcement" style={{ background: '#1c1b1a', color: '#e8ded2', letterSpacing: '0.06em' }}>
-          <span style={{ color: '#d4af37', fontWeight: 600, marginRight: 6 }}>✦ STUDIO PRIVILEGE</span>
-          Use code <strong style={{ color: '#fff', letterSpacing: '0.1em', padding: '0 4px', textDecoration: 'underline' }}>{activeOffers[0].code}</strong> for {activeOffers[0].discount_type === 'percentage' ? `${activeOffers[0].discount_value}% OFF` : `₹${activeOffers[0].discount_value} OFF`} · <Link to="/account#studio-offers" style={{ color: '#d4af37', textDecoration: 'underline', marginLeft: 4 }}>View Offer Details →</Link>
+        <div className="announcement announcement-vip" style={{ background: '#1c1b1a', color: '#e8ded2' }}>
+          <span style={{ color: '#d4af37', fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            ✦ STUDIO PRIVILEGE
+          </span>
+          <span style={{ whiteSpace: 'nowrap' }}>
+            USE CODE <strong style={{ color: '#fff', letterSpacing: '0.08em', padding: '0 3px', textDecoration: 'underline' }}>{activeOffers[0].code}</strong> FOR {activeOffers[0].discount_type === 'percentage' ? `${activeOffers[0].discount_value}% OFF` : `₹${activeOffers[0].discount_value} OFF`}
+          </span>
+          <span style={{ opacity: 0.4, margin: '0 2px' }}>·</span>
+          <Link to="/account#studio-offers" style={{ color: '#d4af37', textDecoration: 'underline', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            VIEW OFFER →
+          </Link>
         </div>
       ) : (
         <div className="announcement">Free studio pickup in Bengaluru · ₹99 delivery across India</div>
