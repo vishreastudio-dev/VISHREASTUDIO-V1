@@ -1153,9 +1153,9 @@ textarea:focus-visible,
   outline-offset: 3px !important;
 }
 
-/* Ensure minimum touch target size 24x24px, buttons 44px on mobile */
+/* Ensure minimum touch target size 24x24px, buttons 44px on mobile (exempting circular icon buttons) */
 @media (max-width: 768px) {
-  button,
+  button:not(.vishrea-ic-btn):not([class*="-ic-btn"]):not(.hc-play),
   .button,
   .header-actions a,
   .main-nav a {

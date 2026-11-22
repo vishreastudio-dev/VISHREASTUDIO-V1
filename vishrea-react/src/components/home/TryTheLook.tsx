@@ -537,8 +537,16 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
                       type="button"
                       className={`vishrea-ic-btn ${isLiked ? 'active-heart' : ''}`}
                       style={{
-                        width: '36px',
-                        height: '36px',
+                        width: '34px',
+                        height: '34px',
+                        minWidth: '34px',
+                        minHeight: '34px',
+                        maxWidth: '34px',
+                        maxHeight: '34px',
+                        aspectRatio: '1 / 1',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        padding: 0,
                         color: isLiked ? '#7B1426' : undefined,
                         borderColor: isLiked ? '#7B1426' : undefined,
                         backgroundColor: isLiked ? '#fdf5f6' : undefined,
@@ -556,8 +564,16 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
                       type="button"
                       className="vishrea-ic-btn"
                       style={{
-                        width: '36px',
-                        height: '36px',
+                        width: '34px',
+                        height: '34px',
+                        minWidth: '34px',
+                        minHeight: '34px',
+                        maxWidth: '34px',
+                        maxHeight: '34px',
+                        aspectRatio: '1 / 1',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        padding: 0,
                         backgroundColor: isAdded ? '#7B1426' : '#ffffff',
                         color: isAdded ? '#ffffff' : 'var(--vishrea-ink)',
                         borderColor: isAdded ? '#7B1426' : undefined,
@@ -591,6 +607,13 @@ export const TryTheLook: React.FC<TryTheLookProps> = ({
               style={{
                 width: '48px',
                 height: '48px',
+                minWidth: '48px',
+                minHeight: '48px',
+                maxWidth: '48px',
+                maxHeight: '48px',
+                aspectRatio: '1 / 1',
+                borderRadius: '50%',
+                flexShrink: 0,
                 color: likedMap[currentLook.id] ? '#7B1426' : undefined,
                 borderColor: likedMap[currentLook.id] ? '#7B1426' : undefined,
                 backgroundColor: likedMap[currentLook.id] ? '#fdf5f6' : undefined,
