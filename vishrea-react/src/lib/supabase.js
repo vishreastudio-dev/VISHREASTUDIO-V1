@@ -81,6 +81,7 @@ export async function sendOtpEmail(email) {
 
 /**
  * Verify Email OTP via Supabase Auth.
+ * Automatically tries 'email' (login), 'signup' (new registration), and 'magiclink'.
  * Returns the session containing access_token.
  */
 export async function verifyEmailOtp(email, token) {
@@ -89,11 +90,41 @@ export async function verifyEmailOtp(email, token) {
     throw new Error('Supabase client is not configured.');
   }
 
-  const { data, error } = await sb.auth.verifyOtp({
-    email: email.trim().toLowerCase(),
-    token: token.trim(),
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanToken = token.trim();
+
+  // 1. Try type: 'email' (for existing user login OTP)
+  let { data, error } = await sb.auth.verifyOtp({
+    email: cleanEmail,
+    token: cleanToken,
     type: 'email',
   });
+
+  // 2. If rejected, try type: 'signup' (for new customer registration verification)
+  if (error || !data?.session) {
+    const signupRes = await sb.auth.verifyOtp({
+      email: cleanEmail,
+      token: cleanToken,
+      type: 'signup',
+    });
+    if (!signupRes.error && signupRes.data?.session) {
+      data = signupRes.data;
+      error = null;
+    }
+  }
+
+  // 3. Fallback to type: 'magiclink'
+  if (error || !data?.session) {
+    const mlRes = await sb.auth.verifyOtp({
+      email: cleanEmail,
+      token: cleanToken,
+      type: 'magiclink',
+    });
+    if (!mlRes.error && mlRes.data?.session) {
+      data = mlRes.data;
+      error = null;
+    }
+  }
 
   if (error) {
     throw error;

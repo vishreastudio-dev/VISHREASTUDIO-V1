@@ -170,22 +170,59 @@ export const StoreProvider = ({ children }) => {
       localStorage.removeItem(k)
     );
 
+    // Check for direct access_token in URL hash (e.g. from email confirmation links)
+    if (typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token=')) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const tokenFromHash = hashParams.get('access_token');
+      if (tokenFromHash) {
+        api('/api/auth/session-exchange', {
+          method: 'POST',
+          body: { access_token: tokenFromHash },
+        })
+          .then((res) => {
+            if (res?.user) {
+              setUser(res.user);
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              const dest = res.redirect_to || (res.user.is_admin ? '/admin' : '/account');
+              window.location.href = dest;
+            }
+          })
+          .catch((err) => console.warn('[Auth] Hash token exchange failed:', err));
+      }
+    }
+
     // Listen to Supabase auth events (e.g. magic link redirects or URL hash tokens)
     let unsub = null;
     import('../lib/supabase.js').then(({ getSupabase }) => {
-      getSupabase().then((sb) => {
+      getSupabase().then(async (sb) => {
         if (!sb) return;
-        const { data } = sb.auth.onAuthStateChange(async (event, session) => {
-          if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.access_token) {
-            try {
-              const res = await api('/api/auth/session-exchange', {
-                method: 'POST',
-                body: { access_token: session.access_token },
-              });
-              if (res?.user) setUser(res.user);
-            } catch (err) {
-              console.warn('[Auth] Auto-exchange from Supabase session failed:', err);
+
+        const handleSession = async (session) => {
+          if (!session?.access_token) return;
+          try {
+            const res = await api('/api/auth/session-exchange', {
+              method: 'POST',
+              body: { access_token: session.access_token },
+            });
+            if (res?.user) {
+              setUser(res.user);
+              if (window.location.hash.includes('access_token')) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              }
             }
+          } catch (err) {
+            console.warn('[Auth] Auto-exchange from Supabase session failed:', err);
+          }
+        };
+
+        const { data: initialSession } = await sb.auth.getSession().catch(() => ({ data: {} }));
+        if (initialSession?.session) {
+          await handleSession(initialSession.session);
+        }
+
+        const { data } = sb.auth.onAuthStateChange(async (event, session) => {
+          if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
+            await handleSession(session);
           }
         });
         unsub = data?.subscription;
