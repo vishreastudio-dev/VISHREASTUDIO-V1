@@ -9,8 +9,8 @@ export const BRAND_NAME = SITE.name;
 export const PAGES = {
   home: {
     path: '/',
-    title: 'Vishrea Studio — Curated Women’s Clothing & Fashion, Bengaluru',
-    description: 'Discover curated women’s fashion and 1-of-1 silhouettes at Vishrea Studio. Experience our curated wardrobe, Walkin Wardrobe membership, and personal styling in Bengaluru.',
+    title: 'Vishrea Studio — Curated Women’s Fashion, Bengaluru',
+    description: 'Discover curated women’s fashion and 1-of-1 silhouettes at Vishrea Studio, Bengaluru. Explore our Walkin Wardrobe membership, styling, and bespoke pieces.',
     indexable: true,
     ogImage: '/assets/hero-editorial.jpg',
   },

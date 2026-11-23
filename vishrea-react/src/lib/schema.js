@@ -118,15 +118,32 @@ const shippingDetails = () => ({
   '@type': 'OfferShippingDetails',
   shippingRate: { '@type': 'MonetaryAmount', value: SITE.shipping.fee, currency: SITE.shipping.currency },
   shippingDestination: { '@type': 'DefinedRegion', addressCountry: SITE.shipping.country },
+  deliveryTime: {
+    '@type': 'ShippingDeliveryTime',
+    handlingTime: {
+      '@type': 'QuantitativeValue',
+      minValue: 1,
+      maxValue: 2,
+      unitCode: 'DAY',
+    },
+    transitTime: {
+      '@type': 'QuantitativeValue',
+      minValue: 2,
+      maxValue: 5,
+      unitCode: 'DAY',
+    },
+  },
 });
 
 const returnPolicy = () => ({
   '@type': 'MerchantReturnPolicy',
   applicableCountry: SITE.shipping.country,
+  returnPolicyCountry: SITE.shipping.country,
   returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
   merchantReturnDays: SITE.returns.days,
-  refundType: 'https://schema.org/ExchangeRefund',
   returnMethod: 'https://schema.org/ReturnByMail',
+  returnFees: 'https://schema.org/FreeReturn',
+  refundType: 'https://schema.org/ExchangeRefund',
 });
 
 /** Product with one Offer per size (AggregateOffer when there are several). */
@@ -140,6 +157,7 @@ export function productSchema(product, url) {
       name: v.size_label ? `${product.name} — ${v.size_label}` : product.name,
       price: Number(v.effective_price).toFixed(2),
       priceCurrency: 'INR',
+      priceValidUntil: '2027-12-31',
       availability: availability(v.in_stock),
       itemCondition: 'https://schema.org/NewCondition',
       url,
@@ -157,13 +175,25 @@ export function productSchema(product, url) {
       lowPrice: Math.min(...prices).toFixed(2),
       highPrice: Math.max(...prices).toFixed(2),
       offerCount: variants.length,
+      priceValidUntil: '2027-12-31',
       availability: availability(variants.some((v) => v.in_stock)),
       offers: variants.map(offer),
     };
   } else if (product.price_inr !== null && product.price_inr !== undefined) {
-    offers = clean({ '@type': 'Offer', price: Number(product.price_inr).toFixed(2), priceCurrency: 'INR', availability: availability(product.available), url, seller: { '@id': ORG_ID } });
+    offers = clean({
+      '@type': 'Offer',
+      price: Number(product.price_inr).toFixed(2),
+      priceCurrency: 'INR',
+      priceValidUntil: '2027-12-31',
+      availability: availability(product.available),
+      itemCondition: 'https://schema.org/NewCondition',
+      url,
+      seller: { '@id': ORG_ID },
+      shippingDetails: shippingDetails(),
+      hasMerchantReturnPolicy: returnPolicy(),
+    });
   }
-  const images = (product.images?.length ? product.images : product.image_url ? [product.image_url] : []).map(absoluteUrl);
+  const images = (product.images?.length ? product.images : product.image_url ? [product.image_url] : [SITE.defaultImage]).map(absoluteUrl);
   return clean({
     '@type': 'Product',
     '@id': `${url}#product`,

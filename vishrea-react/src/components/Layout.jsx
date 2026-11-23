@@ -99,7 +99,11 @@ export const Header = () => {
           </Link>
         </div>
       ) : (
-        <div className="announcement">Free studio pickup in Bengaluru · ₹99 delivery across India</div>
+        <div className="announcement">
+          <span className="announcement-pickup">Free studio pickup in Bengaluru</span>
+          <span className="announcement-sep" aria-hidden="true"> · </span>
+          <span className="announcement-delivery">₹99 delivery across India</span>
+        </div>
       )}
       <header className="site-header">
         <button
@@ -242,10 +246,11 @@ export const Footer = () => (
           VISHREA <span>STUDIO</span>
         </Link>
         <p>Vishrea Studio is a boutique womenswear studio in Bengaluru creating one-of-one pieces and timeless designs — tops, dresses, co-ord sets and layers — with studio pickup and delivery across India.</p>
-        <div style={{ marginTop: 14, fontSize: 13, color: '#b8adaf', lineHeight: 1.6 }}>
+        <address style={{ fontStyle: 'normal', marginTop: 14, fontSize: 13, color: '#b8adaf', lineHeight: 1.6 }}>
           <strong style={{ color: '#ffffff', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
           <span>16, 4th Cross, Kammasandra Rd, Hebbagodi,</span><br />
           <span>Electronic City Phase 2, Bengaluru, KA 560100</span><br />
+          <span style={{ color: '#ded6d9' }}>Phone: <a href="tel:+916364116567" style={{ color: '#ffffff', textDecoration: 'none' }}>+91 6364116567</a> (Studio &amp; WhatsApp)</span><br />
           <span style={{ color: '#ded6d9' }}>Hours: Mon – Sun, 10:30 AM – 8:30 PM</span><br />
           <a
             href="https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5"
@@ -269,7 +274,7 @@ export const Footer = () => (
             <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>·</span>
             <span style={{ color: '#e5c583' }}>Open in Google Maps ↗</span>
           </a>
-        </div>
+        </address>
       </div>
       <nav className="footer-links" aria-label="Footer">
         <div>

@@ -9,8 +9,8 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <!--seo:start-->
-    <title>Vishrea Studio — Curated Women’s Clothing & Fashion, Bengaluru</title>
-    <meta name="description" content="Discover curated women’s fashion and 1-of-1 silhouettes at Vishrea Studio. Experience our curated wardrobe, Walkin Wardrobe membership, and personal styling in Bengaluru." />
+    <title>Vishrea Studio — Curated Women’s Fashion, Bengaluru</title>
+    <meta name="description" content="Discover curated women’s fashion and 1-of-1 silhouettes at Vishrea Studio, Bengaluru. Explore our Walkin Wardrobe membership, styling, and bespoke pieces." />
     <meta name="keywords" content="Vishrea Studio, Bengaluru womenswear, curated fashion Bangalore, one-of-one silhouettes, bespoke dresses Bengaluru, Walkin Wardrobe membership, personal styling Electronic City" />
     <meta name="author" content="Vishrea Studio" />
     <meta name="geo.region" content="IN-KA" />
@@ -19,11 +19,19 @@
     <meta name="ICBM" content="12.8368, 77.6833" />
     <link rel="canonical" href="https://vishreastudio.com/" />
     <!--seo:end-->
+    <style>
+      @media (max-width: 768px) {
+        #root { overflow-x: hidden; }
+        .hero { flex-direction: column; }
+      }
+      @media (min-width: 769px) {
+        .hero { display: flex; }
+      }
+    </style>
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
   </head>
   <body>
-    <!--seo:body-->
-    <div id="root"></div>
+    <div id="root"><!--seo:body--></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

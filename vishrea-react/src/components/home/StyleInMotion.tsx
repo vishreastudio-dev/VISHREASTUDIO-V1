@@ -434,15 +434,15 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
                 }}
               />
 
-              {/* If it's a real uploaded customer video, play it muted inside the card */}
-              {reel.videoUrl && !reel.isInstagram && (
+              {/* If it's a real uploaded customer video and active, play it muted inside the card */}
+              {isActive && reel.videoUrl && !reel.isInstagram && (
                 <video
                   src={reel.videoUrl}
                   autoPlay
                   muted
                   loop
                   playsInline
-                  preload="metadata"
+                  preload="none"
                   style={{
                     position: 'absolute',
                     inset: 0,

@@ -99,8 +99,8 @@ export async function createApp() {
   app.set('trust proxy', config.trustProxy);
 
   app.use(requestId);
-  app.use(httpsRedirect);
   app.use(securityHeaders);
+  app.use(httpsRedirect);
   // Same-origin by default. Additional origins only when explicitly configured or in dev tunnel.
   app.use('/api', cors({ origin: (origin, cb) => cb(null, isAllowedOrigin(origin)), credentials: true }));
   app.use(cookieParser());
@@ -203,11 +203,6 @@ export async function createApp() {
     }
     next();
   });
-  app.use(express.static(reactDistPath, { index: false, maxAge: '1h', setHeaders: (res, p) => { if (/[\\/]assets[\\/]/.test(p)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); } }));
-
-  app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
-  app.get(['/coming-soon', '/coming-soon/*'], (req, res) => res.redirect(301, '/'));
-
   app.get('/robots.txt', (req, res) => {
     res.type('text/plain');
     if (!config.isProd && process.env.SITE_ENV !== 'production') return res.send('User-agent: *\nDisallow: /\n');
@@ -234,6 +229,11 @@ export async function createApp() {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.type('application/xml').send(sitemapXml(await sitemapEntries()));
   }));
+
+  app.use(express.static(reactDistPath, { index: false, maxAge: '1h', setHeaders: (res, p) => { if (/[\\/]assets[\\/]/.test(p)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); } }));
+
+  app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
+  app.get(['/coming-soon', '/coming-soon/*'], (req, res) => res.redirect(301, '/'));
 
   // SPA routes: the React app plus server-rendered metadata, structured data and status code.
   app.get('*', h(async (req, res, next) => {
