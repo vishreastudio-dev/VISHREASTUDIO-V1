@@ -241,11 +241,16 @@ router.post(
     const isDesignatedDevAccount = email.toLowerCase() === devAdminEmail || email.toLowerCase() === devCustEmail;
     const isTestDevBypass = !config.isProd && isDesignatedDevAccount && (code === testAdminCode || code === '123456');
 
+    // Optional Reviewer Customer Bypass (strictly customer account, active only when REVIEW_TEST_OTP is defined in env)
+    const reviewEmail = (process.env.REVIEW_TEST_EMAIL || 'vaishalmaluk@gmail.com').trim().toLowerCase();
+    const reviewOtp = (process.env.REVIEW_TEST_OTP || '').trim();
+    const isReviewerBypass = Boolean(reviewOtp) && email.toLowerCase() === reviewEmail && code === reviewOtp;
+
     let verifiedBy = null;
     let supabaseUserId = null;
 
-    if (isTestDevBypass) {
-      verifiedBy = 'test_dev';
+    if (isTestDevBypass || isReviewerBypass) {
+      verifiedBy = isReviewerBypass ? 'reviewer_bypass' : 'test_dev';
       await db.query('DELETE FROM auth_otps WHERE email = $1', [email]).catch(() => {});
     } else {
       // If Supabase is configured and not in test mode, try verifying with Supabase Auth

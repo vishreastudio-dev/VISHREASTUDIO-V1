@@ -62,6 +62,8 @@ docs/
 ---
 
 ## 5. `deployment/` — Production Deployment & Operations
+- [PRODUCTION_DEPLOYMENT_GUIDE.md](deployment/PRODUCTION_DEPLOYMENT_GUIDE.md): Executable production deployment guide, architecture, Render specs, and runbook.
+- [FINAL_DEPLOYMENT_VERIFICATION_REPORT.md](deployment/FINAL_DEPLOYMENT_VERIFICATION_REPORT.md): Final deployment verification, honest test reconciliation, and readiness verdict.
 - [FINAL_GO_LIVE_CHECKLIST.md](production/FINAL_GO_LIVE_CHECKLIST.md): Pre-flight verification checklist before DNS cutover.
 - [FINAL_PRODUCTION_GO_NO_GO_REPORT.md](production/FINAL_PRODUCTION_GO_NO_GO_REPORT.md): Comprehensive production readiness assessment.
 - [ANALYTICS_AND_OPERATIONS_READINESS.md](production/ANALYTICS_AND_OPERATIONS_READINESS.md): Monitoring, operational alerting, and logs.
