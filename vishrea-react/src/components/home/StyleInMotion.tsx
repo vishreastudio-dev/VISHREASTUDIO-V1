@@ -392,7 +392,7 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
                   ) : (
                     <img
                       src={reel.thumbnailUrl}
-                      alt={`${reel.title} — Vishrea Studio Styled Look`}
+                      alt={`${reel.title} — Curated Bengaluru Womenswear, Vishrea Studio`}
                       className="vishrea-reel-cover-img"
                       width="280"
                       height="498"
@@ -427,7 +427,7 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
               {/* Real Cover Image: guaranteed fallback to prevent any transparency */}
               <img
                 src={reel.thumbnailUrl}
-                alt={`${reel.title} — Curated Fashion Silhouette`}
+                alt={`${reel.title} — Curated Bengaluru Womenswear Silhouette, Vishrea Studio`}
                 className="vishrea-reel-cover-img"
                 width="280"
                 height="498"
@@ -597,7 +597,7 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
                 <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#140f11' }}>
                   <img
                     src={fullscreenReel.thumbnailUrl}
-                    alt={`${fullscreenReel.title} — Vishrea Studio Customer Reel`}
+                    alt={`${fullscreenReel.title} — Curated Bengaluru Womenswear, Vishrea Studio`}
                     width="400"
                     height="710"
                     loading="lazy"

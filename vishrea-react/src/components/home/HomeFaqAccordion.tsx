@@ -117,17 +117,19 @@ export const HomeFaqAccordion: React.FC<HomeFaqAccordionProps> = ({
                   >
                     {numberLabel}
                   </span>
-                  <span
+                  <h3
                     style={{
+                      margin: 0,
                       fontSize: '0.94rem',
                       fontWeight: 600,
                       lineHeight: '1.35',
                       color: isOpen ? '#7B1426' : 'var(--vishrea-ink)',
                       transition: 'color 0.2s ease',
+                      fontFamily: 'inherit',
                     }}
                   >
                     {faq.q}
-                  </span>
+                  </h3>
                 </div>
 
                 <div

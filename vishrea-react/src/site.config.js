@@ -24,6 +24,7 @@ export const SITE = {
     postalCode: '560100',
     country: 'IN',
   },
+  formattedAddress: '16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100',
   geo: {
     latitude: 12.8368,
     longitude: 77.6833,
@@ -33,6 +34,7 @@ export const SITE = {
   },
   hasMap: 'https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5',
   openingHours: 'Mo-Su 10:30-20:30',
+  displayOpeningHours: '10:30 AM – 8:30 PM (Monday–Sunday)',
   priceRange: '₹₹',
   rating: {
     ratingValue: '5.0',

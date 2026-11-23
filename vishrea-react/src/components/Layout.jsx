@@ -253,9 +253,9 @@ export const Footer = () => (
         <address style={{ fontStyle: 'normal', marginTop: 14, fontSize: 13, color: '#b8adaf', lineHeight: 1.6 }}>
           <strong style={{ color: '#ffffff', display: 'block', marginBottom: 2 }}>Bengaluru Atelier &amp; Studio</strong>
           <span>16, 4th Cross, Kammasandra Rd, Hebbagodi,</span><br />
-          <span>Electronic City Phase 2, Bengaluru, KA 560100</span><br />
-          <span style={{ color: '#ded6d9' }}>Phone: <a href="tel:+916364116567" style={{ color: '#ffffff', textDecoration: 'none' }}>+91 6364116567</a> (Studio &amp; WhatsApp)</span><br />
-          <span style={{ color: '#ded6d9' }}>Hours: Mon – Sun, 10:30 AM – 8:30 PM</span><br />
+          <span>Electronic City Phase 2, Bengaluru, Karnataka 560100</span><br />
+          <span style={{ color: '#ded6d9' }}>WhatsApp: <a href="https://wa.me/916364116567" target="_blank" rel="noopener noreferrer" style={{ color: '#ffffff', textDecoration: 'none' }}>+91 6364116567</a> · Phone: <a href="tel:+916364116567" style={{ color: '#ffffff', textDecoration: 'none' }}>+91 6364116567</a></span><br />
+          <span style={{ color: '#ded6d9' }}>Hours: 10:30 AM – 8:30 PM (Monday–Sunday)</span><br />
           <a
             href="https://www.google.com/search?kgmid=%2Fg%2F11mlpxsxf5"
             target="_blank"

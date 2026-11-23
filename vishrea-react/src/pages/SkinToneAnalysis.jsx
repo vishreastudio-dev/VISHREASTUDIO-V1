@@ -30,7 +30,7 @@ function loadImage(src) {
 export const SkinToneAnalysis = () => {
   usePageSeo({
     breadcrumbs: [{ name: 'Home', url: '/' }, { name: 'Colour Profile', url: '/skin-tone' }],
-    jsonLd: [organizationSchema(), faqSchema(`${SITE.url}/skin-tone`, SKIN_TONE_FAQS)],
+    schema: faqSchema(`${SITE.url}/skin-tone`, SKIN_TONE_FAQS),
   });
 
   const { colourProfile, setColourProfile } = useStore();

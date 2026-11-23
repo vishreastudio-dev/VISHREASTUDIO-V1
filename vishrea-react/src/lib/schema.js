@@ -22,34 +22,48 @@ const clean = (obj) => {
 
 export function organizationSchema() {
   return clean({
-    '@type': 'ClothingStore',
+    '@type': ['ClothingStore', 'LocalBusiness'],
     '@id': ORG_ID,
     name: SITE.name,
     legalName: SITE.legalName,
-    url: SITE.url,
+    url: 'https://vishreastudio.com',
     logo: absoluteUrl(SITE.logo),
     image: absoluteUrl(SITE.defaultImage),
     description: SITE.description,
-    telephone: SITE.contact.phone || SITE.contact.whatsapp,
+    telephone: '+91-6364116567',
     email: SITE.contact.email,
     address: {
       '@type': 'PostalAddress',
-      streetAddress: SITE.address.streetAddress,
-      addressLocality: SITE.address.locality,
-      addressRegion: SITE.address.region,
-      postalCode: SITE.address.postalCode,
-      addressCountry: SITE.address.country,
+      streetAddress: '16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2',
+      addressLocality: 'Bengaluru',
+      addressRegion: 'Karnataka',
+      postalCode: '560100',
+      addressCountry: 'IN',
     },
-    geo: SITE.geo
-      ? {
-          '@type': 'GeoCoordinates',
-          latitude: SITE.geo.latitude,
-          longitude: SITE.geo.longitude,
-        }
-      : undefined,
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: 12.8368,
+      longitude: 77.6833,
+    },
     hasMap: SITE.hasMap || undefined,
-    openingHours: SITE.openingHours,
-    priceRange: SITE.priceRange,
+    openingHours: 'Mo-Su 10:30-20:30',
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: [
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday',
+        ],
+        opens: '10:30',
+        closes: '20:30',
+      },
+    ],
+    priceRange: '₹₹',
     aggregateRating: SITE.rating
       ? {
           '@type': 'AggregateRating',
@@ -97,60 +111,99 @@ export function organizationSchema() {
           itemOffered: {
             '@type': 'Product',
             name: 'Soft Structure Coord',
-            description: 'Curated soft structure co-ord set tailored in breathable cotton modal.',
+            description: 'Curated soft structure co-ord set tailored in textured crepe for effortless styling.',
           },
-          price: '1850',
+          price: '4290',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
           itemOffered: {
             '@type': 'Product',
-            name: 'Tailored Wide Leg Pants',
-            description: 'High-waisted tailored wide leg trousers with pleated drape and deep pockets.',
+            name: 'Tailored Wide-Leg Pant',
+            description: 'High-waisted tailored wide leg trousers in twill with pleated drape and deep pockets.',
           },
-          price: '1350',
+          price: '2790',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
           itemOffered: {
             '@type': 'Product',
             name: 'Everyday Crop Top',
-            description: 'Contoured everyday crop top in premium stretch ribbed knit.',
+            description: 'Contoured everyday crop top in premium stretch cotton knit.',
           },
-          price: '850',
+          price: '1590',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
           itemOffered: {
             '@type': 'Product',
             name: 'Sculpted Everyday Top',
-            description: 'Sculpted contour top crafted for day-to-evening versatility.',
+            description: 'Sculpted contour top crafted in soft structured fabric for day-to-evening versatility.',
           },
-          price: '1050',
+          price: '2190',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
           itemOffered: {
             '@type': 'Product',
             name: 'Relaxed Knit Cardigan',
-            description: 'Lightweight relaxed knit cardigan with refined silhouette drape.',
+            description: 'Lightweight fine knit cardigan with refined contemporary silhouette drape.',
           },
-          price: '1950',
+          price: '2490',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
           itemOffered: {
             '@type': 'Product',
-            name: 'Fluffy Bunny Applique Knit',
+            name: 'Fluffy Bunny Appliqué Knit',
             description: 'Artisanal applique knitwear sweater with soft textured finish.',
           },
-          price: '2150',
+          price: '2990',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'The Wine Slip Dress',
+            description: 'Fluid evening silhouette in Vishrea wine satin blend.',
+          },
+          price: '3490',
+          priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'After Hours Dress',
+            description: 'Refined party silhouette in burgundy satin blend for after-dark plans.',
+          },
+          price: '3990',
+          priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Longline Shrug',
+            description: 'Fluid lightweight weave long layer for finishing a look.',
+          },
+          price: '3290',
+          priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
         {
           '@type': 'Offer',
@@ -161,6 +214,7 @@ export function organizationSchema() {
           },
           price: '0',
           priceCurrency: 'INR',
+          availability: 'https://schema.org/InStock',
         },
       ],
     },
@@ -197,7 +251,7 @@ export function breadcrumbSchema(url, crumbs) {
   };
 }
 
-const availability = (inStock) => (inStock ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut');
+const availability = (inStock) => (inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock');
 
 const shippingDetails = () => ({
   '@type': 'OfferShippingDetails',
@@ -301,7 +355,24 @@ export function itemListSchema(url, products) {
   return {
     '@type': 'ItemList',
     '@id': `${url}#items`,
-    itemListElement: products.slice(0, 48).map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: absoluteUrl(`/product/${p.slug}`), name: p.name })),
+    itemListElement: products.slice(0, 48).map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: absoluteUrl(`/product/${p.slug}`),
+      name: p.name,
+      item: {
+        '@type': 'Product',
+        name: p.name,
+        url: absoluteUrl(`/product/${p.slug}`),
+        image: absoluteUrl(p.image_url || '/assets/editorial.jpg'),
+        offers: {
+          '@type': 'Offer',
+          price: Number(p.price_inr || p.price || 0).toFixed(2),
+          priceCurrency: 'INR',
+          availability: p.available === false ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+        },
+      },
+    })),
   };
 }
 

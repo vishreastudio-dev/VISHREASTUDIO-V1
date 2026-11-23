@@ -8,7 +8,10 @@ import { HELP_FAQS } from '../content/faqs';
 import { useApi } from '../lib/useApi';
 import { SITE, absoluteUrl } from '../site.config.js';
 
-const waLink = (n) => `https://wa.me/${String(n).replace(/[^\d]/g, '')}`;
+const waLink = (n) => {
+  const digits = String(n || '916364116567').replace(/[^\d]/g, '');
+  return `https://wa.me/${digits || '916364116567'}`;
+};
 
 export const Contact = () => {
   // Seller and grievance details come from admin Settings and appear only once the owner verifies them.
@@ -60,8 +63,8 @@ export const Contact = () => {
             <dt>Studio</dt>
             <dd>
               Vishrea Studio
-              <span>{[SITE.address.streetAddress, SITE.address.locality, SITE.address.region, 'India'].filter(Boolean).join(', ')}</span>
-              <span>Free pickup for online orders{SITE.openingHours ? ` · ${SITE.openingHours}` : ''}</span>
+              <span>16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100</span>
+              <span>10:30 AM – 8:30 PM (Monday–Sunday) · Free pickup for online orders</span>
             </dd>
           </div>
           {legal?.legal_name && (

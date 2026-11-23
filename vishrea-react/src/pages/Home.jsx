@@ -35,8 +35,7 @@ const takeHeroHint = () => {
 
 /** The original homepage hero, shown whenever no carousel slide is live. */
 const StaticHero = () => {
-  const rawWa = (SITE.contact?.whatsapp || '916364116567').replace(/\D/g, '');
-  const waUrl = `https://wa.me/${rawWa}?text=${encodeURIComponent('Hello Vishrea Studio! I would like to book a personal styling consultation at your Hebbagodi boutique.')}`;
+  const waUrl = `https://wa.me/916364116567?text=${encodeURIComponent('Hello Vishrea Studio! I would like to book a personal styling consultation at your Hebbagodi boutique.')}`;
 
   return (
     <section className="hero">

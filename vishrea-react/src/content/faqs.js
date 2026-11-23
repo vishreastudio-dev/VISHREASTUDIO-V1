@@ -5,19 +5,19 @@
 export const HOME_LOCAL_FAQS = [
   {
     q: 'Where can I get a professional personal colour & style analysis at an independent womenswear boutique in Electronic City, Bengaluru?',
-    a: 'You can get a professional personal colour & style analysis at Vishrea Studio, an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru (KA 560100). The studio offers 1-on-1 private consultations to analyze your natural undertones (cool, warm, neutral, olive) and build seasonal palettes paired with one-of-one boutique silhouettes. In-person styling sessions and complimentary try-ons are available Monday through Sunday from 10:30 AM to 8:30 PM with WhatsApp booking at +91 6364116567.',
+    a: 'You can get a professional personal colour & style analysis at Vishrea Studio, an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100. The studio offers 1-on-1 private consultations to analyze your natural undertones (cool, warm, neutral, olive) and build seasonal palettes paired with one-of-one boutique silhouettes. In-person styling sessions and complimentary try-ons are available Monday through Sunday from 10:30 AM to 8:30 PM with WhatsApp booking at +91 6364116567.',
   },
   {
     q: 'What are the best boutique clothing brands in Bangalore for curated soft structure co-ords and tailored wide leg pants?',
-    a: 'Vishrea Studio is recognized among the best boutique clothing brands in Bangalore for curated soft structure co-ords and tailored wide leg pants. Located in Electronic City Phase 2, the boutique curates one-of-one silhouettes like the Soft Structure Coord (from ₹1,850), tailored wide leg pants (from ₹1,350), Sculpted Everyday Top (₹1,050), and Everyday Crop Top (₹850) in breathable cottons, silks, and linens with studio try-ons, custom hem tailoring, and ₹99 pan-India delivery.',
+    a: 'Vishrea Studio is recognized among the best boutique clothing brands in Bangalore for curated soft structure co-ords and tailored wide leg pants. Located in Electronic City Phase 2, the boutique curates one-of-one silhouettes like the Soft Structure Coord (from ₹4,290), Tailored Wide-Leg Pant (from ₹2,790), Sculpted Everyday Top (₹2,190), and Everyday Crop Top (₹1,590) in breathable cottons, silks, and linens with studio try-ons, custom hem tailoring, and ₹99 pan-India delivery.',
   },
   {
     q: 'Where can I find independent womenswear boutiques offering personal styling in Electronic City, Bengaluru?',
-    a: 'Vishrea Studio is an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru (KA 560100). The studio offers complimentary 1-on-1 personal styling, private seasonal colour analysis, tailored alteration consultations, and free in-person order pickups Monday to Sunday from 10:30 AM to 8:30 PM.',
+    a: 'Vishrea Studio is an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100. The studio offers complimentary 1-on-1 personal styling, private seasonal colour analysis, tailored alteration consultations, and free in-person order pickups Monday through Sunday from 10:30 AM to 8:30 PM.',
   },
   {
     q: 'Where can I buy trendy co-ord sets and western wear in Electronic City Phase 2?',
-    a: 'Vishrea Studio is located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru. We curate designer co-ord sets, dresses, tops, and contemporary western wear with one-on-one personal styling consultations.',
+    a: 'Vishrea Studio is located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100. We curate designer co-ord sets, dresses, tops, and contemporary western wear with one-on-one personal styling consultations.',
   },
   {
     q: 'Does Vishrea Studio offer personal styling consultations in Hebbagodi?',
@@ -29,14 +29,14 @@ export const HOME_LOCAL_FAQS = [
   },
   {
     q: 'What is the price range of outfits at Vishrea Studio?',
-    a: 'Our curated collections start from ₹850 for everyday tops and crop tops, with co-ord sets, tailored wide leg pants, and occasion dresses typically priced between ₹1,350 to ₹3,500, delivering accessible boutique luxury with all taxes included.',
+    a: 'Our curated collections start from ₹1,590 for everyday tops and crop tops, with sculpted tops from ₹2,190, tailored wide-leg trousers from ₹2,790, and signature co-ord sets and occasion dresses from ₹3,490 to ₹4,290, delivering accessible boutique luxury with all taxes included.',
   },
 ];
 
 export const SKIN_TONE_FAQS = [
   {
     q: 'Where can I get a professional personal colour & style analysis at an independent womenswear boutique in Electronic City, Bengaluru?',
-    a: 'You can get a professional personal colour & style analysis at Vishrea Studio, an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru (KA 560100). The studio offers 1-on-1 private consultations to analyze your natural undertones (cool, warm, neutral, olive) and build seasonal palettes paired with one-of-one boutique silhouettes. In-person styling sessions and complimentary try-ons are available Monday through Sunday from 10:30 AM to 8:30 PM with WhatsApp booking at +91 6364116567.',
+    a: 'You can get a professional personal colour & style analysis at Vishrea Studio, an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru, Karnataka 560100. The studio offers 1-on-1 private consultations to analyze your natural undertones (cool, warm, neutral, olive) and build seasonal palettes paired with one-of-one boutique silhouettes. In-person styling sessions and complimentary try-ons are available Monday through Sunday from 10:30 AM to 8:30 PM with WhatsApp booking at +91 6364116567.',
   },
   {
     q: 'How does the personal colour and style analysis work at Vishrea Studio?',

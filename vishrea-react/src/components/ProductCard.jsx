@@ -10,7 +10,7 @@ export const priceLabel = (p) => {
   return p.price_max_inr && p.price_max_inr > p.price_inr ? `From ${formatINR(p.price_inr)}` : formatINR(p.price_inr);
 };
 
-const altFor = (p) => [p.name, p.color && `in ${p.color.toLowerCase()}`].filter(Boolean).join(' ');
+const altFor = (p) => `${p.name}${p.color ? ` in ${p.color.toLowerCase()}` : ''} — Curated Women’s Fashion, Vishrea Studio Bengaluru`;
 
 export const ProductCard = ({ product: p, className = 'product-card', showAvailability = false, eager = false }) => {
   const { user } = useStore();
