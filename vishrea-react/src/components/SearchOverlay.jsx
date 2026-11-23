@@ -355,7 +355,7 @@ export function SearchOverlay({ onClose }) {
                     <p className="search-group-title" aria-hidden="true">Pieces</p>
                     {productGroup.map(([o, i]) => (
                       <Link key={o.id} {...optionProps(o, i)}>
-                        <img src={imageFor(o.product)} srcSet={srcSetFor(imageFor(o.product), [160, 320])} sizes="64px" alt="" width="64" height="80" loading="lazy" decoding="async" />
+                        <img src={imageFor(o.product)} srcSet={srcSetFor(imageFor(o.product), [160, 320])} sizes="64px" alt={`${o.label} — Vishrea Studio`} width="64" height="80" loading="lazy" decoding="async" />
                         <span className="search-product-text">
                           <span className="search-product-name"><Highlight text={o.label} words={words} /></span>
                           <span className="search-option-meta">

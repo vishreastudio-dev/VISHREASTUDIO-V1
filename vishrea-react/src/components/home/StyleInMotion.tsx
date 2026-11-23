@@ -392,8 +392,12 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
                   ) : (
                     <img
                       src={reel.thumbnailUrl}
-                      alt={reel.title}
+                      alt={`${reel.title} — Vishrea Studio Styled Look`}
                       className="vishrea-reel-cover-img"
+                      width="280"
+                      height="498"
+                      loading="lazy"
+                      decoding="async"
                     />
                   )}
                   <button
@@ -423,8 +427,12 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
               {/* Real Cover Image: guaranteed fallback to prevent any transparency */}
               <img
                 src={reel.thumbnailUrl}
-                alt={reel.title}
+                alt={`${reel.title} — Curated Fashion Silhouette`}
                 className="vishrea-reel-cover-img"
+                width="280"
+                height="498"
+                loading="lazy"
+                decoding="async"
                 onError={(e) => {
                   const target = e.currentTarget;
                   const fallback = DEFAULT_REELS[k % DEFAULT_REELS.length].thumbnailUrl;
@@ -589,7 +597,11 @@ export const StyleInMotion: React.FC<StyleInMotionProps> = ({
                 <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#140f11' }}>
                   <img
                     src={fullscreenReel.thumbnailUrl}
-                    alt={fullscreenReel.title}
+                    alt={`${fullscreenReel.title} — Vishrea Studio Customer Reel`}
+                    width="400"
+                    height="710"
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>

@@ -38,12 +38,16 @@ const NAV = [
 ];
 
 const FOOTER_CATEGORIES = [
-  ['tops', 'Tops'],
-  ['dresses', 'Dresses'],
-  ['coord-sets', 'Co-ord sets'],
-  ['pants', 'Trousers'],
-  ['party-dresses', 'Party dresses'],
-  ['cardigans', 'Cardigans'],
+  ['tops', 'Tops & Blouses'],
+  ['dresses', 'Bespoke Dresses'],
+  ['coord-sets', 'Co-ord Sets'],
+  ['pants', 'Tailored Trousers'],
+  ['party-dresses', 'Party & Occasion Wear'],
+  ['crop-tops', 'Crop Tops'],
+  ['cardigans', 'Cardigans & Knitwear'],
+  ['long-coats-shrugs', 'Long Coats & Shrugs'],
+  ['sweatshirts-hoodies', 'Sweatshirts & Hoodies'],
+  ['skirts', 'Skirts'],
 ];
 
 export const Header = () => {
@@ -278,28 +282,28 @@ export const Footer = () => (
       </div>
       <nav className="footer-links" aria-label="Footer">
         <div>
-          <h2 className="footer-title">Shop</h2>
-          <Link to="/catalogue">All pieces</Link>
+          <h2 className="footer-title">Shop Collections</h2>
+          <Link to="/catalogue">All Collections</Link>
           {FOOTER_CATEGORIES.map(([slug, name]) => (
             <Link key={slug} to={`/catalogue/${slug}`}>{name}</Link>
           ))}
         </div>
         <div>
-          <h2 className="footer-title">Studio</h2>
-          <Link to="/membership">Walkin Wardrobe membership</Link>
-          <Link to="/skin-tone">Find your colours</Link>
-          <Link to="/gifting">Gifting</Link>
-          <Link to="/contact">Help &amp; contact</Link>
+          <h2 className="footer-title">Studio &amp; Styling</h2>
+          <Link to="/membership">Walkin Wardrobe Membership</Link>
+          <Link to="/skin-tone">Colour &amp; Style Analysis</Link>
+          <Link to="/gifting">Studio Gift Experiences</Link>
+          <Link to="/contact">Atelier Contact &amp; Appointments</Link>
         </div>
         <div>
-          <h2 className="footer-title">Your account</h2>
-          <Link to="/orders">Orders &amp; exchanges</Link>
-          <Link to="/account">Account</Link>
-          <Link to="/legal/returns">Refunds &amp; exchanges</Link>
-          <Link to="/legal/shipping">Shipping &amp; delivery</Link>
-          <Link to="/legal/exchange-damage">Damage window</Link>
-          <Link to="/legal/privacy">Privacy</Link>
-          <Link to="/legal/terms">Terms</Link>
+          <h2 className="footer-title">Customer Care</h2>
+          <Link to="/orders">Orders &amp; Exchanges</Link>
+          <Link to="/account">My Account</Link>
+          <Link to="/legal/returns">Refunds &amp; Exchange Policy</Link>
+          <Link to="/legal/shipping">Shipping &amp; Pan-India Delivery</Link>
+          <Link to="/legal/exchange-damage">Damage Policy Window</Link>
+          <Link to="/legal/privacy">Privacy Policy</Link>
+          <Link to="/legal/terms">Terms of Service</Link>
         </div>
       </nav>
       <div className="footer-bottom">

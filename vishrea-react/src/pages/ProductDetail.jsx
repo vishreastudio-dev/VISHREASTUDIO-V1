@@ -188,7 +188,7 @@ export const ProductDetail = () => {
             {gallery.length > 1 && <div className="pdp-thumbs-v2">
               {gallery.map((img, i) => (
                 <button key={img + i} className={`pdp-thumb-v2 ${activeThumb === i ? 'active' : ''}`} type="button" onClick={() => setActiveThumb(i)} aria-label={`View image ${i + 1} of ${gallery.length}`} aria-pressed={activeThumb === i}>
-                  <img src={img} alt="" width="60" height="75" loading="lazy" />
+                  <img src={img} alt={`${product.name} — view ${i + 1}`} width="60" height="75" loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>}

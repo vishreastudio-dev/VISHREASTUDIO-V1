@@ -56,7 +56,7 @@ export const Cart = () => {
             <div className="cart-items">
               {cart.map((item) => (
                 <article key={item.id} className="cart-row" style={{ display: 'flex', gap: '20px', padding: '18px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <img src={imageFor(item)} alt="" width="80" height="100" style={{ width: 80, height: 100, objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={imageFor(item)} alt={`${item.name} — Cart item`} width="80" height="100" loading="lazy" decoding="async" style={{ width: 80, height: 100, objectFit: 'cover', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <small style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase' }}>{item.size_label || 'Free Size'}{item.sku ? ` · ${item.sku}` : ''}</small>
                     <h3 style={{ margin: '4px 0', fontSize: '16px' }}>
