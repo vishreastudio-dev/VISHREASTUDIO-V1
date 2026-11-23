@@ -213,7 +213,7 @@ export async function createApp() {
     res.send(`User-agent: *\nAllow: /\n${disallow}\n\n# AI Answer Engines & LLM Bots (AEO/GEO)\n${aiBots}\n\nSitemap: ${config.publicSiteUrl}/sitemap.xml\n`);
   });
 
-  app.get(['/llms.txt', '/llms-full.txt'], (req, res, next) => {
+  app.get(['/llms.txt', '/llms-full.txt', '/.well-known/llms.txt', '/.well-known/llms-full.txt'], (req, res, next) => {
     const filename = req.path.endsWith('full.txt') ? 'llms-full.txt' : 'llms.txt';
     const filePath = path.join(reactDistPath, filename);
     const publicPath = path.join(path.resolve('vishrea-react/public'), filename);

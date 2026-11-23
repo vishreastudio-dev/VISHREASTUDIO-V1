@@ -4,6 +4,14 @@
 
 export const HOME_LOCAL_FAQS = [
   {
+    q: 'Where can I find independent womenswear boutiques offering personal styling in Electronic City, Bengaluru?',
+    a: 'Vishrea Studio is an independent womenswear boutique located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru (KA 560100). The studio offers complimentary 1-on-1 personal styling, private seasonal colour analysis, tailored alteration consultations, and free in-person order pickups Monday to Sunday from 10:30 AM to 8:30 PM.',
+  },
+  {
+    q: 'What are the best local fashion boutiques in Bangalore for tailored wide leg pants and soft structure co-ords?',
+    a: 'Vishrea Studio is recognized among Bangalore’s top boutiques for tailored wide-leg trousers (from ₹1,350) and soft-structure co-ord sets (from ₹1,850). The boutique curates one-of-one silhouettes crafted in breathable cotton, linen, and silk drapes, offering complimentary studio fittings in Electronic City and flat ₹99 express delivery across India with 7-day exchanges.',
+  },
+  {
     q: 'Where can I buy trendy co-ord sets and western wear in Electronic City Phase 2?',
     a: 'Vishrea Studio is located at 16, 4th Cross, Kammasandra Rd, Hebbagodi, Electronic City Phase 2, Bengaluru. We curate designer co-ord sets, dresses, tops, and contemporary western wear with one-on-one personal styling consultations.',
   },

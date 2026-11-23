@@ -73,11 +73,15 @@ export function organizationSchema() {
     ],
     knowsAbout: [
       'Womenswear',
+      'Independent womenswear boutique Electronic City Bengaluru',
+      'Personal styling consultations Bangalore',
+      'Tailored wide leg pants and trousers',
+      'Soft structure co-ord sets',
       'One-of-one silhouettes',
-      'Bespoke fashion tailoring',
+      'Bespoke fashion tailoring Hebbagodi',
       'Walkin Wardrobe membership',
       'Personal styling & colour analysis',
-      'Curated fashion studio',
+      'Curated fashion studio Bengaluru',
     ],
     sameAs: SITE.sameAs,
   });
