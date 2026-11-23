@@ -7,6 +7,9 @@ import { analyseImage } from '../lib/colourEngine';
 import { matchProducts } from '../lib/colourMatch';
 import { detectFace, loadFaceDetector } from '../lib/faceDetection';
 import { usePageSeo } from '../lib/usePageSeo';
+import { faqSchema, organizationSchema } from '../lib/schema';
+import { SKIN_TONE_FAQS } from '../content/faqs';
+import { SITE } from '../site.config';
 
 // Each step is real work, shown for at least STAGE_MIN_MS so the reading is easy to follow.
 const STAGES = ['Finding your face…', 'Reading your skin tone…', 'Measuring undertone and contrast…', 'Building your palette…'];
@@ -25,7 +28,10 @@ function loadImage(src) {
 }
 
 export const SkinToneAnalysis = () => {
-  usePageSeo({ breadcrumbs: [{ name: 'Home', url: '/' }, { name: 'Colour Profile', url: '/skin-tone' }] });
+  usePageSeo({
+    breadcrumbs: [{ name: 'Home', url: '/' }, { name: 'Colour Profile', url: '/skin-tone' }],
+    jsonLd: [organizationSchema(), faqSchema(`${SITE.url}/skin-tone`, SKIN_TONE_FAQS)],
+  });
 
   const { colourProfile, setColourProfile } = useStore();
   const [analyzing, setAnalyzing] = useState(false);
@@ -584,6 +590,45 @@ export const SkinToneAnalysis = () => {
             ) : null}
           </section>
         )}
+
+        <section
+          style={{
+            maxWidth: '760px',
+            margin: '48px auto 24px',
+            padding: '32px 20px',
+            borderTop: '1px solid var(--line, #ebe6e1)',
+          }}
+          aria-labelledby="skin-tone-faq-heading"
+        >
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <p style={{ margin: '0 0 6px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold, #C9984A)' }}>
+              Styling &amp; Colour Consultations
+            </p>
+            <h2 id="skin-tone-faq-heading" style={{ margin: 0, font: '400 24px Georgia, serif' }}>
+              Personal Colour &amp; Style Analysis in Bengaluru
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {SKIN_TONE_FAQS.map((faq) => (
+              <div
+                key={faq.q}
+                style={{
+                  background: 'var(--soft, #faf9f8)',
+                  padding: '18px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--line, #ebe6e1)',
+                }}
+              >
+                <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: 600, color: 'var(--ink, #121112)' }}>
+                  {faq.q}
+                </h3>
+                <p style={{ margin: 0, fontSize: '13.5px', lineHeight: 1.6, color: 'var(--muted, #4a4548)' }}>
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
       <Footer />
     </div>

@@ -30,8 +30,8 @@ export const PAGES = {
   },
   skinTone: {
     path: '/skin-tone',
-    title: 'Find Your Colours — Private Colour Analysis | Vishrea Studio',
-    description: 'A colour guide that runs in your browser: undertone, depth and a palette to shop by. Your photo is never uploaded.',
+    title: 'Personal Colour & Style Analysis | Vishrea Studio Bengaluru',
+    description: 'Professional personal colour & style analysis at Vishrea Studio, Electronic City Phase 2, Bengaluru. Discover flattering palettes and 1-of-1 silhouettes.',
     indexable: true,
     ogImage: '/assets/editorial.jpg',
   },

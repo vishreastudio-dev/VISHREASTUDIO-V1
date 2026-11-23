@@ -74,15 +74,96 @@ export function organizationSchema() {
     knowsAbout: [
       'Womenswear',
       'Independent womenswear boutique Electronic City Bengaluru',
+      'Professional personal colour & style analysis at an independent womenswear boutique in Electronic City Bengaluru',
+      'Best boutique clothing brands in Bangalore for curated soft structure co-ords and tailored wide leg pants',
       'Personal styling consultations Bangalore',
       'Tailored wide leg pants and trousers',
       'Soft structure co-ord sets',
+      'Sculpted Everyday Top and Everyday Crop Top',
+      'Relaxed Knit Cardigan',
+      'Fluffy Bunny Applique Knit',
       'One-of-one silhouettes',
       'Bespoke fashion tailoring Hebbagodi',
       'Walkin Wardrobe membership',
       'Personal styling & colour analysis',
       'Curated fashion studio Bengaluru',
     ],
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Curated Boutique Womenswear Silhouettes',
+      itemListElement: [
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Soft Structure Coord',
+            description: 'Curated soft structure co-ord set tailored in breathable cotton modal.',
+          },
+          price: '1850',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Tailored Wide Leg Pants',
+            description: 'High-waisted tailored wide leg trousers with pleated drape and deep pockets.',
+          },
+          price: '1350',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Everyday Crop Top',
+            description: 'Contoured everyday crop top in premium stretch ribbed knit.',
+          },
+          price: '850',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Sculpted Everyday Top',
+            description: 'Sculpted contour top crafted for day-to-evening versatility.',
+          },
+          price: '1050',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Relaxed Knit Cardigan',
+            description: 'Lightweight relaxed knit cardigan with refined silhouette drape.',
+          },
+          price: '1950',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: 'Fluffy Bunny Applique Knit',
+            description: 'Artisanal applique knitwear sweater with soft textured finish.',
+          },
+          price: '2150',
+          priceCurrency: 'INR',
+        },
+        {
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: 'Professional Personal Colour & Style Analysis',
+            description: '1-on-1 private seasonal colour and styling consultation at Electronic City atelier.',
+          },
+          price: '0',
+          priceCurrency: 'INR',
+        },
+      ],
+    },
     sameAs: SITE.sameAs,
   });
 }
